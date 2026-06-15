@@ -32,7 +32,7 @@
   .stat b{display:block;font-size:22px;color:var(--ink);font-weight:800;letter-spacing:-.02em;font-family:var(--sans)}
   .stat.r{text-align:right}
 
-  #bars{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);width:min(520px,82vw);z-index:5;pointer-events:none}
+  #bars{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);width:min(520px,82vw);z-index:5;pointer-events:none}
   .bar{height:12px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;border:1px solid rgba(255,255,255,.08);position:relative}
   .bar+.bar{margin-top:8px;height:8px}
   .fill{height:100%;width:100%;transition:width .18s}
@@ -112,7 +112,7 @@
   .upg .new{position:absolute;top:16px;right:18px;font-family:var(--mono);font-size:10px;font-weight:700;color:#1a0f0a;background:var(--c);padding:3px 7px;border-radius:6px;letter-spacing:.1em}
 
   #flash{position:fixed;inset:0;z-index:8;pointer-events:none;background:var(--pink);opacity:0;mix-blend-mode:screen}
-  #sound{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:22;pointer-events:auto;cursor:pointer;
+  #sound{position:fixed;bottom:16px;right:18px;z-index:22;pointer-events:auto;cursor:pointer;
     font-family:var(--mono);font-size:12px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
     border-radius:8px;padding:5px 10px;display:none}
   #sound.show{display:block}
@@ -386,6 +386,36 @@ const Music = {
     o.start(t); o.stop(t + 0.11);
   },
 
+  // deep sine sub-bass (weight under the saw bass)
+  sub(t, freq, dur, vol) {
+    const ac = Sound.ac, o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    o.connect(g); g.connect(this.gain);
+    o.start(t); o.stop(t + dur + 0.05);
+  },
+
+  // open hi-hat (longer filtered noise)
+  openhat(t, vol) {
+    const ac = Sound.ac, n = Math.floor(ac.sampleRate * 0.18), b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ac.createBufferSource(); src.buffer = b;
+    const f = ac.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000;
+    const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    src.connect(f); f.connect(g); g.connect(this.gain);
+    src.start(t); src.stop(t + 0.2);
+  },
+
+  // pitched tom (for fills)
+  tom(t, freq, vol) {
+    const ac = Sound.ac, o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(freq * 0.55, t + 0.18);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    o.connect(g); g.connect(this.gain);
+    o.start(t); o.stop(t + 0.22);
+  },
+
   sched() {
     const ac = Sound.ac;
     const en = (typeof enemies !== 'undefined' && enemies) ? enemies.length : 0;
@@ -408,44 +438,57 @@ const Music = {
       const patternIdx = s % 8;       // Current step in the bar loop
       const set = this.prog[chord];
 
-      // --- 1. THE PERCUSSION SYSTEM ---
-      if (patternIdx === 0 || patternIdx === 4) this.kick(t, 0.32);
+      // --- 1. DRUM KIT ---
+      if (patternIdx === 0 || patternIdx === 4) this.kick(t, 0.34);
       if (patternIdx === 4) this.snare(t, 0.18);
-      // Hi-Hats on offbeats (creates the signature driving synthwave pulse)
-      if (patternIdx % 2 === 1) this.voice(8000, t, 0.02, 'triangle', 0.015, 0.001);
+      if (patternIdx % 2 === 1) this.voice(8000, t, 0.02, 'triangle', 0.014, 0.001);   // closed hat
+      if (patternIdx === 2 || patternIdx === 6) this.openhat(t, 0.05);                  // open hat
+      if (chord === 3 && patternIdx >= 5) this.tom(t, this.mtof(52 - (patternIdx - 5) * 3), 0.13); // tom fill
 
-      // --- 2. SIGNATURE DRIVING BASSLINE (Rolling 16th style feel) ---
+      // --- 2. SUB + FAT DETUNED BASS ---
+      this.sub(t, this.mtof(this.bass[chord] - 12), (patternIdx % 2 === 0) ? 0.22 : 0.12, 0.13);
       const baseBass = this.mtof(this.bass[chord]);
       if (patternIdx % 2 === 0 || intensity > 0.4) {
-        // High intensity morphs into a faster double-time rolling bassline
         const bassFreq = (patternIdx === 3 || patternIdx === 7) ? baseBass * 1.5 : baseBass;
-        this.voice(bassFreq, t, 0.09, 'sawtooth', 0.11, 0.005);
+        this.voice(bassFreq, t, 0.09, 'sawtooth', 0.10, 0.005);
+        this.voice(bassFreq * 1.007, t, 0.09, 'sawtooth', 0.05, 0.005); // detune fatten
       }
 
-      // --- 3. DYNAMIC ARPEGGIATOR / MELODY ---
-      // Distribute a classic driving cyber-arpeggio across the step loop
+      // --- 3. WARM PAD (sustained chord bed, swells in on each chord change) ---
+      if (patternIdx === 0) {
+        const padDur = spb * 8;
+        for (let n = 0; n < set.length; n++) this.voice(this.mtof(set[n]), t, padDur, 'triangle', 0.017, 0.09);
+      }
+
+      // --- 4. ARPEGGIATOR (+ slap-delay echo) ---
       const noteMap = [0, 2, 1, 3, 0, 2, 3, 1];
-      const targetNote = set[noteMap[patternIdx]] + 12; // Transposed up +1 octave
-      
+      const targetNote = set[noteMap[patternIdx]] + 12;
       if (patternIdx % 2 === 0 || intensity > 0.5) {
-        const synthVol = 0.045 + (intensity * 0.02);
+        const synthVol = 0.04 + intensity * 0.02;
         this.voice(this.mtof(targetNote), t, 0.14, 'triangle', synthVol, 0.008);
-        
-        // Built-in Spatial "Slap" Delay Effect (Emulates professional studio echo)
-        const delayTime = t + spb * 0.75;
-        this.voice(this.mtof(targetNote), delayTime, 0.10, 'triangle', synthVol * 0.45, 0.01);
+        this.voice(this.mtof(targetNote), t + spb * 0.75, 0.10, 'triangle', synthVol * 0.4, 0.01);
       }
 
-      // --- 4. CLIMAX / EMERGENCY ALARM LAYERS ---
-      // Accentuate chaotic tracking hooks on intense player threat states
-      if (intensity > 0.6 && s % 4 === 2) {
-        this.voice(this.mtof(set[s % 4] + 24), t, 0.06, 'square', 0.018 * intensity, 0.004);
+      // --- 5. FAT DETUNED SAW LEAD ---
+      const leadMap = [0, -1, 2, -1, 3, -1, 4, 2];
+      const ld = leadMap[patternIdx];
+      if (ld >= 0 && (intensity > 0.25 || chord % 2 === 0)) {
+        const lf = this.mtof(set[ld % 4] + 24);
+        this.voice(lf, t, spb * 1.6, 'sawtooth', 0.026 + intensity * 0.02, 0.012);
+        this.voice(lf * 1.006, t, spb * 1.6, 'sawtooth', 0.016, 0.012);
       }
-      
-      if (danger && s % 8 === 0) {
-        // Deep warning warning sub drone underneath the track
-        this.voice(this.mtof(this.bass[chord] - 12), t, 0.45, 'sawtooth', 0.09, 0.02);
+
+      // --- 6. SHIMMER BELLS ---
+      if (patternIdx === 2 || patternIdx === 6) this.voice(this.mtof(set[0] + 36), t, 0.32, 'sine', 0.012, 0.006);
+
+      // --- 7. CHORD STABS (when the swarm is thick) ---
+      if (patternIdx === 0 && intensity > 0.25) {
+        for (let n = 0; n < set.length; n++) this.voice(this.mtof(set[n] + 12), t, 0.13, 'square', 0.013, 0.004);
       }
+
+      // --- 8. CLIMAX + DANGER LAYERS ---
+      if (intensity > 0.6 && s % 4 === 2) this.voice(this.mtof(set[s % 4] + 24), t, 0.06, 'square', 0.018 * intensity, 0.004);
+      if (danger && s % 8 === 0) this.voice(this.mtof(this.bass[chord] - 12), t, 0.45, 'sawtooth', 0.09, 0.02);
 
       this.step = (this.step + 1) % 32;
       this.nextTime += spb;
@@ -485,50 +528,48 @@ function generateNebula() {
 
   // Fill space background depth gradient
   const bgGrad = ctx.createRadialGradient(S/2, S/2, 10, S/2, S/2, S/2 * 1.4);
-  bgGrad.addColorStop(0, '#0a0d22');
-  bgGrad.addColorStop(0.6, '#04050d');
+  bgGrad.addColorStop(0, '#070910');
+  bgGrad.addColorStop(0.6, '#05060d');
   bgGrad.addColorStop(1, '#020204');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, S, S);
 
-  // Helper function to draw organic celestial gas clouds
-  function drawCloud(x, y, radius, color) {
-    const cloudGrad = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    cloudGrad.addColorStop(0, color);
-    cloudGrad.addColorStop(0.2, color.replace('0.15', '0.06'));
-    cloudGrad.addColorStop(0.6, color.replace('0.15', '0.01'));
-    cloudGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = cloudGrad;
+  // subtle nebula gas clouds — faint colored glows, not heavy blobs
+  function drawCloud(x, y, radius, rgb, a) {
+    const cg = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    cg.addColorStop(0, 'rgba(' + rgb + ',' + a + ')');
+    cg.addColorStop(0.35, 'rgba(' + rgb + ',' + (a * 0.3) + ')');
+    cg.addColorStop(0.7, 'rgba(' + rgb + ',' + (a * 0.05) + ')');
+    cg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = cg;
     ctx.globalCompositeOperation = 'screen';
     ctx.beginPath(); ctx.arc(x, y, radius, 0, 7); ctx.fill();
   }
-
-  // Paint Cosmic Dust Lanes & Nebulae Clouds (Pink, Mint, Cyan)
-  for (let i = 0; i < 12; i++) {
-    drawCloud(rand(0, S), rand(0, S), rand(180, 340), 'rgba(255, 95, 162, 0.15)'); // Pink Dust
-    drawCloud(rand(0, S), rand(0, S), rand(150, 300), 'rgba(84, 230, 181, 0.15)');  // Mint Cloud
-    drawCloud(rand(0, S), rand(0, S), rand(200, 400), 'rgba(124, 140, 255, 0.15)'); // Cosmic Blue
+  for (let i = 0; i < 7; i++) {
+    drawCloud(rand(0, S), rand(0, S), rand(130, 240), '255,95,162', 0.045);
+    drawCloud(rand(0, S), rand(0, S), rand(120, 210), '84,230,181', 0.04);
+    drawCloud(rand(0, S), rand(0, S), rand(150, 280), '124,140,255', 0.05);
   }
 
-  // Layer 1: High-Density Ambient Star Cluster Background
+  // ambient star cluster
   ctx.globalCompositeOperation = 'source-over';
-  for (let i = 0; i < 600; i++) {
-    const x = rand(0, S), y = rand(0, S), r = rand(0.4, 1.4);
+  for (let i = 0; i < 520; i++) {
+    const x = rand(0, S), y = rand(0, S), r = rand(0.4, 1.3);
     ctx.fillStyle = ['#fff', '#7c8cff', '#ffd95e'][Math.floor(rand(0, 3))];
-    ctx.globalAlpha = rand(0.1, 0.7);
+    ctx.globalAlpha = rand(0.08, 0.55);
     ctx.fillRect(x, y, r, r);
   }
 
-  // Layer 2: Glowing Bright Lens Flares
-  for (let i = 0; i < 8; i++) {
+  // a few soft lens flares
+  for (let i = 0; i < 5; i++) {
     const x = rand(0, S), y = rand(0, S);
-    ctx.shadowBlur = rand(10, 25);
+    ctx.shadowBlur = rand(8, 18);
     ctx.shadowColor = '#fff';
     ctx.fillStyle = '#ffffff';
-    ctx.globalAlpha = rand(0.5, 0.9);
-    ctx.beginPath(); ctx.arc(x, y, rand(1.5, 3), 0, 7); ctx.fill();
+    ctx.globalAlpha = rand(0.35, 0.6);
+    ctx.beginPath(); ctx.arc(x, y, rand(1.2, 2.4), 0, 7); ctx.fill();
   }
-  ctx.shadowBlur = 0; // Reset canvas glow states
+  ctx.shadowBlur = 0;
   ctx.globalAlpha = 1.0;
 
   NEBULA_CANVAS = c; // Cache the generated background texture texture map
@@ -855,23 +896,8 @@ function draw(){
   ctx.save();
   ctx.translate(sx, sy); // Screen shake layer stays isolated
 
-  // 1. --- DRAW RICH CELESTIAL SPACE NEBULA GRID ---
-  if (NEBULA_CANVAS) {
-    const tileSize = 1024;
-    // Parallax factor (0.4 means the nebula moves slower than your ship, creating depth)
-    const px = cam.x * 0.4;
-    const py = cam.y * 0.4;
-
-    // Calculate tile wrapping boundaries across the immediate viewport
-    const startX = Math.floor(px / tileSize) * tileSize - px;
-    const startY = Math.floor(py / tileSize) * tileSize - py;
-
-    for (let x = startX; x < W; x += tileSize) {
-      for (let y = startY; y < H; y += tileSize) {
-        ctx.drawImage(NEBULA_CANVAS, x, y);
-      }
-    }
-  }
+  // 1. --- DEEP-SPACE BACKDROP (one stretched image → solid, no tiling seams) ---
+  if (NEBULA_CANVAS) ctx.drawImage(NEBULA_CANVAS, 0, 0, W, H);
 
   // Shift camera vector down for active physics layers (vessels, projectiles, effects)
   ctx.translate(-cam.x, -cam.y);
