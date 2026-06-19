@@ -21,7 +21,8 @@ resize();addEventListener('resize',resize);
 
 /* ========== INPUTS ========== */
 const keys={};
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;
+addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;   // let text fields (username) type normally
+  const k=e.key.toLowerCase();keys[k]=true;
   if(k==='p'&&(state==='play'||state==='pause'))togglePause();
   if(k==='m')Sound.toggle();
   if(k==='f3'){e.preventDefault();togglePerf();}   // dev FPS benchmark overlay
@@ -130,7 +131,8 @@ function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
-  saveScore({score,secs:Math.floor(elapsed),wave,diff:DIFF.label});   // record run to leaderboard
+  saveScore({score,secs:Math.floor(elapsed),wave,diff:DIFF.label});   // record run to on-device leaderboard
+  if(typeof submitScore==='function')submitScore({score,secs:Math.floor(elapsed),wave,difficulty:DIFF.key});   // global board
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
   document.getElementById('hibest').textContent=score>=best?'★ NEW BEST!':'best: '+best;
@@ -194,12 +196,51 @@ function renderLeaderboard(){
   if(!top.length){lb.innerHTML='<div class="empty">No runs yet.<br>Survive to set a score!</div>';return;}
   lb.innerHTML=top.map((r,i)=>
     `<div class="lbrow"><span class="rank">${i+1}</span><span class="sc">${r.score}</span><span class="meta">${fmtTime(r.secs)} · ${r.diff||'—'}</span></div>`).join('');}
+/* ===== global leaderboard (Supabase via net.js) — tabbed by difficulty, top 10 each ===== */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let _gdiff='normal',_gcache={};       // _gcache: diff → rows|null (per-menu-open cache)
+function renderGlobalRows(rows){
+  const el=document.getElementById('global');if(!el)return;
+  if(rows===null){el.innerHTML='<div class="empty">Global board offline.<br>Scores still save on this device.</div>';return;}
+  if(!rows.length){el.innerHTML='<div class="empty">No runs yet.<br>Be the first!</div>';return;}
+  el.innerHTML=rows.map((r,i)=>
+    `<div class="lbrow"><span class="rank">${i+1}</span><span class="sc">${r.score}</span><span class="meta">${esc(r.username||'—')} · ${fmtTime(r.secs)}</span></div>`).join('');}
+function renderGlobal(diff){_gdiff=diff;
+  if(_gcache[diff]!==undefined){renderGlobalRows(_gcache[diff]);return;}
+  const el=document.getElementById('global');if(el)el.innerHTML='<div class="empty">Loading…</div>';
+  if(typeof fetchTop!=='function'){_gcache[diff]=null;renderGlobalRows(null);return;}
+  fetchTop(diff).then(rows=>{_gcache[diff]=rows;if(_gdiff===diff)renderGlobalRows(rows);});}
+document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.remove('on'));b.classList.add('on');
+  renderGlobal(b.dataset.d);});
+function syncGlobalTab(diff){document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.toggle('on',z.dataset.d===diff));}
+
+/* ===== first-run username onboarding (gates the menu; identity persists via net.js) ===== */
+function sanitizeName(s){return String(s||"").replace(/[\u0000-\u001f]/g,"").replace(/\s+/g," ").trim().slice(0,16);}
+function showUsername(edit){const m=document.getElementById('username');if(!m)return;
+  const inp=document.getElementById('uname'),err=document.getElementById('unameerr');
+  if(err)err.textContent='';
+  if(inp){const p=(typeof getPlayer==='function')&&getPlayer();inp.value=edit&&p?p.name:'';}
+  m.classList.remove('hidden');if(inp)try{inp.focus();}catch(e){}}
+function confirmUsername(){
+  const inp=document.getElementById('uname'),err=document.getElementById('unameerr');
+  const n=sanitizeName(inp&&inp.value);
+  if(n.length<3){if(err)err.textContent='Please use at least 3 characters.';return;}
+  if(typeof savePlayer==='function')savePlayer(n);
+  document.getElementById('username').classList.add('hidden');
+  document.getElementById('start').classList.remove('hidden');}
+function bootMenu(){   // first run → name modal before the menu; returning players go straight in
+  if(typeof getPlayer==='function'&&!getPlayer()){
+    document.getElementById('start').classList.add('hidden');showUsername(false);}}
+
 function showMenu(){
   document.getElementById('over').classList.add('hidden');
   document.getElementById('pause').classList.add('hidden');
   document.getElementById('sound').classList.remove('show');
   document.getElementById('start').classList.remove('hidden');
-  renderLeaderboard();}
+  renderLeaderboard();
+  _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
+  syncGlobalTab(_gdiff);_gcache={};renderGlobal(_gdiff);}   // clear cache → fresh fetch each menu open
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';Music.stop();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
@@ -213,6 +254,11 @@ document.getElementById('quitbtn').onclick=()=>document.getElementById('quitconf
 document.getElementById('quitno').onclick=()=>document.getElementById('quitconfirm').classList.remove('show');
 document.getElementById('quityes').onclick=quitToMenu;
 document.getElementById('tomenu').onclick=showMenu;
+const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=confirmUsername;
+const _unameInput=document.getElementById('uname');if(_unameInput)_unameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
+const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showUsername(true);
 renderLegends();renderLeaderboard();
+renderGlobal(_gdiff);   // prime the global board (resolves to offline/empty when unconfigured)
+bootMenu();             // first-run players get the username modal before the menu
 generateNebula();   // build the deep-space background tile once at startup
 requestAnimationFrame(loop);

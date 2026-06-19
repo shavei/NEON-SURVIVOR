@@ -52,8 +52,25 @@
   <div class="menupanels">
     <div class="mpanel"><div class="mptitle">⚡ Pickups — found on the map</div><div class="legend" id="pickupsLegend"></div></div>
     <div class="mpanel"><div class="mptitle">🛠 Weapons — unlocked on level-up</div><div class="legend" id="weaponsLegend"></div></div>
-    <div class="mpanel"><div class="mptitle">🏆 Best runs</div><div class="lb" id="leaderboard"></div></div>
+    <div class="mpanel"><div class="mptitle">🌐 Global best runs <button class="editname" id="editname" title="change name">✎ name</button></div>
+      <div class="gtabs" id="gtabs">
+        <button class="gtab on" data-d="easy">Easy</button>
+        <button class="gtab" data-d="normal">Normal</button>
+        <button class="gtab" data-d="hard">Hard</button>
+      </div>
+      <div class="lb" id="global"></div></div>
+    <div class="mpanel"><div class="mptitle">🏆 Best runs · this device</div><div class="lb" id="leaderboard"></div></div>
   </div>
+</div>
+
+<div class="overlay hidden" id="username">
+  <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">PICK A USERNAME</div>
+  <p class="tag" style="margin-top:12px">This is how you'll show up on the global leaderboard. 3–16 characters.</p>
+  <div class="unamebox">
+    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. NEONRIDER" aria-label="username">
+    <div class="unameerr" id="unameerr"></div>
+  </div>
+  <button class="btn" id="unameok">✔ CONFIRM</button>
 </div>
 
 <div class="overlay hidden" id="over">
@@ -97,12 +114,14 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: core → audio-engine → world → sim → render → main -->
+<!-- classic scripts, shared global scope — load order matters: config → core → audio-engine → world → sim → render → net → main -->
+<script defer src="js/config.js"></script>
 <script defer src="js/core.js"></script>
 <script defer src="js/audio-engine.js"></script>
 <script defer src="js/world.js"></script>
 <script defer src="js/sim.js"></script>
 <script defer src="js/render.js"></script>
+<script defer src="js/net.js"></script>
 <script defer src="js/main.js"></script>
 </body>
 </html>
