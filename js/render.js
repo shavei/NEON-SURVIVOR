@@ -176,6 +176,7 @@ function draw(){
   }
   if(_test){ctx.fillStyle='#54e6b5';ctx.font='700 12px Inter,sans-serif';ctx.textAlign='left';
     ctx.fillText('🧪 TEST MODE (one-hit bosses · B to toggle)',12,H-14);ctx.textAlign='left';}
+  drawMinimap();   // corner minimap (own canvas; pure screen space)
 }
 function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);
   ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
