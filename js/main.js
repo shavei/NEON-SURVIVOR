@@ -208,8 +208,10 @@ function renderGlobalRows(rows){
 function renderGlobal(diff){_gdiff=diff;
   if(_gcache[diff]!==undefined){renderGlobalRows(_gcache[diff]);return;}
   const el=document.getElementById('global');if(el)el.innerHTML='<div class="empty">Loading…</div>';
-  if(typeof fetchTop!=='function'){_gcache[diff]=null;renderGlobalRows(null);return;}
-  fetchTop(diff).then(rows=>{_gcache[diff]=rows;if(_gdiff===diff)renderGlobalRows(rows);});}
+  if(typeof fetchTop!=='function'){renderGlobalRows(null);return;}
+  // only cache successful results — never cache null, so an early (pre-SDK) or failed fetch retries next time
+  fetchTop(diff).then(rows=>{if(rows!==null)_gcache[diff]=rows;if(_gdiff===diff)renderGlobalRows(rows);});}
+function onSupabaseReady(){_gcache={};renderGlobal(_gdiff);}   // net.js calls this once the SDK connects → refresh the visible tab
 document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.remove('on'));b.classList.add('on');
   renderGlobal(b.dataset.d);});

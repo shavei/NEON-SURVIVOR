@@ -27,7 +27,8 @@ function _flushPending(){if(!SB)return;const q=_pending();if(!q.length)return;_s
 /* lazy-load the supabase UMD SDK at runtime, then init the client and flush any queued runs */
 function _initSupabase(){
   if(!_isBrowser||!SUPA_OK)return;                                   // offline / unconfigured / headless
-  const boot=()=>{try{if(typeof supabase!=='undefined'){SB=supabase.createClient(SUPA_URL,SUPA_ANON_KEY);_flushPending();}}catch(e){}};
+  const boot=()=>{try{if(typeof supabase!=='undefined'){SB=supabase.createClient(SUPA_URL,SUPA_ANON_KEY);_flushPending();
+    if(typeof onSupabaseReady==='function')onSupabaseReady();}}catch(e){}};   // wake the UI: refresh the board now the client exists
   if(typeof supabase!=='undefined'){boot();return;}
   try{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
     s.async=true;s.onload=boot;(document.head||document.body).appendChild(s);}catch(e){}
