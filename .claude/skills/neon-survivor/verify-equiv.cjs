@@ -18,7 +18,8 @@ const scriptA = fs.readFileSync(path.resolve(__dirname, 'baseline-original.js'),
 // ---- Source B: new split build (core → audio-engine → world → sim → render → main, index.html load order) ----
 // audio-engine.js defines the `Music` facade (core.js's old Music is now SynthMusic, the fallback).
 // Audio never touches game state, so the snapshot hash must still match the pre-audio baseline.
-const scriptB = ['js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/main.js']
+// ui-engine.js is screen-space HUD (minimap) only — reads globals, never mutates sim state, so the hash still matches.
+const scriptB = ['js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/main.js']
   .map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
 
 // ---- Stub DOM / canvas / audio (mirrors verify.cjs) ----
