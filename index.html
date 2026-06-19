@@ -81,6 +81,7 @@
     <div class="big" id="finalscore">0</div>
     <div id="finalmeta">survived 0:00 · wave 1 · level 1</div>
     <div class="hi" id="hibest"></div>
+    <div class="gofeedback" id="gofeedback"></div>
   </div>
   <button class="btn" id="againbtn">↻ PLAY AGAIN</button>
   <button class="menubtn" id="tomenu">↩ main menu</button>
@@ -115,7 +116,7 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: config → core → audio-engine → world → sim → render → net → main -->
+<!-- classic scripts, shared global scope — load order matters: config → core → audio-engine → world → sim → render → ui-engine → net → leaderboard-engine → main -->
 <script defer src="js/config.js"></script>
 <script defer src="js/core.js"></script>
 <script defer src="js/audio-engine.js"></script>
@@ -124,6 +125,7 @@
 <script defer src="js/render.js"></script>
 <script defer src="js/ui-engine.js"></script>
 <script defer src="js/net.js"></script>
+<script defer src="js/leaderboard-engine.js"></script>
 <script defer src="js/main.js"></script>
 </body>
 </html>

@@ -131,7 +131,9 @@ function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
-  if(typeof submitScore==='function')submitScore({score,secs:Math.floor(elapsed),wave,difficulty:DIFF.key});   // global board
+  const run={score,secs:Math.floor(elapsed),wave,difficulty:DIFF.key};
+  if(typeof reportRun==='function')reportRun(run);                          // concurrent submit+fetch + dynamic feedback
+  else if(typeof submitScore==='function')submitScore(run);                 // fallback: bare submit if engine absent
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
   document.getElementById('hibest').textContent=score>=best?'★ NEW BEST!':'best: '+best;
