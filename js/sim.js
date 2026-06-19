@@ -51,8 +51,9 @@ function update(){
           if(now-lastPingSnd>50){Sound.ping();lastPingSnd=now;}}}}}
 
   const elapsed=(now-t0)/1000;
-  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn;
-  if(spawnTimer<=0){const c=1+Math.floor(elapsed/70);for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
+  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1);
+  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)));
+    for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
   if(!bossOn&&elapsed>=nextBoss)spawnBoss();        // boss waves (first at 60s, then 50s after each kill)
 
   // Cargo Pickups Matrix Optimization

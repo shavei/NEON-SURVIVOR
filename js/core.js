@@ -53,7 +53,9 @@ let DIFF=DIFFS.normal;
 const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedBase:.45,speedTier:.02,
   cdBase:120,cdFloor:75,teleT:45,hitRMul:.85,invProj:30,invContact:12,
   // attack cycle (atk 0=burst, 1=dash, 2=slam): dash lunge + AOE shockwave ring tunables
-  dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4};
+  dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4,
+  // spawn throttle while a Warden is alive: longer interval + smaller batches (focus the fight)
+  spawnMul:2.2,spawnCountMul:0.5};
 
 /* ========== SOUND ENGINE (Web Audio) ========== */
 const Sound={
