@@ -109,6 +109,10 @@
   .gostat{font-family:var(--mono);color:var(--mint);margin-top:8px;font-size:15px}
   .gostat .big{font-size:2.4rem;color:var(--ink);font-weight:900;font-family:var(--sans)}
   .hi{color:var(--gold)}
+  .gofeedback{margin-top:12px;font-family:var(--mono);font-size:13px;line-height:1.4;min-height:16px;letter-spacing:.03em}
+  .gofeedback.qualified{color:var(--mint)}
+  .gofeedback.missed{color:var(--pink)}
+  .gofeedback.offline{color:var(--muted)}
 
   #levelup{position:fixed;inset:0;z-index:25;display:none;flex-direction:column;align-items:center;justify-content:center;
     background:radial-gradient(circle at 50% 40%,rgba(12,14,28,.82),rgba(5,6,12,.96));backdrop-filter:blur(6px);padding:24px}

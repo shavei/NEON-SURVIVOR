@@ -34,12 +34,14 @@ function _initSupabase(){
     s.async=true;s.onload=boot;(document.head||document.body).appendChild(s);}catch(e){}
 }
 
-/* submit a finished run to the global board (fire-and-forget, offline-tolerant) */
+/* submit a finished run to the global board (offline-tolerant). Returns a Promise that always
+ * resolves (never rejects) so callers can await/Promise.all it; offline/queued paths resolve too. */
 function submitScore(entry){
-  const p=getPlayer();if(!p)return;
+  const p=getPlayer();if(!p)return Promise.resolve();
   const row={player_id:p.id,username:p.name,score:entry.score|0,difficulty:entry.difficulty,wave:entry.wave|0,secs:entry.secs|0};
-  if(!SB){_queue(row);return;}
-  try{SB.from('leaderboard').insert(row).then(({error})=>{if(error)_queue(row);},()=>_queue(row));}catch(e){_queue(row);}
+  if(!SB){_queue(row);return Promise.resolve();}
+  try{return SB.from('leaderboard').insert(row).then(({error})=>{if(error)_queue(row);},()=>_queue(row));}
+  catch(e){_queue(row);return Promise.resolve();}
 }
 
 /* fetch top-10 for a difficulty. Resolves to an array, or null when the global board is unavailable
