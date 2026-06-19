@@ -6,13 +6,15 @@ menu/leaderboard, synth + sample music.
 
 ## Files (load order fixed)
 `<script defer>` **classic** scripts (NOT modules) — globals shared across files.
-Order: **core → audio-engine → world → sim → render → main**.
+Order: **config → core → audio-engine → world → sim → render → net → main**.
 - `index.html` markup · `css/style.css` styles
+- `js/config.js` public Supabase URL + anon key (empty → local-only)
 - `js/core.js` foundation, sprite cache, DIFFS, BOSS, Sound, SynthMusic
 - `js/audio-engine.js` SampleKit→RealMusic→SynthMusic, `Music` facade
 - `js/world.js` state globals, reset, spawning, combat, weapons, upgrades, gainXP
 - `js/sim.js` `update()` (one 1/60 s tick) · `js/render.js` `draw()` (interpolated)
-- `js/main.js` init/wiring, loop, menus, flow, F3 debug overlay
+- `js/net.js` Supabase scoreboard: `getPlayer`/`savePlayer`/`submitScore`/`fetchTop` (headless/offline-safe, SB=null)
+- `js/main.js` init/wiring, loop, menus, flow, username modal, global board, F3 debug overlay
 
 ## Verify (run after every edit)
 - `node .claude/skills/neon-survivor/verify.cjs` — syntax + headless load + boss sim
