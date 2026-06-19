@@ -1,0 +1,21 @@
+{
+  "name": "neon-survivor",
+  "version": "1.0.0",
+  "description": "HTML5 canvas auto-shooter, vanilla JS, no deps, offline",
+  "scripts": {
+    "verify": "node .claude/skills/neon-survivor/verify.cjs",
+    "verify:upgrades": "node .claude/skills/neon-survivor/verify-upgrades.cjs",
+    "verify:equiv": "node .claude/skills/neon-survivor/verify-equiv.cjs"
+  },
+  "keywords": [
+    "game",
+    "canvas",
+    "shooter"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.34.3",
+  "dependencies": {
+    "@vercel/speed-insights": "^2.0.0"
+  }
+}
