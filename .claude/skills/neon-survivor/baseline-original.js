@@ -53,7 +53,9 @@ let DIFF=DIFFS.normal;
 const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedBase:.45,speedTier:.02,
   cdBase:120,cdFloor:75,teleT:45,hitRMul:.85,invProj:30,invContact:12,
   // attack cycle (atk 0=burst, 1=dash, 2=slam): dash lunge + AOE shockwave ring tunables
-  dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4};
+  dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4,
+  // spawn throttle while a Warden is alive: longer interval + smaller batches (focus the fight)
+  spawnMul:2.2,spawnCountMul:0.5};
 
 /* ========== SOUND ENGINE (Web Audio) ========== */
 const Sound={
@@ -85,9 +87,12 @@ const Sound={
 };
 let lastShootSnd=0,lastPingSnd=0;
 
-/* ========== HIGH-FIDELITY SYNTHWAVE MUSIC ENGINE ========== */
-const Music = {
-  playing: false, timer: null, gain: null, filter: null, nextTime: 0, step: 0,
+/* ========== SYNTHWAVE MUSIC ENGINE (procedural fallback) ==========
+   Renamed Music -> SynthMusic. js/audio-engine.js now owns the public `Music` facade and
+   delegates here whenever real instrument stems aren't loaded (asset-less, file://, or decode
+   failure). Game code calls Music.*; this object is the fallback the facade falls back TO. */
+const SynthMusic = {
+  playing: false, timer: null, gain: null, filter: null, drive: null, nextTime: 0, step: 0,
   bossMode: false, _np: null, _nb: null,
   // Cyberpunk progression (i - VI - VII - v)
   prog: [[57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 65], [52, 55, 59, 62]],
@@ -96,7 +101,18 @@ const Music = {
   bossProg: [[52, 55, 59, 62], [51, 54, 58, 61], [53, 56, 60, 63], [50, 53, 57, 60]],
   bossBass: [28, 27, 29, 26],
 
+  // Track = data, not branches. sched() reads the active track's tempo/mix/layer flags so adding a
+  // new track (e.g. a final-boss variant) is a table entry, not another if(boss) in the hot loop.
+  // normal = synthwave drive; boss = faster heavy/trance: four-on-the-floor, distorted power chords, driving lead.
+  TRACKS: {
+    normal: { spb: 0.12, baseGain: 0.32, gainScale: 0.18, cutBase: 550,  cutScale: 2650, q: 2.5, fourFloor: false, heavy: false },
+    boss:   { spb: 0.10, baseGain: 0.42, gainScale: 0.18, cutBase: 1400, cutScale: 3200, q: 6.0, fourFloor: true,  heavy: true  },
+  },
+
   mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); },
+  // tanh soft-clip curve → overdriven "guitar" saws on the boss distortion bus
+  makeDriveCurve(amount) { const n = 256, c = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(x * amount); } return c; },
 
   start() {
     if (!Sound.ac || this.playing) return;
@@ -112,6 +128,12 @@ const Music = {
     this.filter.type = 'lowpass';
     this.filter.Q.value = 2.5; // Slight resonance for synth growl
 
+    // Distortion bus for heavy boss power chords/lead: WaveShaper -> Filter (so it still sweeps with intensity)
+    this.drive = ac.createWaveShaper();
+    this.drive.curve = this.makeDriveCurve(4);
+    this.drive.oversample = '2x';
+    this.drive.connect(this.filter);
+
     // Connect Chain: Synths -> Filter -> Gain -> Game Master Output
     this.filter.connect(this.gain);
     this.gain.connect(Sound.master);
@@ -124,8 +146,8 @@ const Music = {
   stop() {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
     this.playing = false;
-    try { if (this.gain) this.gain.disconnect(); if (this.filter) this.filter.disconnect(); } catch (e) {}
-    this.gain = null; this.filter = null;
+    try { if (this.gain) this.gain.disconnect(); if (this.filter) this.filter.disconnect(); if (this.drive) this.drive.disconnect(); } catch (e) {}
+    this.gain = null; this.filter = null; this.drive = null;
   },
 
   // Boss fight start: swap to the menace progression + a brass-ish "fight start" sting.
@@ -141,6 +163,16 @@ const Music = {
       this.voice(this.mtof(40), t, 1.2, 'sawtooth', 0.12, 0.01);
       this.voice(this.mtof(47), t, 1.2, 'sawtooth', 0.09, 0.01);
       this.voice(this.mtof(52), t, 1.1, 'square', 0.06, 0.02);
+      // 1-bar riser into the drop — sweeping saw that lands on the fight
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(this.mtof(28), t);
+      o.frequency.exponentialRampToValueAtTime(this.mtof(52), t + 0.8);
+      g.gain.setValueAtTime(0.0008, t);
+      g.gain.exponentialRampToValueAtTime(0.10, t + 0.8);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + 1.0);
+      o.connect(g); g.connect(this.drive || this.filter);
+      o.start(t); o.stop(t + 1.05);
     }
   },
 
@@ -152,12 +184,40 @@ const Music = {
     const ac = Sound.ac;
     if (ac && this.gain && !Sound.muted) {
       const t = ac.currentTime;
+      // triumphant resolve: ascending stab + a full root/fifth/octave chord ring-out
       [57, 64, 69].forEach((m, i) => this.voice(this.mtof(m), t + i * 0.05, 0.5, 'triangle', 0.08, 0.01));
+      [57, 64, 69].forEach(m => this.voice(this.mtof(m), t + 0.18, 0.9, 'sawtooth', 0.04, 0.02));
+      this.voice(this.mtof(81), t + 0.18, 1.1, 'sine', 0.03, 0.04);   // shimmer bell on top
     }
   },
 
+  // Player death: turntable power-down — pitch-bend the mix down, close the filter, then stop.
+  // Replaces the old abrupt Music.stop() in gameOver() so death feels deliberate.
+  die() {
+    const ac = Sound.ac;
+    if (!ac || !this.gain || Sound.muted) { this.stop(); return; }
+    const t = ac.currentTime;
+    // stop the scheduler immediately so its setTargetAtTime ramps don't fight the power-down
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    this.playing = false;
+    this.filter.frequency.cancelScheduledValues(t);
+    this.filter.frequency.setValueAtTime(this.filter.frequency.value, t);
+    this.filter.frequency.exponentialRampToValueAtTime(120, t + 0.7);
+    this.gain.gain.cancelScheduledValues(t);
+    this.gain.gain.setValueAtTime(this.gain.gain.value, t);
+    this.gain.gain.exponentialRampToValueAtTime(0.0008, t + 0.8);
+    const o = ac.createOscillator(), g = ac.createGain();   // descending death groan
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(this.mtof(45), t);
+    o.frequency.exponentialRampToValueAtTime(this.mtof(21), t + 0.7);
+    g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.8);
+    o.connect(g); g.connect(Sound.master); o.start(t); o.stop(t + 0.85);
+    // tear down nodes after the bend finishes — but skip if a new run already called start() (playing===true)
+    setTimeout(() => { if (!this.playing) this.stop(); }, 850);
+  },
+
   // Optimized Voice Architecture with custom envelope parameters
-  voice(freq, t, dur, type, vol, attack = 0.006, decay = 0.001) {
+  voice(freq, t, dur, type, vol, attack = 0.006, decay = 0.001, dest) {
     const ac = Sound.ac, o = ac.createOscillator(), g = ac.createGain();
     o.type = type;
     o.frequency.value = freq;
@@ -167,7 +227,7 @@ const Music = {
     g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
 
     o.connect(g);
-    g.connect(this.filter); // Route everything through the active visual filter
+    g.connect(dest || this.filter); // default: active visual filter; boss layers pass the distortion bus
     o.start(t);
     o.stop(t + dur + decay + 0.05);
   },
@@ -235,19 +295,21 @@ const Music = {
     const ac = Sound.ac;
     const en = (typeof enemies !== 'undefined' && enemies) ? enemies.length : 0;
     const boss = this.bossMode;
+    const T = boss ? this.TRACKS.boss : this.TRACKS.normal;   // active track drives tempo/mix/layers
     let intensity = clamp(en / 25, 0, 1);
     if (boss) intensity = Math.max(intensity, 0.85);   // boss fights run hot regardless of swarm size
     const lowhp = (player && state !== 'start') ? clamp(1 - player.hp / player.maxhp, 0, 1) : 0;
     const danger = lowhp > .7;
 
-    // Locked 125 BPM Grid (Steady head-bobbing drive)
-    const spb = 0.12;
+    // Tempo grid: normal ~125 BPM head-bob, boss ~150 BPM hype drive
+    const spb = T.spb;
 
     // Dynamically adjust master track level and master synth cutoff filter
-    this.gain.gain.setTargetAtTime((boss ? 0.42 : 0.32) + intensity * 0.18, ac.currentTime, 0.4);
-    // As swarms increase, the synth filter opens up from muffled (500Hz) to razor-sharp (3200Hz); boss fights start brighter + more aggressive
-    const targetCutoff = danger ? 400 + Math.sin(ac.currentTime * 6) * 100 : (boss ? 1400 : 550) + (intensity * (boss ? 3200 : 2650));
+    this.gain.gain.setTargetAtTime(T.baseGain + intensity * T.gainScale, ac.currentTime, 0.4);
+    // As swarms increase, the synth filter opens up from muffled to razor-sharp; boss track starts brighter + more aggressive
+    const targetCutoff = danger ? 400 + Math.sin(ac.currentTime * 6) * 100 : T.cutBase + intensity * T.cutScale;
     this.filter.frequency.setTargetAtTime(targetCutoff, ac.currentTime, 0.3);
+    this.filter.Q.setTargetAtTime(T.q, ac.currentTime, 0.3);   // boss track growls harder (higher resonance)
 
     while (this.nextTime < ac.currentTime + 0.12) {
       const s = this.step, t = this.nextTime;
@@ -257,6 +319,10 @@ const Music = {
 
       // --- 1. DRUM KIT ---
       if (patternIdx === 0 || patternIdx === 4) this.kick(t, 0.34);
+      if (T.fourFloor) {                                       // four-on-the-floor + 8th-note double-kick (trance/metal drive)
+        if (patternIdx === 2 || patternIdx === 6) this.kick(t, 0.30);
+        this.kick(t + spb * 0.5, 0.15);
+      }
       if (patternIdx === 4) this.snare(t, 0.18);
       if (patternIdx % 2 === 1) this.voice(8000, t, 0.02, 'triangle', 0.014, 0.001);   // closed hat
       if (patternIdx === 2 || patternIdx === 6) this.openhat(t, 0.05);                  // open hat
@@ -307,17 +373,432 @@ const Music = {
       if (intensity > 0.6 && s % 4 === 2) this.voice(this.mtof(set[s % 4] + 24), t, 0.06, 'square', 0.018 * intensity, 0.004);
       if (danger && s % 8 === 0) this.voice(this.mtof(this.bass[chord] - 12), t, 0.45, 'sawtooth', 0.09, 0.02);
 
-      // --- 9. BOSS LAYERS — sustained menace drone + driving detuned lead (only during boss fights) ---
-      if (boss) {
+      // --- 9. BOSS HEAVY LAYERS — drone + distorted power chords + driving lead (routed through the drive bus) ---
+      if (T.heavy) {
         if (patternIdx === 0) this.sub(t, this.mtof(this.bass[chord] - 12), spb * 8, 0.11);          // low ominous drone bed
-        if (patternIdx % 2 === 0) { const lf = this.mtof(set[0] + 24);
-          this.voice(lf, t, spb * 1.4, 'sawtooth', 0.03, 0.01); this.voice(lf * 1.008, t, spb * 1.4, 'sawtooth', 0.02, 0.01); }
+        if (patternIdx === 0 || patternIdx === 4) {                                                  // overdriven root+fifth+octave power chord
+          const root = this.mtof(set[0] + 12), fifth = this.mtof(set[0] + 19);
+          this.voice(root,    t, spb * 3, 'sawtooth', 0.05,  0.004, 0.001, this.drive);
+          this.voice(fifth,   t, spb * 3, 'sawtooth', 0.04,  0.004, 0.001, this.drive);
+          this.voice(root * 0.5, t, spb * 3, 'sawtooth', 0.045, 0.004, 0.001, this.drive);           // octave-down chug
+        }
+        if (patternIdx % 2 === 0) { const lf = this.mtof(set[0] + 24);                               // driving detuned lead
+          this.voice(lf,         t, spb * 1.4, 'sawtooth', 0.03, 0.01, 0.001, this.drive);
+          this.voice(lf * 1.008, t, spb * 1.4, 'sawtooth', 0.02, 0.01, 0.001, this.drive); }
       }
 
       this.step = (this.step + 1) % 32;
       this.nextTime += spb;
     }
   }
+};
+
+;
+/* ========== REAL INSTRUMENT AUDIO ENGINE (stem layering) ==========
+   Loads OGG instrument stem loops asynchronously, plays them phase-locked & gapless, and mixes
+   layers by live game intensity (vertical remixing). Falls back to the procedural SynthMusic
+   (core.js) until/unless real stems decode, so the game is audible from frame 1 and never hangs.
+
+   PUBLIC SURFACE = the `Music` facade at the bottom: start/stop/die/enterBoss/exitBoss/reset +
+   bossMode. Game code (main.js, world.js) only ever touches `Music`. To add/replace audio, edit
+   THIS file — nothing else.
+
+   Headless/asset-less safe: load() is guarded (no fetch at load time; runtime fetch failures are
+   caught and we stay on SynthMusic). Gapless looping is inherent: we decodeAudioData into an
+   AudioBuffer and loop the buffer (no encoder-padding gaps like <audio> has).
+
+   See AUDIO_SPEC.md for the stem sourcing brief (filenames, tempo, loop length, mix levels). */
+const RealMusic = {
+  // ---- Manifest: stem files per track. Data, not branches — add a track as a table entry. ----
+  // dir+stem+'.ogg' is the fetch path. `intro` is an optional non-looping boss drop one-shot.
+  MANIFEST: {
+    normal: { dir: 'audio/normal/', bpm: 125, bars: 8, stems: ['drums', 'rhythm', 'bass', 'lead', 'fx'] },
+    boss:   { dir: 'audio/boss/',   bpm: 150, bars: 8, stems: ['drums', 'rhythm', 'bass', 'lead', 'fx'], intro: true },
+  },
+
+  // ---- Intensity -> per-stem gain target (i = 0..1 swarm intensity, d = low-HP danger flag). ----
+  // Mirrors the synth's layering: drums/rhythm are the always-on bed; bass scales; lead enters
+  // mid-intensity; fx only on danger. Tune here, not in the hot loop.
+  MIX: {
+    drums:  (i, d) => 1.0,
+    rhythm: (i, d) => 0.85 + 0.15 * i,
+    bass:   (i, d) => 0.30 + 0.70 * i,
+    lead:   (i, d) => clamp((i - 0.45) / 0.40, 0, 1),
+    fx:     (i, d) => d ? 0.85 : 0.0,
+  },
+
+  // ---- State ----
+  buffers: {},                              // {track: {stem: AudioBuffer, __intro?: AudioBuffer}}
+  loaded:  { normal: false, boss: false },  // stems decoded & ready
+  loading: { normal: null,  boss: null },   // in-flight load promises (dedupe)
+  playing: false,
+  bossMode: false,
+  active: 'normal',                         // which track should be sounding
+  _g: null,                                 // active real-audio graph (null = not on real audio)
+
+  // ---------- ASYNC LOADING (never blocks; failure => stay on synth) ----------
+  load(track) {
+    if (this.loaded[track]) return Promise.resolve(true);
+    if (this.loading[track]) return this.loading[track];
+    if (typeof fetch !== 'function' || !Sound.ac || !Sound.ac.decodeAudioData) return Promise.resolve(false);
+    const m = this.MANIFEST[track], ac = Sound.ac;
+    const grab = (url) => fetch(url).then(r => { if (!r.ok) throw new Error(url); return r.arrayBuffer(); })
+                                    .then(buf => ac.decodeAudioData(buf));
+    this.loading[track] = (async () => {
+      try {
+        const bufs = {};
+        await Promise.all(m.stems.map(async s => { bufs[s] = await grab(m.dir + s + '.ogg'); }));
+        if (m.intro) { try { bufs.__intro = await grab(m.dir + 'intro.ogg'); } catch (e) {} } // optional
+        this.buffers[track] = bufs;
+        this.loaded[track] = true;
+        if (this.playing && this.active === track) this._route();   // upgrade synth->real live
+        return true;
+      } catch (e) { this.loading[track] = null; return false; }      // missing/undecodable => fallback
+    })();
+    return this.loading[track];
+  },
+
+  // ---------- INTENSITY (single-sourced; same computation as SynthMusic.sched) ----------
+  _intensity() {
+    const en = (typeof enemies !== 'undefined' && enemies) ? enemies.length : 0;
+    let i = clamp(en / 25, 0, 1);
+    if (this.active === 'boss') i = Math.max(i, 0.85);              // boss fights run hot
+    const lowhp = (typeof player !== 'undefined' && player && state !== 'start')
+      ? clamp(1 - player.hp / player.maxhp, 0, 1) : 0;
+    return { i, danger: lowhp > 0.7 };
+  },
+
+  // ---------- ROUTING: pick real audio for the active track, else synth fallback ----------
+  start() {
+    if (this.playing) return;
+    this.playing = true;
+    if (!Sound.ac) return;
+    this.load('normal'); this.load('boss');                        // kick async preload (safe noop headless)
+    this._route();
+  },
+
+  _route() {
+    if (!this.playing) return;
+    if (this.loaded[this.active] && Sound.ac) {                    // real stems ready -> play them
+      if (SynthMusic.playing) SynthMusic.stop();
+      this._startReal();
+    } else {                                                       // not ready -> procedural synth
+      this._stopReal();
+      this._routeSynth();
+    }
+  },
+
+  _routeSynth() {
+    if (!SynthMusic.playing) SynthMusic.start();
+    if (this.active === 'boss' && !SynthMusic.bossMode) SynthMusic.enterBoss();
+    else if (this.active === 'normal' && SynthMusic.bossMode) SynthMusic.exitBoss();
+  },
+
+  // ---------- REAL-AUDIO GRAPH: stems -> stemGain -> trackBus -> filter -> master -> Sound.master ----------
+  _initGraph() {
+    const ac = Sound.ac;
+    const master = ac.createGain(); master.gain.value = 0; master.connect(Sound.master);
+    const filter = ac.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = 2.5; filter.connect(master);
+    master.gain.setTargetAtTime(1, ac.currentTime, 0.25);          // fade the bus in
+    this._g = { master, filter, tracks: {}, cur: null, ticker: null };
+  },
+
+  // Build & start one track's looping stems, phase-locked at a shared start time. loop=true on a
+  // decoded buffer is gapless; loopStart/loopEnd default to the whole buffer (authored to exact bars).
+  _buildTrack(track) {
+    if (!this._g || this._g.tracks[track] || !this.buffers[track]) return;
+    const ac = Sound.ac, m = this.MANIFEST[track], bufs = this.buffers[track];
+    const bus = ac.createGain(); bus.gain.value = 0; bus.connect(this._g.filter);
+    const t0 = ac.currentTime + 0.06, stems = {};
+    // Exact musical loop length from the bar grid. Pin loopEnd to this (not buffer.duration) so
+    // codec decode-padding — Vorbis decodes a few ms long — is cropped out → truly gapless.
+    const loopEnd = m.bars * 4 * 60 / m.bpm;
+    for (const s of m.stems) {
+      const src = ac.createBufferSource(); src.buffer = bufs[s]; src.loop = true;
+      if (src.buffer.duration >= loopEnd - 0.05) { src.loopStart = 0; src.loopEnd = loopEnd; }
+      const g = ac.createGain(); g.gain.value = 0;                  // ticker ramps to MIX target
+      src.connect(g); g.connect(bus); src.start(t0);
+      stems[s] = { src, g };
+    }
+    this._g.tracks[track] = { bus, stems, t0 };
+  },
+
+  _crossTo(track) {                                                // crossfade trackBuses (both keep playing)
+    const ac = Sound.ac;
+    for (const k in this._g.tracks)
+      this._g.tracks[k].bus.gain.setTargetAtTime(k === track ? 1 : 0, ac.currentTime, 0.5);
+    this._g.cur = track;
+  },
+
+  _startReal() {
+    if (!this._g) this._initGraph();
+    for (const tk in this.loaded) if (this.loaded[tk]) this._buildTrack(tk);  // build all ready tracks
+    this._buildTrack(this.active);
+    this._crossTo(this.active);
+    if (this.active === 'boss') this._bossIntro();
+    if (!this._g.ticker) this._g.ticker = setInterval(() => this._tick(), 60);
+    this._tick();
+  },
+
+  _tick() {                                                        // automate stem gains + filter by intensity
+    if (!this._g || !this._g.cur) return;
+    const ac = Sound.ac, { i, danger } = this._intensity();
+    const tr = this._g.tracks[this._g.cur];
+    for (const s in tr.stems) {
+      const target = clamp((this.MIX[s] || (() => 1))(i, danger), 0, 1);
+      tr.stems[s].g.gain.setTargetAtTime(target, ac.currentTime, 0.4);
+    }
+    const cut = danger ? 500 : (this.active === 'boss' ? 1400 : 600) + i * 2600;
+    this._g.filter.frequency.setTargetAtTime(cut, ac.currentTime, 0.3);
+  },
+
+  _bossIntro() {                                                   // optional one-shot drop over the loop
+    const b = this.buffers.boss && this.buffers.boss.__intro;
+    if (!b || !this._g) return;
+    const ac = Sound.ac, src = ac.createBufferSource(), g = ac.createGain();
+    src.buffer = b; g.gain.value = 1; src.connect(g); g.connect(this._g.filter); src.start(ac.currentTime + 0.04);
+  },
+
+  _stopReal() {
+    if (!this._g) return;
+    const ac = Sound.ac, g = this._g; this._g = null;
+    if (g.ticker) clearInterval(g.ticker);
+    try { g.master.gain.setTargetAtTime(0.0001, ac.currentTime, 0.08); } catch (e) {}
+    setTimeout(() => { try {
+      for (const k in g.tracks) for (const s in g.tracks[k].stems) g.tracks[k].stems[s].src.stop();
+      g.master.disconnect();
+    } catch (e) {} }, 160);
+  },
+
+  // ---------- BOSS TRANSITIONS (bar-quantized crossfade, or synth fallback) ----------
+  enterBoss() {
+    if (this.bossMode) return;
+    this.bossMode = true; this.active = 'boss';
+    this._route();                                                 // -> boss stems crossfade, or synth.enterBoss
+  },
+
+  exitBoss() {
+    if (!this.bossMode) return;
+    this.bossMode = false; this.active = 'normal';
+    this._route();
+  },
+
+  // ---------- LIFECYCLE ----------
+  stop() {                                                         // pause: keeps bossMode (resume continues fight)
+    this.playing = false;
+    this._stopReal();
+    if (SynthMusic.playing) SynthMusic.stop();
+  },
+
+  die() {                                                          // player death: power-down whichever is playing
+    this.playing = false; this.bossMode = false; this.active = 'normal';
+    if (this._g) {
+      const ac = Sound.ac, g = this._g; this._g = null;
+      if (g.ticker) clearInterval(g.ticker);
+      try {
+        g.filter.frequency.setTargetAtTime(120, ac.currentTime, 0.2);   // close filter (turntable powerdown)
+        g.master.gain.setTargetAtTime(0.0001, ac.currentTime, 0.25);
+      } catch (e) {}
+      setTimeout(() => { try {
+        for (const k in g.tracks) for (const s in g.tracks[k].stems) g.tracks[k].stems[s].src.stop();
+        g.master.disconnect();
+      } catch (e) {} }, 900);
+    }
+    if (SynthMusic.playing) SynthMusic.die();                      // synth has its own death groan
+  },
+
+  reset() {                                                        // new run: clear boss state on real + synth
+    this.bossMode = false; this.active = 'normal';
+    SynthMusic.bossMode = false;
+    if (SynthMusic._np) { SynthMusic.prog = SynthMusic._np; SynthMusic.bass = SynthMusic._nb; }
+  },
+};
+
+/* ========== SAMPLE-KIT ENGINE (recorded one-shots, code-sequenced) ==========
+   The DEFAULT real-audio engine. Loads a handful of short recorded one-shots (drums + a pitched
+   guitar/bass/lead) and a step sequencer triggers + pitch-shifts them into a full song that reacts
+   to game intensity. Inherently gapless (discrete retriggered hits — no loop seam). Tiny assets.
+
+   Delegation chain: SampleKit -> RealMusic (stem loops) -> SynthMusic. If samples aren't loaded it
+   hands off to RealMusic exactly like RealMusic hands off to SynthMusic — so every layer below stays
+   untouched & previously verified. Pitch: playbackRate = 2^((note - sampleRoot)/12); roots are
+   mid-range so shifts stay small. Layering reuses RealMusic.MIX (drums/rhythm bed, bass scales,
+   lead mid-intensity, fx on danger) via per-layer gain buses + the same intensity computation. */
+const SampleKit = {
+  MANIFEST: {
+    dir: 'audio/samples/',
+    files: ['kick', 'snare', 'hat', 'openhat', 'chug', 'chord', 'bass', 'lead'],
+    roots: { chug: 53, chord: 53, bass: 29, lead: 64 },   // sample pitch (MIDI) for playbackRate math
+  },
+  // Per-track tempo + progression (A-minor family; chord changes every 2 bars over an 8-bar cycle).
+  TRACKS: {
+    normal: { bpm: 125, fourFloor: false, prog: [57, 53, 55, 52], bass: [33, 29, 31, 28] },
+    boss:   { bpm: 150, fourFloor: true,  prog: [52, 51, 53, 50], bass: [28, 27, 29, 26] },
+  },
+  LAYERS: ['drums', 'rhythm', 'bass', 'lead', 'fx'],
+
+  buffers: {}, loaded: false, loading: null,
+  playing: false, bossMode: false, active: 'normal',
+  _g: null, step: 0, nextTime: 0,
+
+  ready() { return this.loaded; },
+  _intensity() { return RealMusic._intensity.call(this); },   // identical computation, keyed on this.active
+
+  load() {
+    if (this.loaded) return Promise.resolve(true);
+    if (this.loading) return this.loading;
+    if (typeof fetch !== 'function' || !Sound.ac || !Sound.ac.decodeAudioData) return Promise.resolve(false);
+    const m = this.MANIFEST, ac = Sound.ac;
+    this.loading = (async () => {
+      try {
+        const bufs = {};
+        await Promise.all(m.files.map(async f => {
+          const r = await fetch(m.dir + f + '.ogg'); if (!r.ok) throw new Error(f);
+          bufs[f] = await ac.decodeAudioData(await r.arrayBuffer());
+        }));
+        this.buffers = bufs; this.loaded = true;
+        if (this.playing) this._route();                    // upgrade fallback -> samples live
+        return true;
+      } catch (e) { this.loading = null; return false; }     // missing samples -> delegate to RealMusic
+    })();
+    return this.loading;
+  },
+
+  // ---- routing: samples if loaded, else delegate down to RealMusic (stems -> synth) ----
+  start() {
+    if (this.playing) return;
+    this.playing = true;
+    if (!Sound.ac) return;
+    this.load();
+    this._route();
+  },
+  _route() {
+    if (!this.playing) return;
+    if (this.loaded && Sound.ac) { if (RealMusic.playing) RealMusic.stop(); this._engage(); }
+    else { this._disengage(); this._routeDown(); }
+  },
+  _routeDown() {                                             // drive RealMusic to match active track
+    if (!RealMusic.playing) RealMusic.start();
+    if (this.active === 'boss' && !RealMusic.bossMode) RealMusic.enterBoss();
+    else if (this.active === 'normal' && RealMusic.bossMode) RealMusic.exitBoss();
+  },
+
+  // ---- real-audio graph: per-layer gain -> filter -> master -> Sound.master ----
+  _initGraph() {
+    const ac = Sound.ac;
+    const master = ac.createGain(); master.gain.value = 0; master.connect(Sound.master);
+    const filter = ac.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = 2.5; filter.connect(master);
+    const layers = {};
+    for (const L of this.LAYERS) { const g = ac.createGain(); g.gain.value = L === 'drums' ? 1 : 0; g.connect(filter); layers[L] = g; }
+    master.gain.setTargetAtTime(0.9, ac.currentTime, 0.25);
+    this._g = { master, filter, layers, ticker: null, seq: null };
+  },
+  _engage() {
+    if (!this._g) this._initGraph();
+    if (!this._g.seq) { this.step = 0; this.nextTime = Sound.ac.currentTime + 0.1; this._g.seq = setInterval(() => this.sched(), 25); }
+    if (!this._g.ticker) this._g.ticker = setInterval(() => this._tick(), 60);
+    this._tick();
+  },
+  _disengage(closeFilter) {
+    if (!this._g) return;
+    const ac = Sound.ac, g = this._g; this._g = null;
+    if (g.seq) clearInterval(g.seq); if (g.ticker) clearInterval(g.ticker);
+    try {
+      if (closeFilter) g.filter.frequency.setTargetAtTime(120, ac.currentTime, 0.2);
+      g.master.gain.setTargetAtTime(0.0001, ac.currentTime, closeFilter ? 0.25 : 0.1);
+    } catch (e) {}
+    setTimeout(() => { try { g.master.disconnect(); } catch (e) {} }, closeFilter ? 900 : 160);
+  },
+
+  // ---- trigger one pitched/uppitched sample into its layer bus ----
+  play(file, t, note, vel, layer) {
+    const ac = Sound.ac, b = this.buffers[file]; if (!b || !this._g) return;
+    const src = ac.createBufferSource(); src.buffer = b;
+    if (note != null) src.playbackRate.value = Math.pow(2, (note - (this.MANIFEST.roots[file] || 60)) / 12);
+    const g = ac.createGain(); g.gain.value = vel;
+    src.connect(g); g.connect(this._g.layers[layer]); src.start(t);
+  },
+
+  // ---- the composer: 8th-note grid, 8-bar loop, reads this.active for tempo/progression ----
+  sched() {
+    const ac = Sound.ac, T = this.TRACKS[this.active], stepDur = (60 / T.bpm) / 2;
+    while (this.nextTime < ac.currentTime + 0.12) {
+      const s = this.step, t = this.nextTime, idx = s % 8, bar = (s / 8) | 0;
+      const ci = ((bar / 2) | 0) % T.prog.length, root = T.prog[ci], bn = T.bass[ci];
+      // DRUMS
+      if (T.fourFloor ? idx % 2 === 0 : (idx === 0 || idx === 4)) this.play('kick', t, null, 0.9, 'drums');
+      if (idx === 2 || idx === 6) this.play('snare', t, null, 0.8, 'drums');
+      this.play('hat', t, null, 0.30, 'drums');
+      if (idx % 2 === 1) this.play('openhat', t, null, 0.22, 'drums');
+      // RHYTHM — palm-mute chug every 8th, pitched to the chord root
+      this.play('chug', t, root, 0.8, 'rhythm');
+      // BASS — driving 8th notes
+      this.play('bass', t, bn, 0.9, 'bass');
+      // LEAD — sparse motif (rides in at higher intensity via the layer bus)
+      const m = [0, null, 3, null, 7, null, 10, 7][idx];
+      if (m != null) this.play('lead', t, root + 12 + m, 0.7, 'lead');
+      // FX — sustained chord swell at each bar (danger layer)
+      if (idx === 0) this.play('chord', t, root, 0.6, 'fx');
+      this.step = (this.step + 1) % 64;     // 8 bars × 8 steps
+      this.nextTime += stepDur;
+    }
+  },
+  _tick() {
+    if (!this._g) return;
+    const ac = Sound.ac, { i, danger } = this._intensity();
+    for (const L of this.LAYERS) {
+      const target = clamp((RealMusic.MIX[L] || (() => 1))(i, danger), 0, 1);
+      this._g.layers[L].gain.setTargetAtTime(target, ac.currentTime, 0.4);
+    }
+    const cut = danger ? 600 : (this.active === 'boss' ? 1500 : 700) + i * 2500;
+    this._g.filter.frequency.setTargetAtTime(cut, ac.currentTime, 0.3);
+  },
+  _sting() {                                // boss entrance stab over the loop
+    if (!this._g) return;
+    const t = Sound.ac.currentTime + 0.03, root = this.TRACKS.boss.prog[0];
+    this.play('chord', t, root, 1.0, 'rhythm'); this.play('chord', t, root - 12, 0.8, 'bass');
+  },
+
+  // ---- lifecycle (mirrors RealMusic; fallback target is RealMusic, not SynthMusic) ----
+  enterBoss() {
+    if (this.bossMode) return;
+    this.bossMode = true; this.active = 'boss';
+    this._route();
+    if (this._g && this._g.seq) this._sting();
+  },
+  exitBoss() {
+    if (!this.bossMode) return;
+    this.bossMode = false; this.active = 'normal';
+    this._route();
+  },
+  stop() {                                  // pause: keeps bossMode
+    this.playing = false;
+    this._disengage(false);
+    if (RealMusic.playing) RealMusic.stop();
+  },
+  die() {
+    this.playing = false; this.bossMode = false; this.active = 'normal';
+    if (this._g) this._disengage(true);
+    if (RealMusic.playing) RealMusic.die();
+  },
+  reset() {
+    this.bossMode = false; this.active = 'normal';
+    RealMusic.reset();
+  },
+};
+
+/* ========== PUBLIC FACADE — the only audio object game code touches ==========
+   Keeps main.js/world.js call sites unchanged. Default engine: SampleKit (recorded one-shots).
+   Fallback chain handled internally: SampleKit -> RealMusic (stems) -> SynthMusic. */
+const Music = {
+  start()     { SampleKit.start(); },
+  stop()      { SampleKit.stop(); },
+  die()       { SampleKit.die(); },
+  enterBoss() { SampleKit.enterBoss(); },
+  exitBoss()  { SampleKit.exitBoss(); },
+  reset()     { SampleKit.reset(); },
+  get bossMode() { return SampleKit.bossMode; },
+  set bossMode(v) { SampleKit.bossMode = v; if (!v) SampleKit.active = 'normal'; },
 };
 
 ;
@@ -444,7 +925,7 @@ function reset(){
   for(const k in Up)delete Up[k];           // clear upgrade tracker so PLAY AGAIN starts fresh
   score=0;wave=1;spawnTimer=0;itemTimer=900;shake=0;frame=0;kills=0;pendingLevels=0;t0=performance.now();
   nextBoss=60;bossOn=false;
-  Music.bossMode=false;if(Music._np){Music.prog=Music._np;Music.bass=Music._nb;}   // clear boss track if last run died mid-fight
+  Music.reset();   // clear boss track (real + synth) if last run died mid-fight
 
   cam.x=clamp(player.x-W/2,0,Math.max(0,WORLD.w-W));
   cam.y=clamp(player.y-H/2,0,Math.max(0,WORLD.h-H));
@@ -711,8 +1192,9 @@ function update(){
           if(now-lastPingSnd>50){Sound.ping();lastPingSnd=now;}}}}}
 
   const elapsed=(now-t0)/1000;
-  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn;
-  if(spawnTimer<=0){const c=1+Math.floor(elapsed/70);for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
+  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1);
+  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)));
+    for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
   if(!bossOn&&elapsed>=nextBoss)spawnBoss();        // boss waves (first at 60s, then 50s after each kill)
 
   // Cargo Pickups Matrix Optimization
@@ -970,9 +1452,46 @@ function draw(){
   }
   if(_test){ctx.fillStyle='#54e6b5';ctx.font='700 12px Inter,sans-serif';ctx.textAlign='left';
     ctx.fillText('🧪 TEST MODE (one-hit bosses · B to toggle)',12,H-14);ctx.textAlign='left';}
+  drawMinimap();   // corner minimap (own canvas; pure screen space)
 }
 function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);
   ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+;
+/* ========== UI ENGINE — screen-space HUD widgets that live outside the world transform ==========
+ * Minimap: absolute world->corner-canvas scatter of orbs / enemies / items / boss / player.
+ * Own canvas + ctx, never touches the main game transform stack. Called once at the tail of draw().
+ * Markers use shape+colour redundancy so XP orbs (pulsing gold) never read as fast enemies (flat red),
+ * loot (purple diamonds) stays distinct, and the boss (blinking gold-ringed blip) signals high priority. */
+let _mm=null,_mmctx=null;
+const MM_SIZE=160,MMx=MM_SIZE/WORLD.w,MMy=MM_SIZE/WORLD.h;   // world->minimap scale, per-axis (no square-world assumption)
+const _mmCl=(v,r)=>v<r?r:(v>MM_SIZE-r?MM_SIZE-r:v);          // keep a marker of radius r fully inside the frame
+
+function drawMinimap(){
+  if(frame&1)return;                                          // 30Hz gate: minimap precision needs no 60fps redraw; off-frames keep last image
+  if(!_mmctx){const c=document.getElementById('minimap');
+    if(!c||typeof c.getContext!=='function')return;_mm=c;_mmctx=c.getContext('2d');}
+  const g=_mmctx;if(!g)return;g.clearRect(0,0,MM_SIZE,MM_SIZE);
+  // 1) XP orbs — pulsing gold, drawn first (lowest priority); capped+strided so late-game clouds stay cheap
+  const on=orbs.length,ostep=on>120?Math.ceil(on/120):1;
+  g.fillStyle='rgba(255,217,94,'+(.5+.5*Math.sin(frame*.15)).toFixed(2)+')';
+  for(let i=0;i<on;i+=ostep){const o=orbs[i];g.fillRect(_mmCl(o.x*MMx,1)-1,_mmCl(o.y*MMy,1)-1,2,2);}
+  // 2) enemies — flat red (threat=red; never tint by type so fast/tank don't read as orbs); skip boss
+  g.fillStyle='#ff5f6e';
+  for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.boss)continue;
+    g.fillRect(_mmCl(e.x*MMx,1)-1,_mmCl(e.y*MMy,1)-1,2,2);}
+  // 3) items/loot — purple rotated diamond (shape sets loot apart from any dot)
+  g.fillStyle='#b56bff';
+  for(let i=0;i<items.length;i++){const it=items[i];
+    g.save();g.translate(_mmCl(it.x*MMx,4),_mmCl(it.y*MMy,4));g.rotate(.785);g.fillRect(-2.5,-2.5,5,5);g.restore();}
+  // 4) boss — large blinking blip with a gold ring, high-priority signal
+  for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.boss)continue;
+    const r=5+Math.sin(frame*.1)*2,x=_mmCl(e.x*MMx,r+2),y=_mmCl(e.y*MMy,r+2);
+    g.fillStyle=(frame%30<15)?'#ff3b6b':'#ff8aa6';g.beginPath();g.arc(x,y,r,0,6.283);g.fill();
+    g.lineWidth=1;g.strokeStyle='#ffd95e';g.beginPath();g.arc(x,y,r+2,0,6.283);g.stroke();}
+  // 5) player — bright cyan dot on top
+  g.fillStyle='#54e6ff';g.beginPath();g.arc(_mmCl(player.x*MMx,3),_mmCl(player.y*MMy,3),3,0,6.283);g.fill();
+}
 
 ;
 /* NEON SURVIVOR — main.js
@@ -980,40 +1499,61 @@ function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);
  * driver, screen-flow control, menus/leaderboard, button bindings, and startup bootstrap.
  * Loads LAST (after core/world/sim/render) — references their globals (player, Sound, draw, update, …). */
 
-function resize(){DPR=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;
+/* ===== DEVICE MODE: capability + dimension detection toggles the touch UI / responsive layout ===== */
+const _mqCoarse=typeof matchMedia==='function'?matchMedia('(pointer:coarse)'):{matches:false,addEventListener(){}};  // physical pointer is touch/stylus, not a mouse
+const _hasTouch=('ontouchstart' in window)||(typeof navigator!=='undefined'&&navigator.maxTouchPoints>0);            // touch events actually supported
+const joyEl=document.getElementById('joy'),joyNub=document.getElementById('joynub');
+let IS_MOBILE=false,touch=null;
+function applyDeviceMode(){                                              // coarse+touch OR small viewport → mobile
+  IS_MOBILE=(_mqCoarse.matches&&_hasTouch)||Math.min(W||innerWidth,H||innerHeight)<=820;
+  document.body.classList.toggle('mobile',IS_MOBILE);                   // single CSS hook for all responsive rules
+  if(!IS_MOBILE){touch=null;if(joyEl)joyEl.hidden=true;}}               // desktop / mouse hand-off: drop the stick
+_mqCoarse.addEventListener('change',applyDeviceMode);                    // live re-toggle on pointer-type change
+
+function resize(){W=innerWidth;H=innerHeight;applyDeviceMode();
+  DPR=Math.min(IS_MOBILE?1.5:2,devicePixelRatio||1);                    // cap fill-rate on mobile GPUs (1.5 vs retina 2)
   cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);needsDraw=true;}
 resize();addEventListener('resize',resize);
 
 /* ========== INPUTS ========== */
 const keys={};
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;
+addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;   // let text fields (username) type normally
+  const k=e.key.toLowerCase();keys[k]=true;
   if(k==='p'&&(state==='play'||state==='pause'))togglePause();
   if(k==='m')Sound.toggle();
   if(k==='f3'){e.preventDefault();togglePerf();}   // dev FPS benchmark overlay
   if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-let touch=null;
-cv.addEventListener('touchstart',e=>{touch={cx:e.touches[0].clientX,cy:e.touches[0].clientY,x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
-cv.addEventListener('touchmove',e=>{if(touch){touch.x=e.touches[0].clientX;touch.y=e.touches[0].clientY;}},{passive:true});
-cv.addEventListener('touchend',()=>touch=null);
+/* floating virtual joystick — only on mobile; anchors at first touch, sim.js reads touch.{x,y,cx,cy} unchanged */
+const JOYR=46;   // visual nub clamp radius (sim deadzone stays at 8px)
+cv.addEventListener('touchstart',e=>{if(!IS_MOBILE)return;const t=e.touches[0];
+  touch={cx:t.clientX,cy:t.clientY,x:t.clientX,y:t.clientY};
+  if(joyEl){joyEl.style.left=t.clientX+'px';joyEl.style.top=t.clientY+'px';joyEl.hidden=false;joyNub.style.transform='translate(-50%,-50%)';}},{passive:true});
+cv.addEventListener('touchmove',e=>{if(!touch)return;const t=e.touches[0];touch.x=t.clientX;touch.y=t.clientY;
+  if(joyNub){let dx=t.clientX-touch.cx,dy=t.clientY-touch.cy,m=Math.hypot(dx,dy);if(m>JOYR){dx=dx/m*JOYR;dy=dy/m*JOYR;}
+    joyNub.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;}},{passive:true});
+cv.addEventListener('touchend',()=>{touch=null;if(joyEl)joyEl.hidden=true;});
 document.getElementById('sound').onclick=()=>Sound.toggle();
+const mpauseBtn=document.getElementById('mpause');   // touch pause (P is unreachable on a phone)
+if(mpauseBtn)mpauseBtn.onclick=()=>{if(state==='play'||state==='pause')togglePause();};
 
 /* ========== INTERFACE FLOW ========== */
 const HUD={score:document.getElementById('score'),wave:document.getElementById('wave'),time:document.getElementById('time'),
   hpfill:document.getElementById('hpfill'),hplabel:document.getElementById('hplabel'),
   xpfill:document.getElementById('xpfill'),lvlnum:document.getElementById('lvlnum'),lowhp:document.getElementById('lowhp')};
-const _hud={score:-1,wave:-1,time:'',hp:-1,xp:-1,lvl:-1,low:-1};
+const _hud={score:-1,wave:-1,time:'',hp:-1,maxhp:-1,xp:-1,next:-1,lvl:-1,low:-1};
 function updateHUD(elapsed){const p=player;
   // cached element refs + change-guards: skip the DOM write when the value is unchanged (most frames)
   if(score!==_hud.score){HUD.score.textContent=score;_hud.score=score;}
   if(wave!==_hud.wave){HUD.wave.textContent=wave;_hud.wave=wave;}
   const tstr=Math.floor(elapsed/60)+':'+String(Math.floor(elapsed%60)).padStart(2,'0');
   if(tstr!==_hud.time){HUD.time.textContent=tstr;_hud.time=tstr;}
-  const hpw=clamp(p.hp/p.maxhp*100,0,100);
-  if(hpw!==_hud.hp){HUD.hpfill.style.width=hpw+'%';HUD.hplabel.textContent=Math.ceil(p.hp)+' / '+p.maxhp;_hud.hp=hpw;}
-  const xpw=p.xp/p.next*100;
-  if(xpw!==_hud.xp){HUD.xpfill.style.width=xpw+'%';_hud.xp=xpw;}
+  // guard on the RAW operands (hp + maxhp), not the derived %, so a maxhp-only change (Vitality at full HP) still repaints the label
+  const hpc=Math.ceil(p.hp);
+  if(hpc!==_hud.hp||p.maxhp!==_hud.maxhp){HUD.hpfill.style.width=clamp(p.hp/p.maxhp*100,0,100)+'%';
+    HUD.hplabel.textContent=hpc+' / '+p.maxhp;_hud.hp=hpc;_hud.maxhp=p.maxhp;}
+  if(p.xp!==_hud.xp||p.next!==_hud.next){HUD.xpfill.style.width=(p.xp/p.next*100)+'%';_hud.xp=p.xp;_hud.next=p.next;}
   if(p.level!==_hud.lvl){HUD.lvlnum.textContent=p.level;_hud.lvl=p.level;}
   const frac=p.hp/p.maxhp;
   // low-HP vignette: only touch the DOM when the severity bucket changes; the pulse itself is a CSS animation
@@ -1023,22 +1563,39 @@ function updateHUD(elapsed){const p=player;
 }
 function flashHit(){const f=document.getElementById('flash');f.style.transition='none';f.style.opacity='.5';
   requestAnimationFrame(()=>{f.style.transition='opacity .4s';f.style.opacity='0';});}
-/* ===== DEV FPS BENCHMARK OVERLAY (toggle F3) — quantifies the frame-rate-independence win =====
- * Off by default (zero cost). Shows live fps, avg/worst frame-time, sim ticks-per-frame (proves the
- * accumulator is catching up: ~1 at 60 Hz, <1 at 144 Hz) and live body count. */
+/* ===== DEV DEBUG OVERLAY (toggle F3) — perf + live boss state + player stats =====
+ * Off by default (zero cost), reads globals only (never mutates sim state, so verify-equiv stays identical).
+ * Line 1 perf: fps, avg/worst frame-time, sim ticks-per-frame (proves the accumulator catches up: ~1 at
+ *   60 Hz, <1 at 144 Hz), live body count. Lines 2-3 (play only): boss FSM + the upgrade-mutated stats. */
 const _perf={on:false,el:null,n:0,sum:0,worst:0,ticks:0,last:0};
+const _ATK=['BURST','DASH','SLAM'];           // mirrors e.atk dispatch in world.js (0/1/2)
 function togglePerf(){
   _perf.on=!_perf.on;
   if(!_perf.el){const d=document.createElement('div');d.id='perfhud';document.body.appendChild(d);_perf.el=d;}
   _perf.el.style.display=_perf.on?'block':'none';
   _perf.last=0;_perf.n=0;_perf.sum=0;_perf.worst=0;}
+// boss line: scan for the live boss, report its FSM sub-state (dash > telegraph > cadence), HP, and music layer
+function _bossLine(){
+  for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.boss){
+    const sub=e.dashT>0?'dash '+e.dashT                          // mid-lunge: ticks left
+      :e.tele>0?'tele '+(e.tele/60).toFixed(2)+'s'               // winding up the telegraph
+      :'cd '+Math.max(0,e.bossT/60).toFixed(2)+'s';              // counting down to next attack
+    return `BOSS active · atk=${_ATK[e.atk]} · ${sub} · hp ${Math.ceil(e.hp)}/${Math.round(e.maxhp)} · music=${Music.bossMode?'BOSS':'NORMAL'}`;}}
+  const nx=Math.max(0,nextBoss-(now-t0)/1000);
+  return `BOSS none · next in ${nx.toFixed(1)}s · music=${Music.bossMode?'BOSS':'NORMAL'}`;}
+// stat line: exactly the player fields the 14 upgrades mutate — watch an upgrade land in real time
+function _statLine(){const p=player;
+  return `DMG ${p.dmg.toFixed(1)} · RATE ${p.rate.toFixed(0)}f (${(60/p.rate).toFixed(1)}/s) · MULTI ${p.multi} · PIERCE ${p.pierce} · SPD ${p.speed.toFixed(2)} · `
+    +`HP ${Math.ceil(p.hp)}/${p.maxhp} · MAG ${Math.round(p.magnet)} · REGEN ${p.regen} · LS ${p.lifesteal} · MSL ${p.missile} · SHLD ${p.shield} · CHN ${p.chain} · Lv${p.level}`;}
 function perfFrame(ts){
   if(!_perf.on)return;
   if(_perf.last){const d=ts-_perf.last;_perf.sum+=d;if(d>_perf.worst)_perf.worst=d;_perf.n++;}
   _perf.last=ts;
   if(_perf.sum>=200){                        // repaint ~5×/s to avoid its own DOM thrash
     const avg=_perf.sum/_perf.n,ec=enemies.length+bullets.length+orbs.length+particles.length+missiles.length+ebullets.length;
-    _perf.el.textContent=`${(1000/avg).toFixed(0)} fps · ${avg.toFixed(1)}ms avg · ${_perf.worst.toFixed(1)}ms max · ${_perf.ticks} tick/f · ${ec} bodies`;
+    let txt=`${(1000/avg).toFixed(0)} fps · ${avg.toFixed(1)}ms avg · ${_perf.worst.toFixed(1)}ms max · ${_perf.ticks} tick/f · ${ec} bodies`;
+    if(state==='play'&&player)txt+='\n'+_bossLine()+'\n'+_statLine();   // boss/stat lines need a live run (player exists, t0 set)
+    _perf.el.textContent=txt;                // single write — one reflow, not per-field
     _perf.n=0;_perf.sum=0;_perf.worst=0;}}
 
 let _wasPlaying=null;   // state-change guard: toggle the cursor class only on transition, not every frame
@@ -1066,11 +1623,13 @@ function loop(ts){now=ts;
 function startGame(){Sound.init();Sound.resume();Music.start();reset();state='play';
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');}
-function gameOver(){state='over';Music.stop();
+function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
-  saveScore({score,secs:Math.floor(elapsed),wave,diff:DIFF.label});   // record run to leaderboard
+  const run={score,secs:Math.floor(elapsed),wave,difficulty:DIFF.key};
+  if(typeof reportRun==='function')reportRun(run);                          // concurrent submit+fetch + dynamic feedback
+  else if(typeof submitScore==='function')submitScore(run);                 // fallback: bare submit if engine absent
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
   document.getElementById('hibest').textContent=score>=best?'★ NEW BEST!':'best: '+best;
@@ -1125,21 +1684,53 @@ function legendHTML(list){return list.map(o=>
 function renderLegends(){
   document.getElementById('pickupsLegend').innerHTML=legendHTML(PICKUP_INFO);
   document.getElementById('weaponsLegend').innerHTML=legendHTML(WEAPON_INFO);}
-function loadScores(){try{return JSON.parse(localStorage.getItem('neon_scores')||'[]');}catch(e){return[];}}
-function saveScore(entry){const s=loadScores();s.push(entry);s.sort((a,b)=>b.score-a.score);
-  const top=s.slice(0,5);localStorage.setItem('neon_scores',JSON.stringify(top));return top;}
 function fmtTime(sec){const m=Math.floor(sec/60),s=sec%60;return m+':'+String(s).padStart(2,'0');}
-function renderLeaderboard(){
-  const lb=document.getElementById('leaderboard'),top=loadScores();
-  if(!top.length){lb.innerHTML='<div class="empty">No runs yet.<br>Survive to set a score!</div>';return;}
-  lb.innerHTML=top.map((r,i)=>
-    `<div class="lbrow"><span class="rank">${i+1}</span><span class="sc">${r.score}</span><span class="meta">${fmtTime(r.secs)} · ${r.diff||'—'}</span></div>`).join('');}
+/* ===== global leaderboard (Supabase via net.js) — tabbed by difficulty, top 10 each ===== */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let _gdiff='normal',_gcache={};       // _gcache: diff → rows|null (per-menu-open cache)
+function renderGlobalRows(rows){
+  const el=document.getElementById('global');if(!el)return;
+  if(rows===null){el.innerHTML='<div class="empty">Global board offline.<br>Scores still save on this device.</div>';return;}
+  if(!rows.length){el.innerHTML='<div class="empty">No runs yet.<br>Be the first!</div>';return;}
+  el.innerHTML=rows.map((r,i)=>
+    `<div class="lbrow"><span class="rank">${i+1}</span><span class="sc">${r.score}</span><span class="meta">${esc(r.username||'—')} · ${fmtTime(r.secs)}</span></div>`).join('');}
+function renderGlobal(diff){_gdiff=diff;
+  if(_gcache[diff]!==undefined){renderGlobalRows(_gcache[diff]);return;}
+  const el=document.getElementById('global');if(el)el.innerHTML='<div class="empty">Loading…</div>';
+  if(typeof fetchTop!=='function'){renderGlobalRows(null);return;}
+  // only cache successful results — never cache null, so an early (pre-SDK) or failed fetch retries next time
+  fetchTop(diff).then(rows=>{if(rows!==null)_gcache[diff]=rows;if(_gdiff===diff)renderGlobalRows(rows);});}
+function onSupabaseReady(){_gcache={};renderGlobal(_gdiff);}   // net.js calls this once the SDK connects → refresh the visible tab
+document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.remove('on'));b.classList.add('on');
+  renderGlobal(b.dataset.d);});
+function syncGlobalTab(diff){document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.toggle('on',z.dataset.d===diff));}
+
+/* ===== first-run username onboarding (gates the menu; identity persists via net.js) ===== */
+function sanitizeName(s){return String(s||"").replace(/[\u0000-\u001f]/g,"").replace(/\s+/g," ").trim().slice(0,16);}
+function showUsername(edit){const m=document.getElementById('username');if(!m)return;
+  const inp=document.getElementById('uname'),err=document.getElementById('unameerr');
+  if(err)err.textContent='';
+  if(inp){const p=(typeof getPlayer==='function')&&getPlayer();inp.value=edit&&p?p.name:'';}
+  m.classList.remove('hidden');if(inp)try{inp.focus();}catch(e){}}
+function confirmUsername(){
+  const inp=document.getElementById('uname'),err=document.getElementById('unameerr');
+  const n=sanitizeName(inp&&inp.value);
+  if(n.length<3){if(err)err.textContent='Please use at least 3 characters.';return;}
+  if(typeof savePlayer==='function')savePlayer(n);
+  document.getElementById('username').classList.add('hidden');
+  document.getElementById('start').classList.remove('hidden');}
+function bootMenu(){   // first run → name modal before the menu; returning players go straight in
+  if(typeof getPlayer==='function'&&!getPlayer()){
+    document.getElementById('start').classList.add('hidden');showUsername(false);}}
+
 function showMenu(){
   document.getElementById('over').classList.add('hidden');
   document.getElementById('pause').classList.add('hidden');
   document.getElementById('sound').classList.remove('show');
   document.getElementById('start').classList.remove('hidden');
-  renderLeaderboard();}
+  _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
+  syncGlobalTab(_gdiff);_gcache={};renderGlobal(_gdiff);}   // clear cache → fresh fetch each menu open
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';Music.stop();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
@@ -1153,6 +1744,11 @@ document.getElementById('quitbtn').onclick=()=>document.getElementById('quitconf
 document.getElementById('quitno').onclick=()=>document.getElementById('quitconfirm').classList.remove('show');
 document.getElementById('quityes').onclick=quitToMenu;
 document.getElementById('tomenu').onclick=showMenu;
-renderLegends();renderLeaderboard();
+const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=confirmUsername;
+const _unameInput=document.getElementById('uname');if(_unameInput)_unameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
+const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showUsername(true);
+renderLegends();
+renderGlobal(_gdiff);   // prime the global board (resolves to offline/empty when unconfigured)
+bootMenu();             // first-run players get the username modal before the menu
 generateNebula();   // build the deep-space background tile once at startup
 requestAnimationFrame(loop);
