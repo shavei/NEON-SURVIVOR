@@ -131,7 +131,6 @@ function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
-  saveScore({score,secs:Math.floor(elapsed),wave,diff:DIFF.label});   // record run to on-device leaderboard
   if(typeof submitScore==='function')submitScore({score,secs:Math.floor(elapsed),wave,difficulty:DIFF.key});   // global board
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
@@ -187,15 +186,7 @@ function legendHTML(list){return list.map(o=>
 function renderLegends(){
   document.getElementById('pickupsLegend').innerHTML=legendHTML(PICKUP_INFO);
   document.getElementById('weaponsLegend').innerHTML=legendHTML(WEAPON_INFO);}
-function loadScores(){try{return JSON.parse(localStorage.getItem('neon_scores')||'[]');}catch(e){return[];}}
-function saveScore(entry){const s=loadScores();s.push(entry);s.sort((a,b)=>b.score-a.score);
-  const top=s.slice(0,5);localStorage.setItem('neon_scores',JSON.stringify(top));return top;}
 function fmtTime(sec){const m=Math.floor(sec/60),s=sec%60;return m+':'+String(s).padStart(2,'0');}
-function renderLeaderboard(){
-  const lb=document.getElementById('leaderboard'),top=loadScores();
-  if(!top.length){lb.innerHTML='<div class="empty">No runs yet.<br>Survive to set a score!</div>';return;}
-  lb.innerHTML=top.map((r,i)=>
-    `<div class="lbrow"><span class="rank">${i+1}</span><span class="sc">${r.score}</span><span class="meta">${fmtTime(r.secs)} · ${r.diff||'—'}</span></div>`).join('');}
 /* ===== global leaderboard (Supabase via net.js) — tabbed by difficulty, top 10 each ===== */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let _gdiff='normal',_gcache={};       // _gcache: diff → rows|null (per-menu-open cache)
@@ -240,7 +231,6 @@ function showMenu(){
   document.getElementById('pause').classList.add('hidden');
   document.getElementById('sound').classList.remove('show');
   document.getElementById('start').classList.remove('hidden');
-  renderLeaderboard();
   _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
   syncGlobalTab(_gdiff);_gcache={};renderGlobal(_gdiff);}   // clear cache → fresh fetch each menu open
 function quitToMenu(){            // abandon the current run — all progress lost
@@ -259,7 +249,7 @@ document.getElementById('tomenu').onclick=showMenu;
 const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=confirmUsername;
 const _unameInput=document.getElementById('uname');if(_unameInput)_unameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
 const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showUsername(true);
-renderLegends();renderLeaderboard();
+renderLegends();
 renderGlobal(_gdiff);   // prime the global board (resolves to offline/empty when unconfigured)
 bootMenu();             // first-run players get the username modal before the menu
 generateNebula();   // build the deep-space background tile once at startup
