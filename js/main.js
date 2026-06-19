@@ -3,7 +3,19 @@
  * driver, screen-flow control, menus/leaderboard, button bindings, and startup bootstrap.
  * Loads LAST (after core/world/sim/render) — references their globals (player, Sound, draw, update, …). */
 
-function resize(){DPR=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;
+/* ===== DEVICE MODE: capability + dimension detection toggles the touch UI / responsive layout ===== */
+const _mqCoarse=typeof matchMedia==='function'?matchMedia('(pointer:coarse)'):{matches:false,addEventListener(){}};  // physical pointer is touch/stylus, not a mouse
+const _hasTouch=('ontouchstart' in window)||(typeof navigator!=='undefined'&&navigator.maxTouchPoints>0);            // touch events actually supported
+const joyEl=document.getElementById('joy'),joyNub=document.getElementById('joynub');
+let IS_MOBILE=false,touch=null;
+function applyDeviceMode(){                                              // coarse+touch OR small viewport → mobile
+  IS_MOBILE=(_mqCoarse.matches&&_hasTouch)||Math.min(W||innerWidth,H||innerHeight)<=820;
+  document.body.classList.toggle('mobile',IS_MOBILE);                   // single CSS hook for all responsive rules
+  if(!IS_MOBILE){touch=null;if(joyEl)joyEl.hidden=true;}}               // desktop / mouse hand-off: drop the stick
+_mqCoarse.addEventListener('change',applyDeviceMode);                    // live re-toggle on pointer-type change
+
+function resize(){W=innerWidth;H=innerHeight;applyDeviceMode();
+  DPR=Math.min(IS_MOBILE?1.5:2,devicePixelRatio||1);                    // cap fill-rate on mobile GPUs (1.5 vs retina 2)
   cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);needsDraw=true;}
 resize();addEventListener('resize',resize);
 
@@ -16,11 +28,18 @@ addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;
   if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-let touch=null;
-cv.addEventListener('touchstart',e=>{touch={cx:e.touches[0].clientX,cy:e.touches[0].clientY,x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
-cv.addEventListener('touchmove',e=>{if(touch){touch.x=e.touches[0].clientX;touch.y=e.touches[0].clientY;}},{passive:true});
-cv.addEventListener('touchend',()=>touch=null);
+/* floating virtual joystick — only on mobile; anchors at first touch, sim.js reads touch.{x,y,cx,cy} unchanged */
+const JOYR=46;   // visual nub clamp radius (sim deadzone stays at 8px)
+cv.addEventListener('touchstart',e=>{if(!IS_MOBILE)return;const t=e.touches[0];
+  touch={cx:t.clientX,cy:t.clientY,x:t.clientX,y:t.clientY};
+  if(joyEl){joyEl.style.left=t.clientX+'px';joyEl.style.top=t.clientY+'px';joyEl.hidden=false;joyNub.style.transform='translate(-50%,-50%)';}},{passive:true});
+cv.addEventListener('touchmove',e=>{if(!touch)return;const t=e.touches[0];touch.x=t.clientX;touch.y=t.clientY;
+  if(joyNub){let dx=t.clientX-touch.cx,dy=t.clientY-touch.cy,m=Math.hypot(dx,dy);if(m>JOYR){dx=dx/m*JOYR;dy=dy/m*JOYR;}
+    joyNub.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;}},{passive:true});
+cv.addEventListener('touchend',()=>{touch=null;if(joyEl)joyEl.hidden=true;});
 document.getElementById('sound').onclick=()=>Sound.toggle();
+const mpauseBtn=document.getElementById('mpause');   // touch pause (P is unreachable on a phone)
+if(mpauseBtn)mpauseBtn.onclick=()=>{if(state==='play'||state==='pause')togglePause();};
 
 /* ========== INTERFACE FLOW ========== */
 const HUD={score:document.getElementById('score'),wave:document.getElementById('wave'),time:document.getElementById('time'),
