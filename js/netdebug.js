@@ -33,6 +33,11 @@ const NetDebug = {
                    `→(${p.tx.toFixed(0)},${p.ty.toFixed(0)}) lag ${lag}ms`);
       }
     } else lines.push('LOBBY module absent');
+    if (typeof Coop !== 'undefined') {
+      const P = Coop.spawnP(), mul = Coop.scaleMul(P);
+      lines.push(`COOP ${Coop.active ? 'ON' : 'off'} · host=${Coop.host} · P=${P} · mul=${mul.toFixed(2)}` +
+                 ` · fake=${Coop._fake == null ? '—' : Coop._fake} · ÷√P=${(1 / Math.sqrt(Math.max(1, P))).toFixed(2)}`);
+    }
     if (typeof Ach !== 'undefined') {
       const last = Ach._last;
       lines.push(`ACH token=${Ach._token ? 'open' : '—'} · runBosses=${Ach.run.bosses}`);

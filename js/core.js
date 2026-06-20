@@ -56,6 +56,9 @@ const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedB
   dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4,
   // spawn throttle while a Warden is alive: longer interval + smaller batches (focus the fight)
   spawnMul:2.2,spawnCountMul:0.5};
+// PvE co-op scaling — tune here, not in the spawn hot loop. perPlayer = damped-linear count factor per
+// extra player (count ×= 1+(P-1)*perPlayer); interval is softened by √P (both in sim.js spawn block).
+const COOP={perPlayer:0.7};
 
 /* ========== SOUND ENGINE (Web Audio) ========== */
 const Sound={

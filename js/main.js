@@ -119,6 +119,7 @@ function loop(ts){now=ts;
     _perf.ticks=n;
     alpha=acc/STEP;                                    // fractional tick → render interpolation factor
     draw();
+    if(typeof Coop!=='undefined')Coop.netTick(ts,dt);  // co-op pump: push my pos, glide peers, host broadcasts roster
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
     if((state==='levelup'||state==='pause')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position
@@ -131,6 +132,7 @@ function startGame(){Sound.init();Sound.resume();Music.start();reset();state='pl
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');}
 function gameOver(){state='over';Music.die();
+  if(typeof Coop!=='undefined')Coop.stop();   // drop out of the co-op enemy net; remaining players continue
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
@@ -265,9 +267,17 @@ const _lobbyCtx=_lobbyCv&&_lobbyCv.getContext?_lobbyCv.getContext('2d'):null;
 let _lme={x:260,y:150,tx:260,ty:150};   // local avatar drifts to where you click/touch the hub
 function openLobby(){const e=_lobbyEl;if(!e)return;e.classList.remove('hidden');
   document.getElementById('start').classList.add('hidden');}
-function closeLobby(){if(typeof Lobby!=='undefined')Lobby.leave();_lobbyOn=false;
+function closeLobby(){if(typeof Coop!=='undefined')Coop.stop();if(typeof Lobby!=='undefined')Lobby.leave();_lobbyOn=false;
   if(_lobbyRaf)cancelAnimationFrame(_lobbyRaf);_lobbyRaf=0;
   if(_lobbyEl)_lobbyEl.classList.add('hidden');showMenu();}
+/* leave the cosmetic hub canvas and launch the REAL game as a host-authoritative PvE co-op run */
+function coopStart(){
+  const err=document.getElementById('lobbyerr');
+  if(typeof Coop==='undefined'||!Coop.start()){if(err)err.textContent='Join a room first to start a co-op run.';return;}
+  _lobbyOn=false;if(_lobbyRaf)cancelAnimationFrame(_lobbyRaf);_lobbyRaf=0;
+  if(_lobbyEl)_lobbyEl.classList.add('hidden');
+  startGame();   // normal single-player boot — Coop.active just layers networked enemies + teammates on top
+}
 function joinLobby(){
   const inp=document.getElementById('roomcode'),err=document.getElementById('lobbyerr');
   const room=String((inp&&inp.value)||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12)||'GLOBAL';
@@ -292,6 +302,7 @@ if(_lobbyCv)_lobbyCv.addEventListener('pointerdown',e=>{const b=_lobbyCv.getBoun
 const _lobbyBtn=document.getElementById('lobbybtn');if(_lobbyBtn)_lobbyBtn.onclick=openLobby;
 const _lobbyJoin=document.getElementById('lobbyjoin');if(_lobbyJoin)_lobbyJoin.onclick=joinLobby;
 const _lobbyLeave=document.getElementById('lobbyleave');if(_lobbyLeave)_lobbyLeave.onclick=closeLobby;
+const _lobbyStart=document.getElementById('lobbystart');if(_lobbyStart)_lobbyStart.onclick=coopStart;
 
 renderGlobal(_gdiff);   // prime the global board (resolves to offline/empty when unconfigured)
 bootMenu();             // first-run players get the username modal before the menu

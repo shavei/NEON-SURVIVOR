@@ -47,14 +47,18 @@ function update(){
       for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.scd>0)continue;   // live length: damageEnemy may splice
         const dx=e.x-ox,dy=e.y-oy,distHit=e.r+9;
         if((dx*dx+dy*dy)<(distHit*distHit)){
-          damageEnemy(e,sdmg,'#54e6b5');e.scd=16;burst(ox,oy,'#54e6b5',5,3);
+          hitEnemy(e,sdmg,'#54e6b5');e.scd=16;burst(ox,oy,'#54e6b5',5,3);
           if(now-lastPingSnd>50){Sound.ping();lastPingSnd=now;}}}}}
 
   const elapsed=(now-t0)/1000;
-  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1);
-  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)));
-    for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
-  if(!bossOn&&elapsed>=nextBoss)spawnBoss();        // boss waves (first at 60s, then 50s after each kill)
+  // PvE co-op scaling — P=player count (1 when solo → neutral). Count ×= damped-linear mul; interval ÷= √P.
+  const _P=(typeof Coop!=='undefined')?Coop.spawnP():1;
+  const _smul=1+(Math.max(1,_P)-1)*(typeof COOP!=='undefined'?COOP.perPlayer:0.7);
+  const _coopHost=(typeof Coop==='undefined'||!Coop.active||Coop.host);   // solo OR the elected host owns spawning
+  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1)/Math.sqrt(Math.max(1,_P));
+  if(spawnTimer<=0){if(_coopHost){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)*_smul));
+    for(let i=0;i<c;i++)spawnEnemy();}spawnTimer=interval;}
+  if(_coopHost&&!bossOn&&elapsed>=nextBoss)spawnBoss();   // boss waves (host-authoritative in co-op; first at 60s)
 
   // Cargo Pickups Matrix Optimization
   itemTimer--;if(itemTimer<=0){spawnItem();itemTimer=Math.floor(rand(1500,2100));}
@@ -69,7 +73,7 @@ function update(){
     // live length: damageEnemy() may splice an enemy mid-scan (pierce), so don't cache the bound
     for(let j=0;j<enemies.length;j++){const e=enemies[j];
       const dx=b.x-e.x,dy=b.y-e.y,combR=e.r+b.r;
-      if((dx*dx+dy*dy)<(combR*combR)){damageEnemy(e,b.dmg,e.col);burst(b.x,b.y,e.col,4,3);
+      if((dx*dx+dy*dy)<(combR*combR)){hitEnemy(e,b.dmg,e.col);burst(b.x,b.y,e.col,4,3);
         if(b.pierce>0)b.pierce--;else bullets.splice(i,1);break;}}}
 
   // Torpedoes / Seeker Missiles Matrix Optimization
@@ -93,13 +97,15 @@ function update(){
   for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];if(e.hit>0)e.hit--;if(e.scd>0)e.scd--;if(e.cdmg>0)e.cdmg--;
     // chase via a normalized vector — avoids atan2+cos+sin (3 transcendentals) per enemy per frame
     const dxp=p.x-e.x,dyp=p.y-e.y,dp=Math.sqrt(dxp*dxp+dyp*dyp)||1,ux=dxp/dp,uy=dyp/dp;
+    if(typeof Coop==='undefined'||!Coop.active||Coop.host){      // solo OR host: run enemy AI / movement
     if(e.boss&&e.dashT>0){e.x+=e.dvx;e.y+=e.dvy;                 // mid-dash: charge along locked vector, skip chase + cadence
       if(--e.dashT<=0){e.bossT=bossCD();e.atk=2;}}               // dash done → next up: AOE slam
     else{e.x+=ux*e.spd;e.y+=uy*e.spd;
       if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
         particles.push({x:e.px,y:e.py,vx:-ux*.3,vy:-uy*.3,r:rand(1.4,2.6),life:rand(10,18),col:'#ff9d2e'});
       if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}      // telegraph expired → dispatch attack[e.atk]
-        else if(--e.bossT<=0){e.tele=BOSS.teleT;Sound.ping();}}}  // cadence elapsed → start wind-up telegraph
+        else if(--e.bossT<=0){e.tele=BOSS.teleT;Sound.ping();}}}
+    }else if(e.tx!==undefined){e.x+=(e.tx-e.x)*0.25;e.y+=(e.ty-e.y)*0.25;}   // client: glide to host roster position  // cadence elapsed → start wind-up telegraph
     // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger)
     if(p.inv<=0&&e.cdmg<=0){const combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;
       if(dp*dp<combR*combR){

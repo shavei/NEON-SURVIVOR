@@ -8,6 +8,7 @@ let player,enemies,bullets,orbs,particles,floats,missiles,bolts,items,ebullets;
 let nextBoss=60,bossOn=false,_test=false;   // _test: Test Mode (one-hit bosses, manual spawn — key B)
 let t0,now,score,wave,spawnTimer,itemTimer,shake,frame,kills,pauseStart=0,pendingLevels=0;
 let best=+(localStorage.getItem('neon_best')||0);
+let _eid=0;   // monotonically rising enemy id — host stamps it; clients reconcile the roster by it (co-op)
 /* ----- FIXED-TIMESTEP SIM CLOCK -----
  * The sim advances in discrete 1/60 s ticks regardless of display refresh, so the game plays
  * identically on 60 / 144 / 240 Hz monitors (was frame-locked → ran 2.4× fast on 144 Hz).
@@ -145,7 +146,7 @@ function spawnEnemy(){
   const late=Math.max(0,elapsed-180);            // super-linear pressure past 3 min
   const hpScale=(1+elapsed/75+late*late*0.00012)*DIFF.hp;
   const dmg=base.dmg*(1+elapsed/130+late*late*0.00006)*DIFF.dmg;
-  enemies.push({x,y,r:base.r,hp:base.hp*hpScale,maxhp:base.hp*hpScale,
+  enemies.push({id:++_eid,x,y,r:base.r,hp:base.hp*hpScale,maxhp:base.hp*hpScale,
     spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type});
 }
 function spawnBoss(){
@@ -154,7 +155,7 @@ function spawnBoss(){
   const x=clamp(player.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(player.y+Math.sin(ang)*d,60,WORLD.h-60);
   let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
   if(_test)hp=1;                                    // Test Mode: one-hit boss to study patterns fast
-  enemies.push({x,y,r:46,hp,maxhp:hp,spd:BOSS.speedBase+tier*BOSS.speedTier,col:'#ff3b6b',
+  enemies.push({id:++_eid,x,y,r:46,hp,maxhp:hp,spd:BOSS.speedBase+tier*BOSS.speedTier,col:'#ff3b6b',
     dmg:BOSS.contactDmg*DIFF.dmg,xp:35,sc:400+tier*100,hit:0,scd:0,cdmg:0,dead:false,
     type:'boss',boss:true,bossT:BOSS.cdBase,tele:0,atk:0,dashT:0,dvx:0,dvy:0,name:'WARDEN '+tier});
   bossOn=true;showToast('💀','BOSS — WARDEN '+tier,'#ff3b6b');
@@ -198,9 +199,16 @@ function burst(x,y,col,n,sp){n=Math.min(n,340-particles.length);if(n<=0)return;
 function floatText(x,y,txt,col){floats.push({x,y,txt,col,life:50,vy:-.7});}
 
 function damageEnemy(e,dmg,col){e.hp-=dmg;e.hit=6;if(e.hp<=0)killEnemy(e,col);}
+/* co-op damage seam: a client reports the hit to the host (who owns enemy HP) and only flashes locally;
+ * host/solo apply damage directly. Solo (Coop absent) falls straight through → behavior unchanged. */
+function hitEnemy(e,dmg,col){
+  if(typeof Coop!=='undefined'&&Coop.active&&!Coop.host){Coop.reportHit(e,dmg);e.hit=6;return;}
+  damageEnemy(e,dmg,col);
+}
 function killEnemy(e,col){
   const i=enemies.indexOf(e);if(i<0)return;e.dead=true;enemies.splice(i,1);
   score+=e.sc;kills++;
+  if(typeof Coop!=='undefined')Coop.onKill(e);   // co-op host: broadcast the kill so every client replays it
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Music.exitBoss();   // next boss 50s after this one falls; music back to normal track
     if(typeof Ach!=='undefined')Ach.onBossKill();              // achievements: count Wardens felled this run
@@ -238,7 +246,7 @@ function showToast(ico,label,col){const el=document.getElementById('toast');
   el.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
 function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
   if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Sound.tone(440,900,.25,'sine',.09);}
-  else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)damageEnemy(enemies[i],150,'#ffd95e');
+  else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
     shake=Math.min(shake+18,22);Sound.boom();burst(p.x,p.y,'#ffd95e',46,9);flashHit();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
   else if(it.type==='magnet'){for(let i=orbs.length-1;i>=0;i--)gainXP(orbs[i].xp);orbs.length=0;
     Sound.pickup();floatText(p.x,p.y-22,'XP RUSH','#54e6b5');}
@@ -262,7 +270,7 @@ function explodeMissile(m){
   floatText(m.x,m.y,'💥','#ffd95e');
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];const dx=m.x-e.x,dy=m.y-e.y;
-    if((dx*dx+dy*dy)<radSq)damageEnemy(e,m.dmg,'#ffd95e');}
+    if((dx*dx+dy*dy)<radSq)hitEnemy(e,m.dmg,'#ffd95e');}
 }
 
 function castChain(){
@@ -272,7 +280,7 @@ function castChain(){
   let fromX=player.x,fromY=player.y;
   for(let j=0;j<jumps;j++){if(!cur)break;CHAIN_SET.add(cur);
     bolts.push({a:{x:fromX,y:fromY},b:{x:cur.x,y:cur.y},life:9});
-    damageEnemy(cur,dmg,'#7c8cff');burst(cur.x,cur.y,'#9db0ff',6,3);
+    hitEnemy(cur,dmg,'#7c8cff');burst(cur.x,cur.y,'#9db0ff',6,3);
     fromX=cur.x;fromY=cur.y;
     let nx=null,ndSq=reachSq;
     for(const e of enemies){
