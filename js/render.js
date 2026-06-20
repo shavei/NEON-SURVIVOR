@@ -130,13 +130,17 @@ function draw(){
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
-  // 11b. Co-op teammates — ghost interceptors (world-space; Lobby.peers already lerped by Lobby.step)
+  // 11b. Co-op teammates — real player ships sharing the same map (world-space; Lobby.peers lerped by Lobby.step)
   if(typeof Coop!=='undefined'&&Coop.active&&typeof Lobby!=='undefined'){
+    const _tsp=shipSprite(false,14);
     ctx.textAlign='center';ctx.font='700 11px Inter,sans-serif';
-    for(const id in Lobby.peers){const mt=Lobby.peers[id];ctx.save();ctx.translate(mt.x,mt.y);
-      ctx.globalAlpha=.85;ctx.fillStyle=mt.color||'#54e6ff';ctx.shadowBlur=12;ctx.shadowColor=mt.color||'#54e6ff';
-      ctx.beginPath();ctx.arc(0,0,11,0,7);ctx.fill();ctx.shadowBlur=0;
-      ctx.globalAlpha=1;ctx.fillStyle='#cfe';ctx.fillText((mt.name||'').slice(0,10),0,-16);ctx.restore();}
+    for(const id in Lobby.peers){const mt=Lobby.peers[id],col=mt.color||'#54e6ff';
+      const hx=mt.tx-mt.x,hy=mt.ty-mt.y;if(hx*hx+hy*hy>0.25)mt._a=Math.atan2(hy,hx);   // face travel direction
+      ctx.save();ctx.translate(mt.x,mt.y);
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.shadowBlur=12;ctx.shadowColor=col;        // per-player colored ID ring
+      ctx.save();ctx.rotate(frame*.02);ctx.setLineDash([7,9]);ctx.beginPath();ctx.arc(0,0,21,0,7);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+      ctx.save();ctx.rotate(mt._a||0);ctx.drawImage(_tsp,-_tsp.width/2,-_tsp.height/2);ctx.restore();ctx.shadowBlur=0;
+      ctx.fillStyle=col;ctx.fillText((mt.name||'PLAYER').slice(0,10),0,-26);ctx.restore();}
     ctx.textAlign='left';}
 
   // 12. Deflector Energy Shield Matrices
