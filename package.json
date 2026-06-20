@@ -5,7 +5,9 @@
   "scripts": {
     "verify": "node .claude/skills/neon-survivor/verify.cjs",
     "verify:upgrades": "node .claude/skills/neon-survivor/verify-upgrades.cjs",
-    "verify:equiv": "node .claude/skills/neon-survivor/verify-equiv.cjs"
+    "verify:equiv": "node .claude/skills/neon-survivor/verify-equiv.cjs",
+    "verify:achievements": "node .claude/skills/neon-survivor/verify-achievements.cjs",
+    "verify:net": "node .claude/skills/neon-survivor/verify-net.cjs"
   },
   "keywords": [
     "game",

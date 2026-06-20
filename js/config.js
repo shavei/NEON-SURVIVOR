@@ -6,3 +6,6 @@
  *   SUPA_ANON_KEY e.g. eyJhbGciOi...  (Project Settings → API → anon/public key) */
 const SUPA_URL='https://ukvsnjgysbrmuheibrgv.supabase.co';
 const SUPA_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdnNuamd5c2JybXVoZWlicmd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjM1MDksImV4cCI6MjA5NzQzOTUwOX0.Mgwvo1JNhtZEk_0PRHbONClysF2LqGuYM-IW7TsKsNQ';
+/* Base origin for the serverless validator (/api/verify). Empty = same-origin (the Vercel deploy
+ * that serves this page). The SERVICE_ROLE key lives ONLY in Vercel env vars, never here. */
+const SUPA_FUNCTIONS_URL='';
