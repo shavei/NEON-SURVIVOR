@@ -43,8 +43,10 @@
   .wpip i{font-style:normal;font-size:15px}
   .wpip b{color:var(--ink)}
 
-  .overlay{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    background:radial-gradient(circle at 50% 45%,rgba(10,11,22,.72),rgba(5,6,12,.94));backdrop-filter:blur(4px);text-align:center;padding:18px;overflow:hidden}
+  /* safe center: center the stack when it fits, but fall back to top-aligned + scrollable when it
+   * overflows (plain center clips+locks the top of tall menus — e.g. the achievements panel). */
+  .overlay{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:safe center;
+    background:radial-gradient(circle at 50% 45%,rgba(10,11,22,.72),rgba(5,6,12,.94));backdrop-filter:blur(4px);text-align:center;padding:18px;overflow-y:auto}
   .overlay.hidden{display:none}
   .title{font-size:clamp(2.6rem,9vw,5.4rem);font-weight:900;letter-spacing:-.05em;line-height:.9;
     background:linear-gradient(110deg,var(--clay),var(--blue) 55%,var(--mint));-webkit-background-clip:text;background-clip:text;color:transparent;
