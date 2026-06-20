@@ -26,6 +26,7 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;  
   if(k==='p'&&(state==='play'||state==='pause'))togglePause();
   if(k==='m')Sound.toggle();
   if(k==='f3'){e.preventDefault();togglePerf();}   // dev FPS benchmark overlay
+  if(k==='f4'){e.preventDefault();if(typeof NetDebug!=='undefined')NetDebug.toggle();}   // dev network overlay
   if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
@@ -123,17 +124,20 @@ function loop(ts){now=ts;
     if((state==='levelup'||state==='pause')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position
   }
   perfFrame(ts);
+  if(typeof NetDebug!=='undefined')NetDebug.tick();
   requestAnimationFrame(loop);}
 function startGame(){Sound.init();Sound.resume();Music.start();reset();state='play';
+  if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');}
 function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
-  const run={score,secs:Math.floor(elapsed),wave,difficulty:DIFF.key};
+  const run={score,secs:Math.floor(elapsed),wave,kills,level:player.level,difficulty:DIFF.key};
   if(typeof reportRun==='function')reportRun(run);                          // concurrent submit+fetch + dynamic feedback
   else if(typeof submitScore==='function')submitScore(run);                 // fallback: bare submit if engine absent
+  if(typeof Ach!=='undefined'){Ach.reportRun(run);Ach.renderPanel();}        // fold run into achievements (optimistic + server-validated)
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
   document.getElementById('hibest').textContent=score>=best?'★ NEW BEST!':'best: '+best;
@@ -252,6 +256,43 @@ const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=c
 const _unameInput=document.getElementById('uname');if(_unameInput)_unameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
 const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showUsername(true);
 renderLegends();
+if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
+
+/* ===== peaceful multiplayer lobby — Supabase Presence hub (network.js) ===== */
+let _lobbyOn=false,_lobbyRaf=0,_lobbyLast=0;
+const _lobbyEl=document.getElementById('lobby'),_lobbyCv=document.getElementById('lobbycanvas');
+const _lobbyCtx=_lobbyCv&&_lobbyCv.getContext?_lobbyCv.getContext('2d'):null;
+let _lme={x:260,y:150,tx:260,ty:150};   // local avatar drifts to where you click/touch the hub
+function openLobby(){const e=_lobbyEl;if(!e)return;e.classList.remove('hidden');
+  document.getElementById('start').classList.add('hidden');}
+function closeLobby(){if(typeof Lobby!=='undefined')Lobby.leave();_lobbyOn=false;
+  if(_lobbyRaf)cancelAnimationFrame(_lobbyRaf);_lobbyRaf=0;
+  if(_lobbyEl)_lobbyEl.classList.add('hidden');showMenu();}
+function joinLobby(){
+  const inp=document.getElementById('roomcode'),err=document.getElementById('lobbyerr');
+  const room=String((inp&&inp.value)||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12)||'GLOBAL';
+  if(typeof Lobby==='undefined'||!Lobby.join(room,{name:(getPlayer()||{}).name||'Player'})){
+    if(err)err.textContent='Lobby offline — set Supabase config to play together.';return;}
+  if(err)err.textContent='';_lobbyOn=true;_lobbyLast=performance.now();_lobbyRender();}
+function _lobbyRender(ts){
+  if(!_lobbyOn)return;ts=ts||performance.now();const dt=Math.min(.05,(ts-_lobbyLast)/1000);_lobbyLast=ts;
+  _lme.x+=(_lme.tx-_lme.x)*(1-Math.exp(-12*dt));_lme.y+=(_lme.ty-_lme.y)*(1-Math.exp(-12*dt));
+  if(typeof Lobby!=='undefined'){Lobby.setLocalState(_lme.x,_lme.y,ts);Lobby.step(dt,Date.now());}
+  if(_lobbyCtx){const g=_lobbyCtx,W=_lobbyCv.width,H=_lobbyCv.height;g.clearRect(0,0,W,H);
+    g.fillStyle='rgba(84,230,255,.08)';g.fillRect(0,0,W,H);
+    if(typeof Lobby!=='undefined')for(const id in Lobby.peers){const p=Lobby.peers[id];
+      g.fillStyle=p.color||'#ff5fa2';g.beginPath();g.arc(p.x,p.y,9,0,6.283);g.fill();
+      g.fillStyle='#cfe';g.font='11px monospace';g.fillText((p.name||'').slice(0,10),p.x+12,p.y+4);}
+    g.fillStyle='#54e6ff';g.beginPath();g.arc(_lme.x,_lme.y,10,0,6.283);g.fill();}
+  const r=document.getElementById('lobbyroster');
+  if(r&&typeof Lobby!=='undefined')r.textContent='In room '+(Lobby.room||'—')+': '+(Lobby.count()+1)+' player(s)';
+  _lobbyRaf=requestAnimationFrame(_lobbyRender);}
+if(_lobbyCv)_lobbyCv.addEventListener('pointerdown',e=>{const b=_lobbyCv.getBoundingClientRect();
+  _lme.tx=(e.clientX-b.left)*(_lobbyCv.width/b.width);_lme.ty=(e.clientY-b.top)*(_lobbyCv.height/b.height);});
+const _lobbyBtn=document.getElementById('lobbybtn');if(_lobbyBtn)_lobbyBtn.onclick=openLobby;
+const _lobbyJoin=document.getElementById('lobbyjoin');if(_lobbyJoin)_lobbyJoin.onclick=joinLobby;
+const _lobbyLeave=document.getElementById('lobbyleave');if(_lobbyLeave)_lobbyLeave.onclick=closeLobby;
+
 renderGlobal(_gdiff);   // prime the global board (resolves to offline/empty when unconfigured)
 bootMenu();             // first-run players get the username modal before the menu
 generateNebula();   // build the deep-space background tile once at startup

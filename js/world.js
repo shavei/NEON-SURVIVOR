@@ -203,6 +203,7 @@ function killEnemy(e,col){
   score+=e.sc;kills++;
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Music.exitBoss();   // next boss 50s after this one falls; music back to normal track
+    if(typeof Ach!=='undefined')Ach.onBossKill();              // achievements: count Wardens felled this run
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
     shake=Math.min(shake+18,24);Sound.boom();flashHit();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
     floatText(e.x,e.y-30,'BOSS DOWN  +'+e.sc,'#ffd95e');
