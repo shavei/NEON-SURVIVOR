@@ -130,6 +130,15 @@ function draw(){
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
+  // 11b. Co-op teammates — ghost interceptors (world-space; Lobby.peers already lerped by Lobby.step)
+  if(typeof Coop!=='undefined'&&Coop.active&&typeof Lobby!=='undefined'){
+    ctx.textAlign='center';ctx.font='700 11px Inter,sans-serif';
+    for(const id in Lobby.peers){const mt=Lobby.peers[id];ctx.save();ctx.translate(mt.x,mt.y);
+      ctx.globalAlpha=.85;ctx.fillStyle=mt.color||'#54e6ff';ctx.shadowBlur=12;ctx.shadowColor=mt.color||'#54e6ff';
+      ctx.beginPath();ctx.arc(0,0,11,0,7);ctx.fill();ctx.shadowBlur=0;
+      ctx.globalAlpha=1;ctx.fillStyle='#cfe';ctx.fillText((mt.name||'').slice(0,10),0,-16);ctx.restore();}
+    ctx.textAlign='left';}
+
   // 12. Deflector Energy Shield Matrices
   if(p.shield>0){const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,ss=dotSprite('#54e6b5'),vr=11;
     for(let k=0;k<orbs;k++){const a=p.shieldAng+k/orbs*6.283;const ox=ipx+Math.cos(a)*rad,oy=ipy+Math.sin(a)*rad;

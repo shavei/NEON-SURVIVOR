@@ -50,6 +50,7 @@ const Lobby = {
       }
       for (const key in this.peers) if (!seen[key]) delete this.peers[key];   // left the room
       if (typeof this.onRoster === 'function') this.onRoster(this.peers);
+      if (typeof Coop !== 'undefined' && Coop.onSync) Coop.onSync();          // re-elect the enemy host on join/leave
     });
 
     ch.on('broadcast', { event: 'pos' }, ({ payload }) => {
@@ -64,13 +65,21 @@ const Lobby = {
                          color: (profile && profile.color) || '#54e6ff', x: 0, y: 0 }); } catch (e) {}
       }
     });
+    if (typeof Coop !== 'undefined' && Coop.bind) Coop.bind(ch);   // attach PvE co-op broadcast handlers
     this.channel = ch;
     return true;
   },
 
   leave() {
+    if (typeof Coop !== 'undefined' && Coop.unbind) Coop.unbind();
     if (this.channel) { try { this.channel.unsubscribe(); } catch (e) {} }
     this.channel = null; this.room = null; this.peers = Object.create(null);
+  },
+
+  /* generic broadcast send on the lobby channel (used by the PvE co-op layer); quiet when not joined */
+  send(event, payload) {
+    if (!this.channel) return;
+    try { this.channel.send({ type: 'broadcast', event, payload }); } catch (e) {}
   },
 
   /* push the local avatar — throttled to SEND_MS and only when it actually moved (quiet when idle) */
