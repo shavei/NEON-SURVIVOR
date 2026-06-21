@@ -120,6 +120,7 @@ function loop(ts){now=ts;
     alpha=acc/STEP;                                    // fractional tick → render interpolation factor
     draw();
     if(typeof Coop!=='undefined')Coop.netTick(ts,dt);  // co-op pump: push my pos, glide peers, host broadcasts roster
+    if(typeof NetSync!=='undefined')NetSync.flush(ts);  // shared-world pump: batch-send my per-tick inputs
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
     if((state==='levelup'||state==='pause')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position

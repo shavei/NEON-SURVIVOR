@@ -53,6 +53,7 @@ const Lobby = {
       for (const key in this.peers) if (!seen[key]) delete this.peers[key];   // left the room
       if (typeof this.onRoster === 'function') this.onRoster(this.peers);
       if (typeof Coop !== 'undefined' && Coop.onSync) Coop.onSync();          // re-elect the enemy host on join/leave
+      if (typeof NetSync !== 'undefined' && NetSync.onPresence) NetSync.onPresence(st, this.me);   // agree the shared worldSeed
     });
 
     ch.on('broadcast', { event: 'pos' }, ({ payload }) => {
@@ -63,10 +64,11 @@ const Lobby = {
 
     ch.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        try { ch.track({ name: this.profile.name, color: this.profile.color, alive: true, x: 0, y: 0 }); } catch (e) {}
+        try { ch.track({ name: this.profile.name, color: this.profile.color, alive: true, x: 0, y: 0, seed: (typeof NetSync !== 'undefined' ? NetSync.localSeed() : undefined) }); } catch (e) {}
       }
     });
     if (typeof Coop !== 'undefined' && Coop.bind) Coop.bind(ch);   // attach PvE co-op broadcast handlers
+    if (typeof NetSync !== 'undefined' && NetSync.bind) NetSync.bind(ch);   // attach shared-world input transport
     this.channel = ch;
     return true;
   },
@@ -81,7 +83,7 @@ const Lobby = {
   setAlive(a) {
     this._alive = a;
     if (!this.channel) return;
-    try { this.channel.track({ name: this.profile.name, color: this.profile.color, alive: a, x: this._lx, y: this._ly }); } catch (e) {}
+    try { this.channel.track({ name: this.profile.name, color: this.profile.color, alive: a, x: this._lx, y: this._ly, seed: (typeof NetSync !== 'undefined' ? NetSync.localSeed() : undefined) }); } catch (e) {}
   },
 
   /* generic broadcast send on the lobby channel (used by the PvE co-op layer); quiet when not joined */

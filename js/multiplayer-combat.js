@@ -77,9 +77,10 @@ const Coop = {
     this._lastRecv = Date.now(); this._recvHost = null; this._rseq = 0; this._migrations = 0;
     if (typeof Lobby.setAlive === 'function') Lobby.setAlive(true);
     this.electHost();
+    if (typeof NetSync !== 'undefined' && NetSync.start) NetSync.start();   // begin shared-world seed/input sync
     return true;
   },
-  stop() { this.active = false; this.host = false; },
+  stop() { this.active = false; this.host = false; if (typeof NetSync !== 'undefined' && NetSync.stop) NetSync.stop(); },
   /* my run ended: relinquish authority so peers re-elect off me, but stay in the lobby as a spectator */
   spectate() { this._alive = false; if (typeof Lobby !== 'undefined' && Lobby.setAlive) Lobby.setAlive(false); this.stop(); },
 
