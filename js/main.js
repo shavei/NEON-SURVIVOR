@@ -91,7 +91,7 @@ function _bossLine(){
 // stat line: exactly the player fields the 14 upgrades mutate — watch an upgrade land in real time
 function _statLine(){const p=player;
   return `DMG ${p.dmg.toFixed(1)} · RATE ${p.rate.toFixed(0)}f (${(60/p.rate).toFixed(1)}/s) · MULTI ${p.multi} · PIERCE ${p.pierce} · SPD ${p.speed.toFixed(2)} · `
-    +`HP ${Math.ceil(p.hp)}/${p.maxhp} · MAG ${Math.round(p.magnet)} · REGEN ${p.regen} · LS ${p.lifesteal} · MSL ${p.missile} · SHLD ${p.shield} · CHN ${p.chain} · Lv${p.level}`;}
+    +`HP ${Math.ceil(p.hp)}/${p.maxhp} · MAG ${Math.round(p.magnet)} · REGEN ${p.regenRate} · RUSH ${p.rushT} · LS ${p.lifesteal} · MSL ${p.missile} · SHLD ${p.shield} · CHN ${p.chain} · Lv${p.level}`;}
 function perfFrame(ts){
   if(!_perf.on)return;
   if(_perf.last){const d=ts-_perf.last;_perf.sum+=d;if(d>_perf.worst)_perf.worst=d;_perf.n++;}
@@ -157,7 +157,7 @@ function showPause(){
   const dps=elapsed>0?(score/elapsed).toFixed(1):'0';
   const stats=[['⏱ '+m+':'+String(s).padStart(2,'0'),'survived'],[score,'score'],[kills,'kills'],
     [wave,'wave'],['Lv '+p.level,'level'],[Math.ceil(p.hp)+'/'+p.maxhp,'health'],
-    [enemies.length,'on screen'],[dps,'score / s'],[(p.lifesteal||p.regen?'on':'—'),'sustain']];
+    [enemies.length,'on screen'],[dps,'score / s'],[(p.lifesteal||p.regenRate?'on':'—'),'sustain']];
   document.getElementById('pausestats').innerHTML=stats.map(([v,l])=>`<div class="pstat"><b>${v}</b><span>${l}</span></div>`).join('');
   const owned=UPGRADES.filter(u=>Up[u.id]);
   document.getElementById('pausebuild').innerHTML=owned.length
@@ -168,7 +168,7 @@ function showPause(){
     ['🔱 Projectiles',p.multi],['➶ Pierce',p.pierce],
     ['➹ Bullet spd',p.bulletSpd.toFixed(1)],['🥾 Move spd',p.speed.toFixed(2)],
     ['❤️ Max HP',p.maxhp],['🧲 Magnet',Math.round(p.magnet)],
-    ['✚ Regen',p.regen+'/s'],['🩸 Lifesteal',p.lifesteal+'/kill']];
+    ['✚ Regen',p.regenRate+'/s'],['🩸 Lifesteal',p.lifesteal+'/kill']];
   if(p.missile)cs.push(['🚀 Missiles','Lv '+p.missile]);
   if(p.shield)cs.push(['🛡️ Shield','Lv '+p.shield]);
   if(p.chain)cs.push(['🌩️ Lightning','Lv '+p.chain]);

@@ -35,9 +35,10 @@ function update(){
   if(p.inv>0)p.inv--;
   if(p.lsCd>0)p.lsCd--;
   p.near=nearestTo(p);                       // cache nearest enemy once per frame (used by fire + draw)
-  if(p.regen>0&&p.hp<p.maxhp){p.regenAcc+=p.regen/60;if(p.regenAcc>=1){p.hp=Math.min(p.maxhp,p.hp+1);p.regenAcc-=1;}}
+  if(p.regenRate>0&&p.hp<p.maxhp){p.regenAcc+=p.regenRate/60;if(p.regenAcc>=1){p.hp=Math.min(p.maxhp,p.hp+1);p.regenAcc-=1;}}
 
   if(p.rageT>0)p.rageT--;
+  if(p.rushT>0)p.rushT--;
   p.cool--;if(p.cool<=0){fire();p.cool=p.rageT>0?p.rate*.5:p.rate;}
   if(p.missile>0){p.missileCool--;if(p.missileCool<=0){fireMissiles();p.missileCool=Math.max(40,150-p.missile*14);}}
   if(p.chain>0){p.chainCool--;if(p.chainCool<=0){castChain();p.chainCool=Math.max(34,120-p.chain*12);}}
@@ -133,8 +134,8 @@ function update(){
     if(_coopClient){if(o.tx!==undefined){o.x+=(o.tx-o.x)*0.25;o.y+=(o.ty-o.y)*0.25;}continue;}
     const mp=_coopOn?Coop.nearestPlayer(o):p;
     const dx=o.x-mp.x,dy=o.y-mp.y;const dSq=dx*dx+dy*dy;
-    if(dSq<p.magnetSq){
-      const d=Math.sqrt(dSq)||1,pull=clamp((p.magnet-d)/p.magnet*6,.6,6);
+    if(o.homing||dSq<p.magnetSq){   // homing orbs (solo XP Rush pulse) ignore magnet range; range stat itself is never mutated
+      const d=Math.sqrt(dSq)||1,pull=o.homing?Math.max(d*.25,6):clamp((p.magnet-d)/p.magnet*6,.6,6);
       o.x-=dx/d*pull;o.y-=dy/d*pull;}   // pull toward player without atan2/cos/sin
     const collectR=p.r+6;
     if(dSq<(collectR*collectR)){orbs.splice(i,1);
@@ -179,7 +180,7 @@ function updateShared(){
     if((a.y<=a.r&&a.vy<0)||(a.y>=WORLD.h-a.r&&a.vy>0))a.vy*=-.3;
     if(a.inv>0)a.inv--;if(a.lsCd>0)a.lsCd--;
     a.near=nearestTo(a);
-    if(a.regen>0&&a.hp<a.maxhp){a.regenAcc+=a.regen/60;if(a.regenAcc>=1){a.hp=Math.min(a.maxhp,a.hp+1);a.regenAcc-=1;}}
+    if(a.regenRate>0&&a.hp<a.maxhp){a.regenAcc+=a.regenRate/60;if(a.regenAcc>=1){a.hp=Math.min(a.maxhp,a.hp+1);a.regenAcc-=1;}}
     if(a.rageT>0)a.rageT--;
     if(a.dead)continue;                                  // downed avatars spectate: no weapons, no contact
     a.cool--;if(a.cool<=0){fire(a);a.cool=a.rageT>0?a.rate*.5:a.rate;}
