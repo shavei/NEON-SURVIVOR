@@ -16,6 +16,7 @@ function update(){
   if(keys['w']||keys['arrowup'])my-=1;if(keys['s']||keys['arrowdown'])my+=1;
   if(keys['a']||keys['arrowleft'])mx-=1;if(keys['d']||keys['arrowright'])mx+=1;
   if(touch){const dx=touch.x-touch.cx,dy=touch.y-touch.cy,m=Math.hypot(dx,dy);if(m>8){mx=dx/m;my=dy/m;}}
+  if(typeof NetSync!=='undefined')NetSync.localInput(frame,mx,my);   // shared-world: record this tick's input (no-op unless active)
   const ml=Math.hypot(mx,my);
   const tvx=ml?mx/ml*p.speed:0,tvy=ml?my/ml*p.speed:0;
   const ease=ml?p.accel:p.accel*1.4;
