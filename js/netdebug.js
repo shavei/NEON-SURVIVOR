@@ -37,6 +37,14 @@ const NetDebug = {
       const P = Coop.spawnP(), mul = Coop.scaleMul(P);
       lines.push(`COOP ${Coop.active ? 'ON' : 'off'} · host=${Coop.host} · P=${P} · mul=${mul.toFixed(2)}` +
                  ` · fake=${Coop._fake == null ? '—' : Coop._fake} · ÷√P=${(1 / Math.sqrt(Math.max(1, P))).toFixed(2)}`);
+      if (Coop.active) {
+        const ne = (typeof enemies !== 'undefined') ? enemies.length : 0;
+        const no = (typeof orbs !== 'undefined') ? orbs.length : 0;
+        const ni = (typeof items !== 'undefined') ? items.length : 0;
+        lines.push(`Entities Synced: ${ne + no + ni}  (enemies ${ne} · orbs ${no} · items ${ni}) seq=${Coop._rseq || Coop._seq || 0}`);
+        lines.push(`Broadcast Latency: ${Coop.host ? '— (host)' : ((Coop._lat | 0) + 'ms')}` +
+                   ` · host=${(Coop._recvHost || (Coop.host && L ? L.me : '?'))} · migrations=${Coop._migrations || 0} · alive=${Coop._alive}`);
+      }
     }
     if (typeof Ach !== 'undefined') {
       const last = Ach._last;

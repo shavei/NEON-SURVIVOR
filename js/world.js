@@ -9,6 +9,7 @@ let nextBoss=60,bossOn=false,_test=false;   // _test: Test Mode (one-hit bosses,
 let t0,now,score,wave,spawnTimer,itemTimer,shake,frame,kills,pauseStart=0,pendingLevels=0;
 let best=+(localStorage.getItem('neon_best')||0);
 let _eid=0;   // monotonically rising enemy id — host stamps it; clients reconcile the roster by it (co-op)
+let _oid=0,_iid=0;   // monotonic XP-orb / item ids — host stamps; clients reconcile drops by them (co-op)
 /* ----- FIXED-TIMESTEP SIM CLOCK -----
  * The sim advances in discrete 1/60 s ticks regardless of display refresh, so the game plays
  * identically on 60 / 144 / 240 Hz monitors (was frame-locked → ran 2.4× fast on 144 Hz).
@@ -192,6 +193,7 @@ function fire(){
     bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*player.bulletSpd,vy:Math.sin(a)*player.bulletSpd,r:4,dmg,pierce:player.pierce,life:70});}
   shake=Math.min(shake+1.2,7);
   if(now-lastShootSnd>60){Sound.shoot();lastShootSnd=now;}
+  if(typeof Coop!=='undefined')Coop.fireShot(player.x,player.y,baseAng);   // co-op: broadcast a cosmetic shot tracer (no-op solo/offline)
 }
 function burst(x,y,col,n,sp){n=Math.min(n,340-particles.length);if(n<=0)return;
   for(let i=0;i<n;i++){const a=rand(0,7),s=rand(.5,sp);
@@ -208,6 +210,8 @@ function hitEnemy(e,dmg,col){
 function killEnemy(e,col){
   const i=enemies.indexOf(e);if(i<0)return;e.dead=true;enemies.splice(i,1);
   score+=e.sc;kills++;
+  // _own = solo OR co-op host: only the authority spawns drops; clients receive them via the host snapshot
+  const _own=(typeof Coop==='undefined'||!Coop.active||Coop.host);
   if(typeof Coop!=='undefined')Coop.onKill(e);   // co-op host: broadcast the kill so every client replays it
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Music.exitBoss();   // next boss 50s after this one falls; music back to normal track
@@ -215,17 +219,17 @@ function killEnemy(e,col){
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
     shake=Math.min(shake+18,24);Sound.boom();flashHit();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
     floatText(e.x,e.y-30,'BOSS DOWN  +'+e.sc,'#ffd95e');
-    for(let k=0;k<e.xp;k++)orbs.push({x:e.x+rand(-40,40),y:e.y+rand(-40,40),r:4,xp:1,col:'#54e6b5'});
-    const it=ITEMS[Math.floor(rand(0,ITEMS.length))];     // guaranteed reward drop
-    items.push({x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
-    showToast(it.ico,it.label+' (boss drop)',it.col);
+    if(_own){for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+rand(-40,40),y:e.y+rand(-40,40),r:4,xp:1,col:'#54e6b5'});
+      const it=ITEMS[Math.floor(rand(0,ITEMS.length))];     // guaranteed reward drop
+      items.push({id:++_iid,x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
+      showToast(it.ico,it.label+' (boss drop)',it.col);}
     return;
   }
   burst(e.x,e.y,e.col,e.type==='tank'?22:10,e.type==='tank'?5:4);
   floatText(e.x,e.y,'+'+e.sc,e.col);shake=Math.min(shake+(e.type==='tank'?6:1.5),10);Sound.death();
   if(player.lifesteal>0&&player.lsCd<=0&&player.hp<player.maxhp){
     player.hp=Math.min(player.maxhp,player.hp+player.lifesteal);player.lsCd=6;}   // capped to ~10 HP/s
-  for(let k=0;k<e.xp;k++)orbs.push({x:e.x+rand(-8,8),y:e.y+rand(-8,8),r:4,xp:1,col:'#54e6b5'});
+  if(_own)for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+rand(-8,8),y:e.y+rand(-8,8),r:4,xp:1,col:'#54e6b5'});
 }
 
 /* ========== PICKUPS ========== */
@@ -238,17 +242,23 @@ const ITEMS=[
 function spawnItem(){const t=ITEMS[Math.floor(rand(0,ITEMS.length))];
   const ang=rand(0,6.283),d=rand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
   const x=clamp(player.x+Math.cos(ang)*d,90,WORLD.w-90),y=clamp(player.y+Math.sin(ang)*d,90,WORLD.h-90);
-  items.push({x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
+  items.push({id:++_iid,x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
   showToast(t.ico,t.label,t.col);}
 function showToast(ico,label,col){const el=document.getElementById('toast');
   el.style.setProperty('--tc',col);el.style.color=col;
   el.innerHTML=`<span class="tico">${ico}</span><span>${label}<br><small>appeared on the map</small></span>`;
   el.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
+/* co-op seam: heal/rage are PERSONAL (always local to the toucher); bomb/magnet are GLOBAL world
+ * effects the host owns — a non-host toucher only reports the pickup and lets the host apply them. */
 function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
+  const coopOn=(typeof Coop!=='undefined'&&Coop.active),coopClient=coopOn&&!Coop.host;
+  if(coopClient)Coop.reportPickup(it);   // host removes the item + applies global bomb/magnet for everyone
   if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Sound.tone(440,900,.25,'sine',.09);}
-  else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
+  else if(it.type==='bomb'){if(coopClient)return;for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
     shake=Math.min(shake+18,22);Sound.boom();burst(p.x,p.y,'#ffd95e',46,9);flashHit();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
-  else if(it.type==='magnet'){for(let i=orbs.length-1;i>=0;i--)gainXP(orbs[i].xp);orbs.length=0;
+  else if(it.type==='magnet'){if(coopClient)return;
+    if(coopOn){let tot=0;for(let i=orbs.length-1;i>=0;i--)tot+=orbs[i].xp;orbs.length=0;Coop.shareXP(tot);}   // shared pool: everyone levels
+    else{for(let i=orbs.length-1;i>=0;i--)gainXP(orbs[i].xp);orbs.length=0;}
     Sound.pickup();floatText(p.x,p.y-22,'XP RUSH','#54e6b5');}
   else if(it.type==='rage'){p.rageT=540;Sound.tone(180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
 }

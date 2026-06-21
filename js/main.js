@@ -132,7 +132,7 @@ function startGame(){Sound.init();Sound.resume();Music.start();reset();state='pl
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');}
 function gameOver(){state='over';Music.die();
-  if(typeof Coop!=='undefined')Coop.stop();   // drop out of the co-op enemy net; remaining players continue
+  if(typeof Coop!=='undefined')Coop.spectate();   // relinquish authority (alive:false) so a living teammate hosts on — no enemy freeze
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);

@@ -60,5 +60,31 @@ Lobby.peers = {}; Coop.electHost(); ok(Coop.host === true, 'sole occupant is hos
 const e = { id: 99, hp: 100, hit: 0 }; hitEnemyFn(e, 30, '#fff');
 ok(e.hp === 70 && e.hit === 6, 'hitEnemy applies damage directly in solo/host path');
 
+// 6) liveness-aware election: a DEAD host is excluded so authority migrates to the next living client
+Coop._alive = true;
+Lobby.me = 'bbb'; Lobby.peers = { aaa: { alive: false }, ccc: { alive: true } }; Coop.electHost();
+ok(Coop.host === true, 'lowest LIVING id hosts (dead aaa skipped → bbb)');
+Lobby.peers = { aaa: { alive: true }, ccc: {} }; Coop.electHost();
+ok(Coop.host === false, 'a living lower peer (aaa) reclaims the host role');
+Coop._alive = false; Lobby.peers = { ccc: { alive: true } }; Coop.electHost();
+ok(Coop.host === false, 'a dead local client never elects itself host');
+Coop._alive = true;
+
+// 7) heartbeat migration target: excluding the silent host, the next living id is chosen (me here)
+Lobby.me = 'bbb'; Lobby.peers = { aaa: { alive: true } };
+ok(Coop._hostId(null) === 'aaa', 'host id = lowest living (aaa)');
+ok(Coop._hostId('aaa') === 'bbb', 'excluding the silent host → I (bbb) self-promote');
+
+// 8) spectate() relinquishes authority (alive:false) without throwing when there is no channel
+let threw2 = false; try { Coop.spectate(); } catch (e2) { threw2 = true; }
+ok(!threw2 && Coop._alive === false && Coop.active === false, 'spectate() marks dead + stops, channel-free safe');
+Coop._alive = true;
+
+// 9) shot/drops/pickup/xp handlers are inert while inactive (solo/headless contract)
+Coop.active = false; let threw3 = false;
+try { Coop.fireShot(1, 2, 0); Coop.applyShot({ id: 'x', x: 1, y: 2, a: 0 }); Coop.applyDrops({ o: [], it: [] });
+  Coop.applyPickup({ id: 1, type: 'bomb' }); Coop.applyXP({ n: 5 }); Coop.shareXP(0); } catch (e3) { threw3 = true; }
+ok(!threw3, 'fireShot/applyShot/applyDrops/applyPickup/applyXP/shareXP safe while inactive');
+
 console.log(fail ? ('\nCOOP — ' + fail + ' FAILED') : '\nCOOP — ALL PASS');
 process.exit(fail ? 1 : 0);

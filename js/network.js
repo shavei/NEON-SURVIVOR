@@ -9,8 +9,8 @@
  * the last received target with frame-rate-independent exponential smoothing (see step()/_smooth). */
 
 const Lobby = {
-  room: null, channel: null, me: null,
-  peers: Object.create(null),       // id -> { name,color, x,y, tx,ty, lastSeen }
+  room: null, channel: null, me: null, profile: null, _alive: true,
+  peers: Object.create(null),       // id -> { name,color, alive, x,y, tx,ty, lastSeen }
   onRoster: null,                   // callback(peers) on join/leave
   SMOOTH: 12,                       // lerp stiffness — higher = snappier, lower = floatier
   SEND_MS: 100,                     // outbound position cadence (~10 Hz)
@@ -33,7 +33,8 @@ const Lobby = {
     this.leave();
     const p = (typeof getPlayer === 'function') && getPlayer();
     this.me = (p && p.id) || (profile && profile.id) || 'me';
-    this.room = roomId;
+    this.room = roomId; this._alive = true;
+    this.profile = { name: (profile && profile.name) || (p && p.name) || 'Player', color: (profile && profile.color) || '#54e6ff' };
     this.peers = Object.create(null);
     const ch = SB.channel('lobby:' + roomId, { config: { presence: { key: this.me } } });
 
@@ -43,10 +44,11 @@ const Lobby = {
         if (key === this.me) continue;
         const meta = (st[key] && st[key][0]) || {}; seen[key] = 1;
         const peer = this.peers[key] || (this.peers[key] = {
-          name: meta.name || '???', color: meta.color || '#54e6ff',
+          name: meta.name || '???', color: meta.color || '#54e6ff', alive: meta.alive !== false,
           x: meta.x || 0, y: meta.y || 0, tx: meta.x || 0, ty: meta.y || 0, lastSeen: now,
         });
-        peer.name = meta.name || peer.name; peer.color = meta.color || peer.color; peer.lastSeen = now;
+        peer.name = meta.name || peer.name; peer.color = meta.color || peer.color;
+        peer.alive = meta.alive !== false; peer.lastSeen = now;   // liveness drives co-op host election (dead hosts excluded)
       }
       for (const key in this.peers) if (!seen[key]) delete this.peers[key];   // left the room
       if (typeof this.onRoster === 'function') this.onRoster(this.peers);
@@ -61,8 +63,7 @@ const Lobby = {
 
     ch.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        try { ch.track({ name: (profile && profile.name) || (p && p.name) || 'Player',
-                         color: (profile && profile.color) || '#54e6ff', x: 0, y: 0 }); } catch (e) {}
+        try { ch.track({ name: this.profile.name, color: this.profile.color, alive: true, x: 0, y: 0 }); } catch (e) {}
       }
     });
     if (typeof Coop !== 'undefined' && Coop.bind) Coop.bind(ch);   // attach PvE co-op broadcast handlers
@@ -74,6 +75,13 @@ const Lobby = {
     if (typeof Coop !== 'undefined' && Coop.unbind) Coop.unbind();
     if (this.channel) { try { this.channel.unsubscribe(); } catch (e) {} }
     this.channel = null; this.room = null; this.peers = Object.create(null);
+  },
+
+  /* re-track presence with a new alive flag — a dead host broadcasts alive:false so peers re-elect off it */
+  setAlive(a) {
+    this._alive = a;
+    if (!this.channel) return;
+    try { this.channel.track({ name: this.profile.name, color: this.profile.color, alive: a, x: this._lx, y: this._ly }); } catch (e) {}
   },
 
   /* generic broadcast send on the lobby channel (used by the PvE co-op layer); quiet when not joined */

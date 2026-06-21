@@ -60,12 +60,16 @@ function update(){
     for(let i=0;i<c;i++)spawnEnemy();}spawnTimer=interval;}
   if(_coopHost&&!bossOn&&elapsed>=nextBoss)spawnBoss();   // boss waves (host-authoritative in co-op; first at 60s)
 
-  // Cargo Pickups Matrix Optimization
-  itemTimer--;if(itemTimer<=0){spawnItem();itemTimer=Math.floor(rand(1500,2100));}
-  for(let i=items.length-1;i>=0;i--){const it=items[i];it.life--;
+  // Cargo Pickups Matrix Optimization — host/solo own spawning + lifetime; clients render the host's items
+  const _coopOn=(typeof Coop!=='undefined'&&Coop.active),_coopClient=_coopOn&&!Coop.host;
+  itemTimer--;if(itemTimer<=0){if(!_coopOn||Coop.host)spawnItem();itemTimer=Math.floor(rand(1500,2100));}
+  for(let i=items.length-1;i>=0;i--){const it=items[i];
+    if(!_coopClient)it.life--;                              // host/solo own lifetime; clients wait for the snapshot to drop it
     if(it.life<=0){items.splice(i,1);continue;}
     const dx=it.x-p.x,dy=it.y-p.y,pRadius=p.r+20;
-    if((dx*dx+dy*dy)<(pRadius*pRadius)){pickItem(it);items.splice(i,1);}}
+    if((dx*dx+dy*dy)<(pRadius*pRadius)){
+      if(_coopClient){if(!it._got){it._got=1;pickItem(it);}}   // report once; host removal arrives via snapshot
+      else{pickItem(it);items.splice(i,1);}}}
 
   // Plasma Railgun Bolts Matrix Optimization
   for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
@@ -122,13 +126,19 @@ function update(){
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
   // Energy Core / XP Orbs Tractor Pull Matrix Optimization
+  // Co-op: orbs are host-authoritative. Clients just glide to the host roster (no local magnet/collect);
+  // the host magnets each orb toward its NEAREST player and, on collect, grants SHARED XP to everyone.
   for(let i=orbs.length-1;i>=0;i--){const o=orbs[i];
-    const dx=o.x-p.x,dy=o.y-p.y;const dSq=dx*dx+dy*dy;
+    if(_coopClient){if(o.tx!==undefined){o.x+=(o.tx-o.x)*0.25;o.y+=(o.ty-o.y)*0.25;}continue;}
+    const mp=_coopOn?Coop.nearestPlayer(o):p;
+    const dx=o.x-mp.x,dy=o.y-mp.y;const dSq=dx*dx+dy*dy;
     if(dSq<p.magnetSq){
       const d=Math.sqrt(dSq)||1,pull=clamp((p.magnet-d)/p.magnet*6,.6,6);
       o.x-=dx/d*pull;o.y-=dy/d*pull;}   // pull toward player without atan2/cos/sin
     const collectR=p.r+6;
-    if(dSq<(collectR*collectR)){orbs.splice(i,1);gainXP(o.xp);burst(o.x,o.y,'#54e6b5',5,2.5);Sound.pickup();}}
+    if(dSq<(collectR*collectR)){orbs.splice(i,1);
+      if(_coopOn&&Coop.host)Coop.orbCollected(o);else gainXP(o.xp);
+      burst(o.x,o.y,'#54e6b5',5,2.5);Sound.pickup();}}
 
   for(let i=particles.length-1;i>=0;i--){const q=particles[i];q.x+=q.vx;q.y+=q.vy;q.vx*=.92;q.vy*=.92;q.life--;if(q.life<=0)particles.splice(i,1);}
   for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.y+=f.vy;f.life--;if(f.life<=0)floats.splice(i,1);}
