@@ -5,6 +5,7 @@
 /* ========== STATE ENGINE ========== */
 let state='start';
 let player,enemies,bullets,orbs,particles,floats,missiles,bolts,items,ebullets;
+let players=[];   // shared-world: ALL avatars (local + remotes). Solo/legacy = [player]. Drives spawn anchor + targeting.
 let nextBoss=60,bossOn=false,_test=false;   // _test: Test Mode (one-hit bosses, manual spawn — key B)
 let t0,now,score,wave,spawnTimer,itemTimer,shake,frame,kills,pauseStart=0,pendingLevels=0;
 let best=+(localStorage.getItem('neon_best')||0);
@@ -110,13 +111,42 @@ function nearestTo(pt,exclude){
   return n;
 }
 
+/* ===== SHARED-WORLD AVATARS =====
+ * Every player is a full sim body of this exact shape (the local one is `player`). makeAvatar() keeps
+ * solo byte-identical (same fields/values the old reset literal produced; extra id/input are invisible
+ * to the verify-equiv snapshot). Spawn anchor + targeting read the whole `players` set so every machine,
+ * simulating all avatars from shared inputs, computes the IDENTICAL world. */
+function makeAvatar(x,y,id){
+  return {id:id||'local',input:[0,0],
+    x,y,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
+    rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
+    xp:0,level:1,next:8,regen:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,
+    missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:x,py:y};
+}
+/* deterministic spawn reference: with >1 avatar use the centroid (machine-independent — `player` is the
+ * LOCAL avatar and differs per machine); solo returns `player` exactly so spawnEnemy stays byte-identical. */
+function spawnAnchor(){
+  if(players.length<=1)return player;
+  let sx=0,sy=0;for(let i=0;i<players.length;i++){sx+=players[i].x;sy+=players[i].y;}
+  return {x:sx/players.length,y:sy/players.length};
+}
+function nearestAvatar(pt){
+  let best=player,bd=1e18;const ps=players.length?players:[player];
+  for(let i=0;i<ps.length;i++){const a=ps[i],dx=a.x-pt.x,dy=a.y-pt.y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=a;}}
+  return best;
+}
+/* SHARED XP pool — a banked orb levels EVERY avatar identically (the plan's "both level together"),
+ * keeping all avatars in deterministic lockstep across machines. */
+function gainXPShared(n){
+  for(let i=0;i<players.length;i++){const a=players[i];a.xp+=n;
+    while(a.xp>=a.next){a.xp-=a.next;a.level++;a.next=Math.floor(a.next*1.32+3);}}
+}
+
 function reset(){
   initStars(); // <--- Builds the space starfield
 
-  player={x:WORLD.w/2,y:WORLD.h/2,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
-    rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
-    xp:0,level:1,next:8,regen:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,
-    missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:WORLD.w/2,py:WORLD.h/2};
+  player=makeAvatar(WORLD.w/2,WORLD.h/2);
+  players=[player];   // solo starts with a single avatar; shared-world adds remotes via NetSync roster
   acc=0;lastTs=0;alpha=0;slowmo=0;   // reset the sim clock for a clean run
 
   enemies=[];bullets=[];orbs=[];particles=[];floats=[];missiles=[];bolts=[];items=[];ebullets=[];
@@ -135,8 +165,9 @@ function reset(){
 /* ========== SPAWNING ========== */
 function spawnEnemy(){
   const elapsed=(now-t0)/1000;wave=1+Math.floor(elapsed/24);
+  const A=spawnAnchor();   // solo → player (byte-identical); shared-world → centroid of all avatars
   const ang=srand(0,6.283),d=Math.max(W,H)*.62+srand(0,160);
-  const x=clamp(player.x+Math.cos(ang)*d,24,WORLD.w-24),y=clamp(player.y+Math.sin(ang)*d,24,WORLD.h-24);
+  const x=clamp(A.x+Math.cos(ang)*d,24,WORLD.w-24),y=clamp(A.y+Math.sin(ang)*d,24,WORLD.h-24);
   const roll=srng();let type='grunt';
   if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';
   const base={
@@ -152,8 +183,9 @@ function spawnEnemy(){
 }
 function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=Math.max(1,Math.round(elapsed/60));
+  const A=spawnAnchor();
   const ang=srand(0,6.283),d=Math.max(W,H)*.62;
-  const x=clamp(player.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(player.y+Math.sin(ang)*d,60,WORLD.h-60);
+  const x=clamp(A.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(A.y+Math.sin(ang)*d,60,WORLD.h-60);
   let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
   if(_test)hp=1;                                    // Test Mode: one-hit boss to study patterns fast
   enemies.push({id:++_eid,x,y,r:46,hp,maxhp:hp,spd:BOSS.speedBase+tier*BOSS.speedTier,col:'#ff3b6b',
@@ -185,15 +217,15 @@ function bossAttack(e){
 }
 
 /* ========== COMBAT ========== */
-function fire(){
-  const near=player.near;if(!near)return;
-  const baseAng=Math.atan2(near.y-player.y,near.x-player.x);
-  const n=player.multi,spread=.16,dmg=player.rageT>0?player.dmg*1.6:player.dmg;
+function fire(p){p=p||player;   // p defaults to the local avatar → solo calls are byte-identical
+  const near=p.near;if(!near)return;
+  const baseAng=Math.atan2(near.y-p.y,near.x-p.x);
+  const n=p.multi,spread=.16,dmg=p.rageT>0?p.dmg*1.6:p.dmg;
   for(let i=0;i<n;i++){const a=baseAng+(i-(n-1)/2)*spread;
-    bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*player.bulletSpd,vy:Math.sin(a)*player.bulletSpd,r:4,dmg,pierce:player.pierce,life:70});}
+    bullets.push({x:p.x,y:p.y,vx:Math.cos(a)*p.bulletSpd,vy:Math.sin(a)*p.bulletSpd,r:4,dmg,pierce:p.pierce,life:70});}
   shake=Math.min(shake+1.2,7);
   if(now-lastShootSnd>60){Sound.shoot();lastShootSnd=now;}
-  if(typeof Coop!=='undefined')Coop.fireShot(player.x,player.y,baseAng);   // co-op: broadcast a cosmetic shot tracer (no-op solo/offline)
+  if(typeof Coop!=='undefined')Coop.fireShot(p.x,p.y,baseAng);   // co-op: broadcast a cosmetic shot tracer (no-op solo/offline)
 }
 function burst(x,y,col,n,sp){n=Math.min(n,340-particles.length);if(n<=0)return;
   for(let i=0;i<n;i++){const a=rand(0,7),s=rand(.5,sp);
@@ -264,15 +296,15 @@ function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
 }
 
 /* ========== WEAPON ARCHETYPES ========== */
-function fireMissiles(){
-  const count=Math.min(player.missile,5);
+function fireMissiles(p){p=p||player;
+  const count=Math.min(p.missile,5);
   EXCLUDE_SET.clear(); // Reused memory cache
   for(let i=0;i<count;i++){
-    let tgt=nearestTo(player,EXCLUDE_SET);
+    let tgt=nearestTo(p,EXCLUDE_SET);
     if(tgt)EXCLUDE_SET.add(tgt);
     const a=srand(0,7);
-    missiles.push({x:player.x,y:player.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
-      spd:5.2,turn:.18,r:5,dmg:22+player.missile*7,target:tgt,life:140});}
+    missiles.push({x:p.x,y:p.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
+      spd:5.2,turn:.18,r:5,dmg:22+p.missile*7,target:tgt,life:140});}
   Sound.tone(380,520,.12,'triangle',.05);
 }
 function explodeMissile(m){
@@ -283,11 +315,11 @@ function explodeMissile(m){
     if((dx*dx+dy*dy)<radSq)hitEnemy(e,m.dmg,'#ffd95e');}
 }
 
-function castChain(){
-  let cur=nearestTo(player);if(!cur)return;
-  const jumps=2+player.chain,dmg=16+player.chain*6,reach=190,reachSq=reach*reach;
+function castChain(p){p=p||player;
+  let cur=nearestTo(p);if(!cur)return;
+  const jumps=2+p.chain,dmg=16+p.chain*6,reach=190,reachSq=reach*reach;
   CHAIN_SET.clear(); // Reused memory cache
-  let fromX=player.x,fromY=player.y;
+  let fromX=p.x,fromY=p.y;
   for(let j=0;j<jumps;j++){if(!cur)break;CHAIN_SET.add(cur);
     bolts.push({a:{x:fromX,y:fromY},b:{x:cur.x,y:cur.y},life:9});
     hitEnemy(cur,dmg,'#7c8cff');burst(cur.x,cur.y,'#9db0ff',6,3);

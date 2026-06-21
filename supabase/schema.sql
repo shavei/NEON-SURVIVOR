@@ -119,3 +119,31 @@ insert into public.achievement_defs (id,title,description,metric,threshold,diffi
 on conflict (id) do update set
   title=excluded.title, description=excluded.description, metric=excluded.metric,
   threshold=excluded.threshold, difficulty=excluded.difficulty, sort=excluded.sort;
+
+
+-- ============================================================
+-- SHARED WORLD STATE — durable snapshot of an in-progress co-op run, so a reconnecting or late-joining
+-- player hydrates into the world already in motion instead of a blank session (docs/PLAN-multiplayer-sync.md).
+-- One row per room, overwritten in place by the seed-authority every ~2 s → trivial storage, bounded writes.
+-- Read by anyone in the room; like the leaderboard, RLS (not the anon key) is the only boundary.
+create table if not exists public.world_state (
+  room        text        primary key,
+  seed        bigint      not null,
+  tick        bigint      not null default 0,
+  snapshot    jsonb       not null,
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.world_state enable row level security;
+
+drop policy if exists "anyone can read world"   on public.world_state;
+drop policy if exists "anyone can upsert world" on public.world_state;
+
+create policy "anyone can read world"
+  on public.world_state for select using (true);
+
+-- co-op peers upsert the room's live snapshot; bounded by the in-game ~2 s cadence
+create policy "anyone can upsert world"
+  on public.world_state for insert with check (char_length(room) between 1 and 64);
+create policy "anyone can update world"
+  on public.world_state for update using (char_length(room) between 1 and 64);

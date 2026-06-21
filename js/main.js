@@ -114,13 +114,16 @@ function loop(ts){now=ts;
     if(slowmo>0){slowmo-=dt;dt*=.35;}                  // boss-death slow-motion (real-time, frame-rate independent)
     acc+=dt;
     let n=0;
-    while(acc>=STEP&&n<MAXSUBSTEP&&state==='play'){update();acc-=STEP;n++;}   // update() may flip state (gameOver/levelup) → stop simulating at once
+    while(acc>=STEP&&n<MAXSUBSTEP&&state==='play'){                          // update() may flip state (gameOver/levelup) → stop simulating at once
+      if(typeof NetSync!=='undefined'&&NetSync.lockstep){if(!NetSync.stepShared())break;}   // shared world: advance only when every peer's input has arrived (else stall, never fork)
+      else update();
+      acc-=STEP;n++;}
     if(n===MAXSUBSTEP)acc=0;                           // drop unrecoverable backlog
     _perf.ticks=n;
     alpha=acc/STEP;                                    // fractional tick → render interpolation factor
     draw();
     if(typeof Coop!=='undefined')Coop.netTick(ts,dt);  // co-op pump: push my pos, glide peers, host broadcasts roster
-    if(typeof NetSync!=='undefined')NetSync.flush(ts);  // shared-world pump: batch-send my per-tick inputs
+    if(typeof NetSync!=='undefined'){NetSync.flush(ts);NetSync.saveWorld(ts);}  // shared-world: send inputs + host persists a world snapshot (~0.5 Hz)
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
     if((state==='levelup'||state==='pause')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position

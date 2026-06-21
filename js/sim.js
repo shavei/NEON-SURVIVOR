@@ -148,3 +148,109 @@ function update(){
   if(pendingLevels>0&&state==='play'){pendingLevels--;Sound.level();openLevelUp();}
   updateHUD(elapsed);
 }
+
+/* ========== SHARED-WORLD TICK (lockstep) ==========
+ * Phase 3: the deterministic multi-avatar tick every peer runs in lockstep. Same seed (Phase 1) + same
+ * per-avatar inputs (Phase 2) => byte-identical world on every machine: ONE enemy/orb set, both avatars
+ * firing into it (real shared damage), shared XP pool. Reads each avatar's input from `a.input` (the
+ * stepper fills it from NetSync's ring). NOT called by solo — update() above is untouched, so the
+ * verify-equiv golden snapshot is unaffected. Cosmetic-only randomness (burst/particles) may differ
+ * between screens and is excluded from the convergence hash. */
+function updateShared(){
+  frame++;
+  const elapsed=(now-t0)/1000;
+  // interpolation snapshots for every shared body + every avatar
+  for(let i=0;i<players.length;i++){const a=players[i];a.px=a.x;a.py=a.y;}
+  cam.px=cam.x;cam.py=cam.y;
+  for(let i=0;i<enemies.length;i++){const e=enemies[i];e.px=e.x;e.py=e.y;}
+  for(let i=0;i<bullets.length;i++){const b=bullets[i];b.px=b.x;b.py=b.y;}
+  for(let i=0;i<missiles.length;i++){const m=missiles[i];m.px=m.x;m.py=m.y;}
+  for(let i=0;i<ebullets.length;i++){const b=ebullets[i];b.px=b.x;b.py=b.y;}
+  for(let i=0;i<orbs.length;i++){const o=orbs[i];o.px=o.x;o.py=o.y;}
+
+  // ---- every avatar: move from its lockstep input, run its own weapons into the SHARED world ----
+  for(let ai=0;ai<players.length;ai++){const a=players[ai];
+    let mx=a.input?a.input[0]:0,my=a.input?a.input[1]:0;
+    const ml=Math.hypot(mx,my);
+    const tvx=ml?mx/ml*a.speed:0,tvy=ml?my/ml*a.speed:0,ease=ml?a.accel:a.accel*1.4;
+    a.vx+=(tvx-a.vx)*ease;a.vy+=(tvy-a.vy)*ease;
+    a.x=clamp(a.x+a.vx,a.r,WORLD.w-a.r);a.y=clamp(a.y+a.vy,a.r,WORLD.h-a.r);
+    if((a.x<=a.r&&a.vx<0)||(a.x>=WORLD.w-a.r&&a.vx>0))a.vx*=-.3;
+    if((a.y<=a.r&&a.vy<0)||(a.y>=WORLD.h-a.r&&a.vy>0))a.vy*=-.3;
+    if(a.inv>0)a.inv--;if(a.lsCd>0)a.lsCd--;
+    a.near=nearestTo(a);
+    if(a.regen>0&&a.hp<a.maxhp){a.regenAcc+=a.regen/60;if(a.regenAcc>=1){a.hp=Math.min(a.maxhp,a.hp+1);a.regenAcc-=1;}}
+    if(a.rageT>0)a.rageT--;
+    if(a.dead)continue;                                  // downed avatars spectate: no weapons, no contact
+    a.cool--;if(a.cool<=0){fire(a);a.cool=a.rageT>0?a.rate*.5:a.rate;}
+    if(a.missile>0){a.missileCool--;if(a.missileCool<=0){fireMissiles(a);a.missileCool=Math.max(40,150-a.missile*14);}}
+    if(a.chain>0){a.chainCool--;if(a.chainCool<=0){castChain(a);a.chainCool=Math.max(34,120-a.chain*12);}}
+    if(a.shield>0){a.shieldAng+=.07;const sc=Math.min(a.shield+1,6),rad=48+a.shield*5,sdmg=10+a.shield*4;
+      for(let k=0;k<sc;k++){const sa=a.shieldAng+k/sc*6.283,ox=a.x+Math.cos(sa)*rad,oy=a.y+Math.sin(sa)*rad;
+        for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.scd>0)continue;
+          const dx=e.x-ox,dy=e.y-oy,dh=e.r+9;if((dx*dx+dy*dy)<(dh*dh)){hitEnemy(e,sdmg,'#54e6b5');e.scd=16;}}}}
+  }
+  // camera follows the LOCAL avatar (render-only; harmless if undefined headlessly)
+  if(player){const mx2=W*0.30,my2=H*0.30,sxp=player.x-cam.x,syp=player.y-cam.y;
+    if(sxp<mx2)cam.x=player.x-mx2;else if(sxp>W-mx2)cam.x=player.x-(W-mx2);
+    if(syp<my2)cam.y=player.y-my2;else if(syp>H-my2)cam.y=player.y-(H-my2);
+    cam.x=clamp(cam.x,0,Math.max(0,WORLD.w-W));cam.y=clamp(cam.y,0,Math.max(0,WORLD.h-H));}
+
+  // ---- shared spawner (centroid-anchored → identical on every machine) ----
+  const _P=players.length,_smul=1+(Math.max(1,_P)-1)*(typeof COOP!=='undefined'?COOP.perPlayer:0.7);
+  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1)/Math.sqrt(Math.max(1,_P));
+  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)*_smul));
+    for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
+  if(!bossOn&&elapsed>=nextBoss)spawnBoss();
+
+  // ---- enemies: chase the NEAREST avatar; contact-damage each avatar it touches ----
+  for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];if(e.hit>0)e.hit--;if(e.scd>0)e.scd--;if(e.cdmg>0)e.cdmg--;
+    const tgt=nearestAvatar(e);
+    const dxp=tgt.x-e.x,dyp=tgt.y-e.y,dp=Math.sqrt(dxp*dxp+dyp*dyp)||1,ux=dxp/dp,uy=dyp/dp;
+    if(e.boss&&e.dashT>0){e.x+=e.dvx;e.y+=e.dvy;if(--e.dashT<=0){e.bossT=bossCD();e.atk=2;}}
+    else{e.x+=ux*e.spd;e.y+=uy*e.spd;
+      if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}else if(--e.bossT<=0){e.tele=BOSS.teleT;}}}
+    for(let ai=0;ai<players.length;ai++){const a=players[ai];if(a.dead||a.inv>0||e.cdmg>0)continue;
+      const combR=(e.boss?e.r*BOSS.hitRMul:e.r)+a.r,ddx=a.x-e.x,ddy=a.y-e.y;
+      if(ddx*ddx+ddy*ddy<combR*combR){a.hp-=e.dmg;a.inv=e.boss?BOSS.invContact:7;e.cdmg=26;
+        e.x-=ux*12;e.y-=uy*12;if(a.hp<=0){a.hp=0;a.dead=true;}}}}   // downed → spectate; the shared sim keeps running for everyone
+
+  // ---- boss projectiles vs each avatar ----
+  for(let i=ebullets.length-1;i>=0;i--){const b=ebullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
+    if(b.life<=0){ebullets.splice(i,1);continue;}
+    for(let ai=0;ai<players.length;ai++){const a=players[ai];if(a.dead||a.inv>0)continue;
+      const dx=b.x-a.x,dy=b.y-a.y,rr=b.r+a.r;
+      if(dx*dx+dy*dy<rr*rr){a.hp-=b.dmg;a.inv=BOSS.invProj;ebullets.splice(i,1);
+        if(a.hp<=0){a.hp=0;a.dead=true;}break;}}}   // downed → spectate (sim continues)
+
+  // ---- shared bullets vs shared enemies (both avatars' fire damages the same bodies) ----
+  for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
+    if(b.life<=0||b.x<-20||b.x>WORLD.w+20||b.y<-20||b.y>WORLD.h+20){bullets.splice(i,1);continue;}
+    for(let j=0;j<enemies.length;j++){const e=enemies[j];const dx=b.x-e.x,dy=b.y-e.y,cr=e.r+b.r;
+      if((dx*dx+dy*dy)<(cr*cr)){hitEnemy(e,b.dmg,e.col);if(b.pierce>0)b.pierce--;else bullets.splice(i,1);break;}}}
+
+  // ---- missiles (homing) ----
+  for(let i=missiles.length-1;i>=0;i--){const m=missiles[i];
+    if(!m.target||m.target.dead)m.target=nearestTo(m);
+    if(m.target){const a=Math.atan2(m.target.y-m.y,m.target.x-m.x),ca=Math.atan2(m.vy,m.vx);
+      let da=a-ca;while(da>Math.PI)da-=6.283;while(da<-Math.PI)da+=6.283;
+      const na=ca+clamp(da,-m.turn,m.turn);m.vx=Math.cos(na)*m.spd;m.vy=Math.sin(na)*m.spd;}
+    m.x+=m.vx;m.y+=m.vy;m.life--;let hit=m.life<=0;
+    if(!hit)for(let j=0;j<enemies.length;j++){const e=enemies[j];const dx=m.x-e.x,dy=m.y-e.y,cr=e.r+m.r;
+      if((dx*dx+dy*dy)<(cr*cr)){hit=true;break;}}
+    if(hit){explodeMissile(m);missiles.splice(i,1);}}
+
+  // ---- XP orbs: magnet to NEAREST avatar; collect → SHARED pool (both level together) ----
+  for(let i=orbs.length-1;i>=0;i--){const o=orbs[i];const mp=nearestAvatar(o);
+    const dx=o.x-mp.x,dy=o.y-mp.y,dSq=dx*dx+dy*dy;
+    if(dSq<mp.magnetSq){const d=Math.sqrt(dSq)||1,pull=clamp((mp.magnet-d)/mp.magnet*6,.6,6);o.x-=dx/d*pull;o.y-=dy/d*pull;}
+    const cr=mp.r+6;if(dSq<(cr*cr)){orbs.splice(i,1);gainXPShared(o.xp);}}
+
+  for(let i=particles.length-1;i>=0;i--){const q=particles[i];q.x+=q.vx;q.y+=q.vy;q.vx*=.92;q.vy*=.92;q.life--;if(q.life<=0)particles.splice(i,1);}
+  for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.y+=f.vy;f.life--;if(f.life<=0)floats.splice(i,1);}
+  for(let i=bolts.length-1;i>=0;i--){if(--bolts[i].life<=0)bolts.splice(i,1);}
+  if(shake>0)shake*=.85;
+  // run ends for EVERYONE only when every avatar is down — deterministic across machines (no per-machine halt)
+  let _alive=0;for(let i=0;i<players.length;i++)if(!players[i].dead)_alive++;
+  if(_alive===0&&state==='play')return gameOver();
+}
