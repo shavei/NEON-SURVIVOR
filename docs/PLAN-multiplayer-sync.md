@@ -123,9 +123,11 @@ Receive path (in `NetSync`, reusing the `applyDrops` reconcile logic):
 - `ent:despawn` → splice by id. **Idempotent** (ignore unknown id) — covers the
   collect-race where both players grab the same orb in the same tick; first despawn wins, second is
   a harmless no-op.
-- XP grant stays decoupled from the orb body: the collector grants locally and fires the existing
-  shared-pool `xp` event (`multiplayer-combat.js:189`). Double-collect can't double-grant because the
-  second `ent:despawn` finds nothing to remove and never reaches the grant.
+- **Both players collect from the same orb field.** Whoever reaches an orb first collects it; the
+  collect is arbitrated once (the idempotent `ent:despawn` — second collector finds nothing to remove
+  and never grants), and XP flows to the **shared pool** via the existing `xp` event
+  (`multiplayer-combat.js:189`) so **both players level together**. One field, either player picks it
+  up, both benefit — no per-player private copies.
 
 **Reliability note.** Supabase Broadcast is fire-and-forget (no delivery guarantee). A dropped
 `ent:spawn` would orphan an entity. Mitigation: a **low-rate reconcile heartbeat** (1 Hz) sends a
@@ -154,11 +156,12 @@ the lobby `pos` broadcast). So:
 Net effect: bandwidth scales with *spawns + collects* (a handful per second), not with the 140-orb
 population the current `drops` snapshot pays for every 100 ms.
 
-### 2.4 Projectile visibility — a lightweight `fire` event
+### 2.4 Projectile visibility — a lightweight `fire` event (real, shared damage)
 
-Generalize the cosmetic `shot` tracer into a real, type-aware **fire event**. The brief's constraint
-("see each other's attacks without overloading the network") drives the design: broadcast the *intent
-to fire*, not the projectiles.
+**Design intent: one shared world. Both players really damage the same enemies — nothing is
+cosmetic.** The `fire` event exists so each player can *see* the other's attacks; the *damage* those
+attacks deal is real and lands on the shared enemy set. We keep the link light by separating the two
+concerns:
 
 ```
 fire  {o, x, y, a, t, n}     // owner-short, origin x/y (rounded), base angle (2dp),
@@ -167,20 +170,30 @@ fire  {o, x, y, a, t, n}     // owner-short, origin x/y (rounded), base angle (2
 
 - **One packet per volley, not per bullet.** The receiver reconstructs the spread locally from
   `(a, n)` using the same fan math as `fire()` (`world.js:191-196`) — so a 5-shot multishot costs the
-  same 1 packet as a single shot.
-- **Cosmetic-only on the receiver.** Reconstructed bullets are pushed with a `ghost:true` flag and do
-  **no damage** (damage authority is unchanged: each player's own bullets hit enemies on their own
-  machine, reported via the existing `hit` event for host-rostered enemies). This sidesteps the
-  hardest problem in netcode — remote hit detection — while still letting players *see* each other
-  fight. It also means ghost bullets never need ids or despawn events; they expire on their local
-  `life` counter (`world.js:196`).
+  same 1 packet as a single shot. This packet carries *visibility only*.
+- **Damage is real and shared, with single-source attribution.** Each player's bullets run their
+  collision against the **shared** enemy set on the **shooter's own machine**; on a hit, damage is
+  applied to the authoritative enemy HP via the existing `hit`→`applyHit` path
+  (`multiplayer-combat.js:193-197`). So both players genuinely chew down the same enemy. Only the
+  shooter reports its own hits, so shared damage **never double-counts** — the receiver's
+  reconstructed bullets are for sight, the shooter's report is for damage. No `ghost` flag, no
+  "fake" bullets: it's the same enemy, hit by both players, dying once.
+- **Reconstructed bullets carry no ids and need no despawn** — they expire on their local `life`
+  counter (`world.js:196`), and because they don't double-report, they can't double-hit.
 - **Throttled**, reusing the existing 70 ms guard (`multiplayer-combat.js:224`, ~14 Hz). Below the
   fire rate of fast weapons, but visually continuous. Missiles/chain piggyback the same event with a
   different `t`, so the receiver draws the right tracer (homing trail vs. lightning) without new
   channels.
 
 This replaces `shot`/`applyShot` and is a strict superset of it (the old single-line tracer becomes
-the `t=0, n=1` case).
+the `t=0, n=1` case), upgraded from a cosmetic flourish to a true shared-combat visual.
+
+> **Authority recap (why this is "the same world," not two sessions):** enemy HP/death is arbitrated
+> by one snapshot-owner so an enemy can't be alive on one screen and dead on the other — but **both
+> players feed real damage into it** via `hit`. XP orbs and items are one shared field (§2.1–2.3):
+> **either player can walk over and collect the same orb**, the collect is arbitrated once
+> (idempotent despawn), and XP flows to the shared pool so both level together. There is exactly one
+> set of enemies, one set of orbs, one set of items — co-authored by both players.
 
 ---
 
@@ -220,9 +233,11 @@ create table public.world_state (
 
 ## 4 — Migration: fold the host-roster into the event model
 
-The existing `Coop` enemy rostering (`enemies`/`drops`) is **kept** for v1 — enemies are genuinely
-host-authoritative (shared HP, deaths, AI) and the symmetric model doesn't fit them cleanly. The
-overhaul targets **orbs + items + projectiles**, which are the entities the brief names. Phasing:
+The existing `Coop` enemy rostering (`enemies`/`drops`) is **kept** as the HP/death arbiter — one
+authority decides when a shared enemy dies so it can't be alive on one screen and dead on the other.
+But **both players damage that shared enemy for real** (§2.4): the arbiter just resolves the
+authoritative HP from each player's `hit` reports. The overhaul targets **orbs + items +
+projectiles**, the entities the brief names, plus this shared-damage wiring. Phasing:
 
 1. **Phase 1 — additive.** Land `NetSync` + the `fire` event + client-side magnet, behind the same
    `Coop.active` gate. Orbs/items still flow through `drops` as a fallback; `NetSync` runs in
@@ -289,10 +304,14 @@ Each phase is independently shippable and independently verifiable.
 
 ## 7 — Open questions for approval
 
-1. **Enemy symmetry** — keep enemies host-authoritative (this plan), or also move them to the
-   symmetric event model? Recommendation: keep host-rostered for v1; enemies need shared HP/AI that
-   the event model handles poorly.
-2. **Persistence scope** — persist orbs+items only (cheap), or also player progress/level for a truly
+1. **Shared damage — DECIDED.** Both players deal real damage to the same enemies. Mechanism:
+   per-shooter local collision against the shared enemy set + authoritative `hit` reports to the one
+   HP arbiter (§2.4). No cosmetic/ghost bullets. The only thing the arbiter owns is *when the shared
+   enemy dies*, so it dies once, for both.
+2. **Shared XP — DECIDED.** One orb field; either player can collect any orb; collect is arbitrated
+   once (idempotent despawn) and XP goes to the shared pool so both level together (§2.2).
+3. **Persistence scope** — persist orbs+items only (cheap), or also player progress/level for a truly
    "persistent" world that survives all players leaving? Recommendation: orbs+items for v1.
-3. **Ghost-bullet damage** — strictly cosmetic (this plan, safest), or eventually authoritative
-   remote hits? Recommendation: cosmetic for v1; revisit only if players ask for it.
+4. **Enemy spawn ownership** — keep one snapshot-owner spawning + arbitrating enemy HP (this plan), or
+   let either player also spawn enemies into the shared set? Recommendation: single spawn-owner for
+   v1 (avoids duplicate waves); both still *damage* every enemy regardless of who spawned it.
