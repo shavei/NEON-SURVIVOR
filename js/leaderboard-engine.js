@@ -2,7 +2,10 @@
  * Loads AFTER net.js (uses submitScore/fetchTop), BEFORE main.js (gameOver() calls reportRun).
  * Headless/offline-safe: tolerates fetchTop()===null and a missing #gofeedback element (never throws). */
 
-const _lbBoard={};   // diff -> last known top-10 rows; optimistic source so death feedback is instant
+/* Optimistic source for instant death-screen feedback: the shared leaderboardCache (leaderboard-sync.js),
+ * already warmed in the background. _cachedRows(diff) → last known top-10, or undefined when not ready. */
+function _cachedRows(diff){if(typeof leaderboardCache==='undefined')return undefined;
+  const e=leaderboardCache[diff];return(e&&e.state==='ready')?e.rows:undefined;}
 
 /* 1-based rank a score would take on `rows` (already desc by score); null if it misses the top 10 */
 function rankFor(score,rows){
@@ -27,10 +30,10 @@ function _lbRender(score,rows){
  * message from cache immediately, then reconcile with the authoritative rows when they land. */
 function reportRun(entry){
   const diff=entry.difficulty,score=entry.score|0;
-  let cached=_lbBoard[diff];                                   // prefer our own snapshot…
-  if(cached===undefined&&typeof _gcache!=='undefined')cached=_gcache[diff];   // …else reuse the menu's cache
+  const cached=_cachedRows(diff);                             // warmed snapshot from leaderboardCache
   _lbRender(score,cached===undefined?null:cached);            // instant feedback (zero network wait)
   if(typeof submitScore!=='function'||typeof fetchTop!=='function')return;
-  Promise.all([submitScore(entry),fetchTop(diff)]).then(([,rows])=>{
-    if(rows!==null)_lbBoard[diff]=rows;_lbRender(score,rows);},()=>{});
+  Promise.all([submitScore(entry),fetchTop(diff)]).then(([,rows])=>{   // submit + refresh concurrently
+    if(rows!==null&&typeof leaderboardCache!=='undefined')leaderboardCache[diff]={state:'ready',rows,ts:Date.now()};
+    _lbRender(score,rows);},()=>{});
 }
