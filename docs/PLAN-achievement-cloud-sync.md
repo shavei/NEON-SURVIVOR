@@ -235,12 +235,14 @@ so no file crosses 28 KB.
 ---
 
 ## 5. Phasing
-- **P1 — Auth + identity:** `profiles` table + RLS; **email+password** login in the modal; `getPlayer`
-  sources `user_id`. Ship behind the existing offline fallback.
-- **P2 — Fetch + reconcile:** `achievement-sync.js` `pullAchievements`; hydrate the panel on login;
-  namespace the cache by user. ← delivers the cross-device proof.
-- **P3 — Hardening:** bearer-token check in `/api/verify.js`; **`/api/claim.js` legacy re-key** (rescues
-  stranded badges); then add the `player_achievements → profiles` FK once rows are auth-backed.
+- **P1 — Auth + identity ✅ IMPLEMENTED:** `profiles` table + RLS (`supabase/schema.sql`); **email+password**
+  login in the modal (`js/achievement-sync.js` `showAuth`/`confirmUsername`); `getPlayer`/`savePlayer`
+  source `user_id` (`js/net.js`). Behind the existing offline fallback.
+- **P2 — Fetch + reconcile ✅ IMPLEMENTED:** `AchSync.pull()` hydrates the panel on login; cache
+  namespaced by user (`Ach._key()` → `neon_ach:<id>`). ← delivers the cross-device proof.
+- **P3 — Hardening (TODO, follow-up):** bearer-token check in `/api/verify.js`; **`/api/claim.js` legacy
+  re-key** (rescues stranded badges); then add the `player_achievements → profiles` FK once rows are
+  auth-backed. Left out of this PR to keep the catalog byte-identical check + serverless fn untouched.
 
 ### Decisions (approved)
 1. **Auth method — email + password** (`SB.auth.signUp` / `signInWithPassword`). Session survives a

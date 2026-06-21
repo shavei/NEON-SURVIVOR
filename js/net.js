@@ -14,7 +14,8 @@ function _uuid(){try{if(typeof crypto!=='undefined'&&crypto.randomUUID)return cr
 
 /* persistent owner identity (localStorage neon_player = {id,name}) */
 function getPlayer(){try{const r=localStorage.getItem('neon_player');if(r)return JSON.parse(r);}catch(e){}return null;}
-function savePlayer(name){const p={id:(getPlayer()||{}).id||_uuid(),name:String(name||'').slice(0,16)};
+/* id arg (optional) lets the auth layer bind the durable Supabase user_id; else keep/ mint the local one */
+function savePlayer(name,id){const p={id:id||(getPlayer()||{}).id||_uuid(),name:String(name||'').slice(0,16)};
   try{localStorage.setItem('neon_player',JSON.stringify(p));}catch(e){}return p;}
 
 /* offline queue: owed/failed submits buffer in localStorage and flush on next init or success */

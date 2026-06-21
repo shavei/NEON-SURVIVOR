@@ -39,12 +39,15 @@ const Ach = {
     }).map(d => d.id);
   },
 
-  /* persistent mirror in localStorage: { unlocked:[ids], life:{kills,bosses,runs,bestScore,bestWave,bestLevel} } */
+  /* persistent mirror, keyed per-identity (neon_ach:<player_id>) so two accounts on one browser don't
+   * bleed and a sign-in can overwrite it from the cloud. Cache only — /api/verify is authoritative. */
+  _key() { try { const p = (typeof getPlayer === 'function') && getPlayer(); return 'neon_ach:' + ((p && p.id) || 'local'); } catch (e) { return 'neon_ach:local'; } },
+  /* mirror shape: { unlocked:[ids], life:{kills,bosses,runs,bestScore,bestWave,bestLevel} } */
   _load() {
-    try { const r = localStorage.getItem('neon_ach'); if (r) return JSON.parse(r); } catch (e) {}
+    try { const r = localStorage.getItem(this._key()) || localStorage.getItem('neon_ach'); if (r) return JSON.parse(r); } catch (e) {}
     return { unlocked: [], life: { kills:0, bosses:0, runs:0, bestScore:0, bestWave:0, bestLevel:0 } };
   },
-  _save(s) { try { localStorage.setItem('neon_ach', JSON.stringify(s)); } catch (e) {} },
+  _save(s) { try { localStorage.setItem(this._key(), JSON.stringify(s)); } catch (e) {} },
 
   /* called from startGame(): reset run counters and (when online) open a server run token */
   onRunStart() {
