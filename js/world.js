@@ -135,9 +135,9 @@ function reset(){
 /* ========== SPAWNING ========== */
 function spawnEnemy(){
   const elapsed=(now-t0)/1000;wave=1+Math.floor(elapsed/24);
-  const ang=rand(0,6.283),d=Math.max(W,H)*.62+rand(0,160);
+  const ang=srand(0,6.283),d=Math.max(W,H)*.62+srand(0,160);
   const x=clamp(player.x+Math.cos(ang)*d,24,WORLD.w-24),y=clamp(player.y+Math.sin(ang)*d,24,WORLD.h-24);
-  const roll=Math.random();let type='grunt';
+  const roll=srng();let type='grunt';
   if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';
   const base={
     grunt:{r:12,hp:20,spd:1.15,col:'#7c8cff',dmg:8,xp:1,sc:5},
@@ -152,7 +152,7 @@ function spawnEnemy(){
 }
 function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=Math.max(1,Math.round(elapsed/60));
-  const ang=rand(0,6.283),d=Math.max(W,H)*.62;
+  const ang=srand(0,6.283),d=Math.max(W,H)*.62;
   const x=clamp(player.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(player.y+Math.sin(ang)*d,60,WORLD.h-60);
   let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
   if(_test)hp=1;                                    // Test Mode: one-hit boss to study patterns fast
@@ -219,8 +219,8 @@ function killEnemy(e,col){
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
     shake=Math.min(shake+18,24);Sound.boom();flashHit();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
     floatText(e.x,e.y-30,'BOSS DOWN  +'+e.sc,'#ffd95e');
-    if(_own){for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+rand(-40,40),y:e.y+rand(-40,40),r:4,xp:1,col:'#54e6b5'});
-      const it=ITEMS[Math.floor(rand(0,ITEMS.length))];     // guaranteed reward drop
+    if(_own){for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-40,40),y:e.y+srand(-40,40),r:4,xp:1,col:'#54e6b5'});
+      const it=ITEMS[Math.floor(srand(0,ITEMS.length))];     // guaranteed reward drop
       items.push({id:++_iid,x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
       showToast(it.ico,it.label+' (boss drop)',it.col);}
     return;
@@ -229,7 +229,7 @@ function killEnemy(e,col){
   floatText(e.x,e.y,'+'+e.sc,e.col);shake=Math.min(shake+(e.type==='tank'?6:1.5),10);Sound.death();
   if(player.lifesteal>0&&player.lsCd<=0&&player.hp<player.maxhp){
     player.hp=Math.min(player.maxhp,player.hp+player.lifesteal);player.lsCd=6;}   // capped to ~10 HP/s
-  if(_own)for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+rand(-8,8),y:e.y+rand(-8,8),r:4,xp:1,col:'#54e6b5'});
+  if(_own)for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-8,8),y:e.y+srand(-8,8),r:4,xp:1,col:'#54e6b5'});
 }
 
 /* ========== PICKUPS ========== */
@@ -239,8 +239,8 @@ const ITEMS=[
   {id:'magnet',ico:'🧲',col:'#54e6b5',label:'XP RUSH'},
   {id:'rage',ico:'🔥',col:'#d97757',label:'OVERDRIVE'},
 ];
-function spawnItem(){const t=ITEMS[Math.floor(rand(0,ITEMS.length))];
-  const ang=rand(0,6.283),d=rand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
+function spawnItem(){const t=ITEMS[Math.floor(srand(0,ITEMS.length))];
+  const ang=srand(0,6.283),d=srand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
   const x=clamp(player.x+Math.cos(ang)*d,90,WORLD.w-90),y=clamp(player.y+Math.sin(ang)*d,90,WORLD.h-90);
   items.push({id:++_iid,x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
   showToast(t.ico,t.label,t.col);}
@@ -270,7 +270,7 @@ function fireMissiles(){
   for(let i=0;i<count;i++){
     let tgt=nearestTo(player,EXCLUDE_SET);
     if(tgt)EXCLUDE_SET.add(tgt);
-    const a=rand(0,7);
+    const a=srand(0,7);
     missiles.push({x:player.x,y:player.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
       spd:5.2,turn:.18,r:5,dmg:22+player.missile*7,target:tgt,life:140});}
   Sound.tone(380,520,.12,'triangle',.05);
@@ -339,7 +339,7 @@ function renderLoadout(){
 function openLevelUp(){
   state='levelup';needsDraw=true;
   const avail=UPGRADES.filter(u=>!(u.id==='rate'&&player.rate<=6));   // retire maxed Rapid Fire
-  const pool=avail.sort(()=>Math.random()-.5).slice(0,3);
+  const pool=avail.sort(()=>srng()-.5).slice(0,3);   // seedable → all peers are offered the SAME 3 upgrades
   const wrap=document.getElementById('cards');wrap.innerHTML='';
   pool.forEach(u=>{const el=document.createElement('div');el.className='upg';el.style.setProperty('--c',u.c);
     const owned=Up[u.id]||0;

@@ -62,7 +62,7 @@ function update(){
 
   // Cargo Pickups Matrix Optimization — host/solo own spawning + lifetime; clients render the host's items
   const _coopOn=(typeof Coop!=='undefined'&&Coop.active),_coopClient=_coopOn&&!Coop.host;
-  itemTimer--;if(itemTimer<=0){if(!_coopOn||Coop.host)spawnItem();itemTimer=Math.floor(rand(1500,2100));}
+  itemTimer--;if(itemTimer<=0){if(!_coopOn||Coop.host)spawnItem();itemTimer=Math.floor(srand(1500,2100));}
   for(let i=items.length-1;i>=0;i--){const it=items[i];
     if(!_coopClient)it.life--;                              // host/solo own lifetime; clients wait for the snapshot to drop it
     if(it.life<=0){items.splice(i,1);continue;}
