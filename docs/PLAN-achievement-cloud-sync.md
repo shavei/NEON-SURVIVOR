@@ -56,10 +56,13 @@ a *cache keyed by user_id*, never the source of truth.
 Reuse the existing username modal (`showUsername`/`confirmUsername`, `js/main.js:223-239`) as the
 login surface rather than adding a new screen. The modal already gates the menu on first run.
 
-Recommended auth method: **email magic-link (OTP)** — passwordless, zero password storage, works on
-mobile, and Supabase issues it with one SDK call. (Anonymous-auth was floated in
-`docs/PLAN-achievements-multiplayer.md:295-297`; anonymous sessions do **not** survive a browser
-clear, so they don't solve this task. Magic-link does.)
+Chosen auth method (approved): **email + password** (`SB.auth.signUp` / `signInWithPassword`).
+Supabase stores the password hash (bcrypt) server-side — the client never sees it — and the session
+survives a browser clear via the auth refresh token. (Anonymous-auth was floated in
+`docs/PLAN-achievements-multiplayer.md:295-297` but anonymous sessions do **not** survive a browser
+clear, so it's rejected for this task.) The modal grows two fields (email, password) plus a
+"new here? / returning?" toggle that picks `signUp` vs `signInWithPassword`; password min length 6
+(Supabase default), surfaced through the existing `unameerr` slot for inline errors.
 
 Startup flow (replaces the current "mint a UUID locally" path):
 
@@ -68,11 +71,17 @@ boot
  └─ net.js initialises SB (existing)
  └─ SB.auth.getSession()
       ├─ session exists  → user_id = session.user.id → resolve player → fetch achievements → menu
-      └─ no session      → show login modal (email field)
-            └─ confirmLogin(email): SB.auth.signInWithOtp({ email })  → "check your inbox"
-            └─ on magic-link return: SB.auth.onAuthStateChange → session → same resolve path
+      └─ no session      → show login modal (email + password, sign-up / sign-in toggle)
+            ├─ signUp(email,pw):          SB.auth.signUp({email,password})           → session
+            ├─ signIn(email,pw): SB.auth.signInWithPassword({email,password})          → session
+            └─ on error (bad creds / dup email / weak pw) → show message in #unameerr, stay on modal
+      └─ on session → SB.auth.onAuthStateChange → resolve path (profile upsert + fetch)
  └─ offline / SB === null → fall back to the legacy local UUID, local-only play (headless-safe)
 ```
+
+Note: if "confirm email" is enabled on the Supabase project, `signUp` returns a session only after
+the user clicks the confirmation link — decide at setup whether to require confirmation (more secure,
+adds a round-trip) or disable it for instant play. Recommend **disabled** for a game.
 
 `getPlayer()`/`savePlayer()` (`js/net.js:16-18`) are refactored so `id` is sourced from
 `SB.auth.getUser()` when a session exists, falling back to the legacy UUID only when offline. Every
@@ -82,10 +91,11 @@ existing caller (`submitScore`, `Ach.onRunStart`, `Ach._submit`) keeps working b
 Backward-compat / no-lockout guardrails:
 - **Headless & offline must never block.** All auth touches are guarded exactly like the current
   `SB`/`localStorage` guards so `verify.cjs` and offline play still load (CLAUDE.md "headless/offline-safe").
-- **One-time claim of legacy progress.** On first successful login, if a legacy `neon_player.id`
-  exists locally, POST it to a new `/api/claim.js` (service role) which re-keys that old
-  `player_achievements.player_id` to the new `user_id` (idempotent, server-side). This rescues the
-  badges already stranded by past browser clears. Optional but high-value; can ship in phase 2.
+- **One-time claim of legacy progress (APPROVED — ship in P3).** On first successful login, if a
+  legacy `neon_player.id` exists locally, POST it to a new `/api/claim.js` (service role) which
+  re-keys that old `player_achievements.player_id` (and `runs.player_id`) to the new `user_id`,
+  idempotently, server-side. This rescues the badges already stranded by past browser clears. The
+  client clears the legacy id from localStorage once the claim returns 200 so it can't double-fire.
 
 ### 1b. Profile pairing (link a profile to unlocks so progress is global)
 
@@ -109,10 +119,12 @@ create policy "owner updates own profile" on public.profiles for update
 Pairing `profiles` ↔ `player_achievements`: **no schema change to `player_achievements` is required** —
 its `player_id` simply becomes the Auth `user_id` (= `profiles.id`). Because the same id keys both
 tables, a join (`profiles.id = player_achievements.player_id`) yields "this user's badges" globally.
-Optionally add a FK for integrity once all rows are auth-backed:
+Add a FK for integrity once all rows are auth-backed — **deferred to P3** (approved), because the
+legacy-claim re-key (§2a / P3) must run first or the constraint would reject still-orphaned
+`player_id`s:
 
 ```sql
--- deferred until legacy rows are claimed/migrated, else it rejects orphaned player_ids
+-- run in P3, AFTER /api/claim.js has re-keyed legacy rows
 alter table public.player_achievements
   add constraint player_achievements_player_fk
   foreign key (player_id) references public.profiles(id) on delete cascade;
@@ -191,13 +203,13 @@ to the 28 KB line and is where login wiring would naturally accrete. Putting syn
 file would exceed ~26 KB, split rather than append. Re-check sizes in the verify step below.
 
 ### Working set (files this change touches — nothing else read/edited)
-- `supabase/schema.sql` — add `profiles`, RLS, optional FK.
+- `supabase/schema.sql` — add `profiles`, RLS; FK deferred to P3.
 - `js/net.js` — `getPlayer`/`savePlayer` source `id` from the auth session.
 - `js/achievements.js` — cache key namespacing; send bearer token in `_submit`.
 - `js/achievement-sync.js` — **new** identity + fetch/reconcile module.
-- `api/verify.js` — verify `auth.uid()` against `player_id`; optional `api/claim.js` for legacy re-key.
-- `js/main.js` — swap modal to login; call `pullAchievements` on resolve.
-- `index.html` — one `<script defer>` line for the new module.
+- `api/verify.js` — verify `auth.uid()` against `player_id`; **new `api/claim.js`** for legacy re-key (P3).
+- `js/main.js` — swap modal to email+password login; call `pullAchievements` on resolve.
+- `index.html` — one `<script defer>` line for the new module; email/password fields in the modal.
 
 ---
 
@@ -209,10 +221,10 @@ lockstep) and a `vercel` preview build, before any commit is pushed. Also re-run
 so no file crosses 28 KB.
 
 ### Cross-device proof (the acceptance test the brief asks for)
-1. Browser A: log in as `you@example.com` (magic link). Play a run that earns e.g. **First Blood**
-   + **Wave Rider**. Confirm the toasts fire and the badges show ✓ in the achievements panel.
+1. Browser A: sign up / log in as `you@example.com` with a password. Play a run that earns e.g.
+   **First Blood** + **Wave Rider**. Confirm the toasts fire and the badges show ✓ in the panel.
 2. Browser B (or a private/incognito window — **separate localStorage**): log in with the **same**
-   email + magic link. **Before playing anything**, open the achievements panel.
+   email + password. **Before playing anything**, open the achievements panel.
    - **Pass:** First Blood + Wave Rider already show ✓, hydrated by `pullAchievements` from Supabase.
    - **Fail (today's behaviour):** the panel is empty because identity didn't carry and there's no fetch.
 3. Negative control: log in as a **different** email in browser B → panel is empty (no badge bleed),
@@ -222,16 +234,18 @@ so no file crosses 28 KB.
 
 ---
 
-## 5. Phasing (suggested)
-- **P1 — Auth + identity:** `profiles` table + RLS; magic-link login in the modal; `getPlayer` sources
-  `user_id`. Ship behind the existing offline fallback.
+## 5. Phasing
+- **P1 — Auth + identity:** `profiles` table + RLS; **email+password** login in the modal; `getPlayer`
+  sources `user_id`. Ship behind the existing offline fallback.
 - **P2 — Fetch + reconcile:** `achievement-sync.js` `pullAchievements`; hydrate the panel on login;
   namespace the cache by user. ← delivers the cross-device proof.
-- **P3 — Hardening:** bearer-token check in `/api/verify.js`; `/api/claim.js` legacy re-key; add the
-  `player_achievements → profiles` FK once rows are auth-backed.
+- **P3 — Hardening:** bearer-token check in `/api/verify.js`; **`/api/claim.js` legacy re-key** (rescues
+  stranded badges); then add the `player_achievements → profiles` FK once rows are auth-backed.
 
-### Open questions for approval
-1. Auth method — magic-link (recommended) vs. OAuth (Google/GitHub) vs. email+password?
-2. Do we need to rescue already-stranded legacy badges (the `/api/claim.js` re-key, P3), or is
-   forward-only persistence acceptable?
-3. Keep the FK on `player_achievements` deferred until P3, or accept orphaned legacy rows permanently?
+### Decisions (approved)
+1. **Auth method — email + password** (`SB.auth.signUp` / `signInWithPassword`). Session survives a
+   browser clear via the refresh token; recommend disabling email-confirmation for instant play.
+2. **Rescue legacy badges — yes.** `/api/claim.js` re-keys old `player_id` → new `user_id` on first
+   login (P3), idempotent, clears the legacy id locally on success.
+3. **FK on `player_achievements` — deferred to P3**, added only after the legacy claim has re-keyed
+   orphaned rows so the constraint won't reject them.
