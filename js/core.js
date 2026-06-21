@@ -6,7 +6,23 @@ const cv=document.getElementById('game'),ctx=cv.getContext('2d');
 let W,H,DPR;
 let needsDraw=false;   // request a single static redraw (pause / level-up / resize)
 
-const rand=(a,b)=>a+Math.random()*(b-a);
+const rand=(a,b)=>a+Math.random()*(b-a);   // COSMETIC randomness (backdrop, particles) — never gates sim state
+
+/* SEEDABLE GAMEPLAY randomness — the foundation for one shared deterministic world (see
+ * docs/PLAN-multiplayer-sync.md). Unseeded it forwards to Math.random, so solo play and the
+ * verify-equiv golden snapshot are byte-for-byte unchanged. seedRng(n) switches every gameplay
+ * draw onto a deterministic mulberry32 stream, so peers sharing a seed compute the IDENTICAL
+ * world: same spawns, same drops, same item rolls. seedRng(null) reverts to Math.random. */
+let _rngSeeded=false,_rngState=0;
+function seedRng(n){ if(n==null){_rngSeeded=false;return;} _rngSeeded=true; _rngState=n>>>0; }
+function srng(){
+  if(!_rngSeeded) return Math.random();
+  let t=(_rngState=(_rngState+0x6D2B79F5)|0);
+  t=Math.imul(t^(t>>>15),1|t); t=(t+Math.imul(t^(t>>>7),61|t))^t;
+  return ((t^(t>>>14))>>>0)/4294967296;
+}
+const srand=(a,b)=>a+srng()*(b-a);         // gameplay analogue of rand() — routed through the seedable stream
+
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 
 /* ========== ALLOCATED MEMORY CACHES (Prevents Garbage Collection Stutters) ========== */

@@ -5,10 +5,12 @@
 /* ========== STATE ENGINE ========== */
 let state='start';
 let player,enemies,bullets,orbs,particles,floats,missiles,bolts,items,ebullets;
+let players=[];   // shared-world: ALL avatars (local + remotes). Solo/legacy = [player]. Drives spawn anchor + targeting.
 let nextBoss=60,bossOn=false,_test=false;   // _test: Test Mode (one-hit bosses, manual spawn — key B)
 let t0,now,score,wave,spawnTimer,itemTimer,shake,frame,kills,pauseStart=0,pendingLevels=0;
 let best=+(localStorage.getItem('neon_best')||0);
 let _eid=0;   // monotonically rising enemy id — host stamps it; clients reconcile the roster by it (co-op)
+let _oid=0,_iid=0;   // monotonic XP-orb / item ids — host stamps; clients reconcile drops by them (co-op)
 /* ----- FIXED-TIMESTEP SIM CLOCK -----
  * The sim advances in discrete 1/60 s ticks regardless of display refresh, so the game plays
  * identically on 60 / 144 / 240 Hz monitors (was frame-locked → ran 2.4× fast on 144 Hz).
@@ -109,13 +111,42 @@ function nearestTo(pt,exclude){
   return n;
 }
 
+/* ===== SHARED-WORLD AVATARS =====
+ * Every player is a full sim body of this exact shape (the local one is `player`). makeAvatar() keeps
+ * solo byte-identical (same fields/values the old reset literal produced; extra id/input are invisible
+ * to the verify-equiv snapshot). Spawn anchor + targeting read the whole `players` set so every machine,
+ * simulating all avatars from shared inputs, computes the IDENTICAL world. */
+function makeAvatar(x,y,id){
+  return {id:id||'local',input:[0,0],
+    x,y,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
+    rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
+    xp:0,level:1,next:8,regenRate:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,rushT:0,
+    missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:x,py:y};
+}
+/* deterministic spawn reference: with >1 avatar use the centroid (machine-independent — `player` is the
+ * LOCAL avatar and differs per machine); solo returns `player` exactly so spawnEnemy stays byte-identical. */
+function spawnAnchor(){
+  if(players.length<=1)return player;
+  let sx=0,sy=0;for(let i=0;i<players.length;i++){sx+=players[i].x;sy+=players[i].y;}
+  return {x:sx/players.length,y:sy/players.length};
+}
+function nearestAvatar(pt){
+  let best=player,bd=1e18;const ps=players.length?players:[player];
+  for(let i=0;i<ps.length;i++){const a=ps[i],dx=a.x-pt.x,dy=a.y-pt.y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=a;}}
+  return best;
+}
+/* SHARED XP pool — a banked orb levels EVERY avatar identically (the plan's "both level together"),
+ * keeping all avatars in deterministic lockstep across machines. */
+function gainXPShared(n){
+  for(let i=0;i<players.length;i++){const a=players[i];a.xp+=n;
+    while(a.xp>=a.next){a.xp-=a.next;a.level++;a.next=Math.floor(a.next*1.32+3);}}
+}
+
 function reset(){
   initStars(); // <--- Builds the space starfield
 
-  player={x:WORLD.w/2,y:WORLD.h/2,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
-    rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
-    xp:0,level:1,next:8,regenRate:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,rushT:0,
-    missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:WORLD.w/2,py:WORLD.h/2};
+  player=makeAvatar(WORLD.w/2,WORLD.h/2);
+  players=[player];   // solo starts with a single avatar; shared-world adds remotes via NetSync roster
   acc=0;lastTs=0;alpha=0;slowmo=0;   // reset the sim clock for a clean run
 
   enemies=[];bullets=[];orbs=[];particles=[];floats=[];missiles=[];bolts=[];items=[];ebullets=[];
@@ -134,9 +165,10 @@ function reset(){
 /* ========== SPAWNING ========== */
 function spawnEnemy(){
   const elapsed=(now-t0)/1000;wave=1+Math.floor(elapsed/24);
-  const ang=rand(0,6.283),d=Math.max(W,H)*.62+rand(0,160);
-  const x=clamp(player.x+Math.cos(ang)*d,24,WORLD.w-24),y=clamp(player.y+Math.sin(ang)*d,24,WORLD.h-24);
-  const roll=Math.random();let type='grunt';
+  const A=spawnAnchor();   // solo → player (byte-identical); shared-world → centroid of all avatars
+  const ang=srand(0,6.283),d=Math.max(W,H)*.62+srand(0,160);
+  const x=clamp(A.x+Math.cos(ang)*d,24,WORLD.w-24),y=clamp(A.y+Math.sin(ang)*d,24,WORLD.h-24);
+  const roll=srng();let type='grunt';
   if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';
   const base={
     grunt:{r:12,hp:20,spd:1.15,col:'#7c8cff',dmg:8,xp:1,sc:5},
@@ -151,8 +183,9 @@ function spawnEnemy(){
 }
 function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=Math.max(1,Math.round(elapsed/60));
-  const ang=rand(0,6.283),d=Math.max(W,H)*.62;
-  const x=clamp(player.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(player.y+Math.sin(ang)*d,60,WORLD.h-60);
+  const A=spawnAnchor();
+  const ang=srand(0,6.283),d=Math.max(W,H)*.62;
+  const x=clamp(A.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(A.y+Math.sin(ang)*d,60,WORLD.h-60);
   let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
   if(_test)hp=1;                                    // Test Mode: one-hit boss to study patterns fast
   enemies.push({id:++_eid,x,y,r:46,hp,maxhp:hp,spd:BOSS.speedBase+tier*BOSS.speedTier,col:'#ff3b6b',
@@ -184,14 +217,15 @@ function bossAttack(e){
 }
 
 /* ========== COMBAT ========== */
-function fire(){
-  const near=player.near;if(!near)return;
-  const baseAng=Math.atan2(near.y-player.y,near.x-player.x);
-  const n=player.multi,spread=.16,dmg=player.rageT>0?player.dmg*1.6:player.dmg;
+function fire(p){p=p||player;   // p defaults to the local avatar → solo calls are byte-identical
+  const near=p.near;if(!near)return;
+  const baseAng=Math.atan2(near.y-p.y,near.x-p.x);
+  const n=p.multi,spread=.16,dmg=p.rageT>0?p.dmg*1.6:p.dmg;
   for(let i=0;i<n;i++){const a=baseAng+(i-(n-1)/2)*spread;
-    bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*player.bulletSpd,vy:Math.sin(a)*player.bulletSpd,r:4,dmg,pierce:player.pierce,life:70});}
+    bullets.push({x:p.x,y:p.y,vx:Math.cos(a)*p.bulletSpd,vy:Math.sin(a)*p.bulletSpd,r:4,dmg,pierce:p.pierce,life:70});}
   shake=Math.min(shake+1.2,7);
   if(now-lastShootSnd>60){Sound.shoot();lastShootSnd=now;}
+  if(typeof Coop!=='undefined')Coop.fireShot(p.x,p.y,baseAng);   // co-op: broadcast a cosmetic shot tracer (no-op solo/offline)
 }
 function burst(x,y,col,n,sp){n=Math.min(n,340-particles.length);if(n<=0)return;
   for(let i=0;i<n;i++){const a=rand(0,7),s=rand(.5,sp);
@@ -208,6 +242,8 @@ function hitEnemy(e,dmg,col){
 function killEnemy(e,col){
   const i=enemies.indexOf(e);if(i<0)return;e.dead=true;enemies.splice(i,1);
   score+=e.sc;kills++;
+  // _own = solo OR co-op host: only the authority spawns drops; clients receive them via the host snapshot
+  const _own=(typeof Coop==='undefined'||!Coop.active||Coop.host);
   if(typeof Coop!=='undefined')Coop.onKill(e);   // co-op host: broadcast the kill so every client replays it
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Music.exitBoss();   // next boss 50s after this one falls; music back to normal track
@@ -215,17 +251,17 @@ function killEnemy(e,col){
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
     shake=Math.min(shake+18,24);Sound.boom();flashHit();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
     floatText(e.x,e.y-30,'BOSS DOWN  +'+e.sc,'#ffd95e');
-    for(let k=0;k<e.xp;k++)orbs.push({x:e.x+rand(-40,40),y:e.y+rand(-40,40),r:4,xp:1,col:'#54e6b5'});
-    const it=ITEMS[Math.floor(rand(0,ITEMS.length))];     // guaranteed reward drop
-    items.push({x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
-    showToast(it.ico,it.label+' (boss drop)',it.col);
+    if(_own){for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-40,40),y:e.y+srand(-40,40),r:4,xp:1,col:'#54e6b5'});
+      const it=ITEMS[Math.floor(srand(0,ITEMS.length))];     // guaranteed reward drop
+      items.push({id:++_iid,x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
+      showToast(it.ico,it.label+' (boss drop)',it.col);}
     return;
   }
   burst(e.x,e.y,e.col,e.type==='tank'?22:10,e.type==='tank'?5:4);
   floatText(e.x,e.y,'+'+e.sc,e.col);shake=Math.min(shake+(e.type==='tank'?6:1.5),10);Sound.death();
   if(player.lifesteal>0&&player.lsCd<=0&&player.hp<player.maxhp){
     player.hp=Math.min(player.maxhp,player.hp+player.lifesteal);player.lsCd=6;}   // capped to ~10 HP/s
-  for(let k=0;k<e.xp;k++)orbs.push({x:e.x+rand(-8,8),y:e.y+rand(-8,8),r:4,xp:1,col:'#54e6b5'});
+  if(_own)for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-8,8),y:e.y+srand(-8,8),r:4,xp:1,col:'#54e6b5'});
 }
 
 /* ========== PICKUPS ========== */
@@ -235,36 +271,42 @@ const ITEMS=[
   {id:'magnet',ico:'🧲',col:'#54e6b5',label:'XP RUSH'},
   {id:'rage',ico:'🔥',col:'#d97757',label:'OVERDRIVE'},
 ];
-function spawnItem(){const t=ITEMS[Math.floor(rand(0,ITEMS.length))];
-  const ang=rand(0,6.283),d=rand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
+function spawnItem(){const t=ITEMS[Math.floor(srand(0,ITEMS.length))];
+  const ang=srand(0,6.283),d=srand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
   const x=clamp(player.x+Math.cos(ang)*d,90,WORLD.w-90),y=clamp(player.y+Math.sin(ang)*d,90,WORLD.h-90);
-  items.push({x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
+  items.push({id:++_iid,x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
   showToast(t.ico,t.label,t.col);}
 function showToast(ico,label,col){const el=document.getElementById('toast');
   el.style.setProperty('--tc',col);el.style.color=col;
   el.innerHTML=`<span class="tico">${ico}</span><span>${label}<br><small>appeared on the map</small></span>`;
   el.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
+/* co-op seam: heal/rage are PERSONAL (always local to the toucher); bomb/magnet are GLOBAL world
+ * effects the host owns — a non-host toucher only reports the pickup and lets the host apply them. */
 function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
+  const coopOn=(typeof Coop!=='undefined'&&Coop.active),coopClient=coopOn&&!Coop.host;
+  if(coopClient)Coop.reportPickup(it);   // host removes the item + applies global bomb/magnet for everyone
   if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Sound.tone(440,900,.25,'sine',.09);}
-  else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
+  else if(it.type==='bomb'){if(coopClient)return;for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
     shake=Math.min(shake+18,22);Sound.boom();burst(p.x,p.y,'#ffd95e',46,9);flashHit();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
-  else if(it.type==='magnet'){p.rushT=600;   // 10s of 2x XP (gainXP doubles while rushT>0)
-    for(let i=0;i<orbs.length;i++)orbs[i].homing=true;   // one-time pulse: flag current orbs to tractor in regardless of range
-    if(typeof _perf!=='undefined'&&_perf.on)console.log('[XP RUSH] pulse flagged',orbs.length,'orbs · rushT=',p.rushT);
-    Sound.pickup();floatText(p.x,p.y-22,'XP RUSH x2','#54e6b5');}
+  else if(it.type==='magnet'){if(coopClient)return;
+    if(coopOn){let tot=0;for(let i=orbs.length-1;i>=0;i--)tot+=orbs[i].xp;orbs.length=0;Coop.shareXP(tot);}   // co-op shared pool: instant bank for everyone
+    else{p.rushT=600;   // solo: 10s of 2x XP (gainXP doubles while rushT>0)
+      for(let i=0;i<orbs.length;i++)orbs[i].homing=true;   // one-time pulse: flag current orbs to tractor in regardless of range (magnet stat untouched)
+      if(typeof _perf!=='undefined'&&_perf.on)console.log('[XP RUSH] pulse flagged',orbs.length,'orbs · rushT=',p.rushT);}
+    Sound.pickup();floatText(p.x,p.y-22,coopOn?'XP RUSH':'XP RUSH x2','#54e6b5');}
   else if(it.type==='rage'){p.rageT=540;Sound.tone(180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
 }
 
 /* ========== WEAPON ARCHETYPES ========== */
-function fireMissiles(){
-  const count=Math.min(player.missile,5);
+function fireMissiles(p){p=p||player;
+  const count=Math.min(p.missile,5);
   EXCLUDE_SET.clear(); // Reused memory cache
   for(let i=0;i<count;i++){
-    let tgt=nearestTo(player,EXCLUDE_SET);
+    let tgt=nearestTo(p,EXCLUDE_SET);
     if(tgt)EXCLUDE_SET.add(tgt);
-    const a=rand(0,7);
-    missiles.push({x:player.x,y:player.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
-      spd:5.2,turn:.18,r:5,dmg:22+player.missile*7,target:tgt,life:140});}
+    const a=srand(0,7);
+    missiles.push({x:p.x,y:p.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
+      spd:5.2,turn:.18,r:5,dmg:22+p.missile*7,target:tgt,life:140});}
   Sound.tone(380,520,.12,'triangle',.05);
 }
 function explodeMissile(m){
@@ -275,11 +317,11 @@ function explodeMissile(m){
     if((dx*dx+dy*dy)<radSq)hitEnemy(e,m.dmg,'#ffd95e');}
 }
 
-function castChain(){
-  let cur=nearestTo(player);if(!cur)return;
-  const jumps=2+player.chain,dmg=16+player.chain*6,reach=190,reachSq=reach*reach;
+function castChain(p){p=p||player;
+  let cur=nearestTo(p);if(!cur)return;
+  const jumps=2+p.chain,dmg=16+p.chain*6,reach=190,reachSq=reach*reach;
   CHAIN_SET.clear(); // Reused memory cache
-  let fromX=player.x,fromY=player.y;
+  let fromX=p.x,fromY=p.y;
   for(let j=0;j<jumps;j++){if(!cur)break;CHAIN_SET.add(cur);
     bolts.push({a:{x:fromX,y:fromY},b:{x:cur.x,y:cur.y},life:9});
     hitEnemy(cur,dmg,'#7c8cff');burst(cur.x,cur.y,'#9db0ff',6,3);
@@ -331,7 +373,7 @@ function renderLoadout(){
 function openLevelUp(){
   state='levelup';needsDraw=true;
   const avail=UPGRADES.filter(u=>!(u.id==='rate'&&player.rate<=6));   // retire maxed Rapid Fire
-  const pool=avail.sort(()=>Math.random()-.5).slice(0,3);
+  const pool=avail.sort(()=>srng()-.5).slice(0,3);   // seedable → all peers are offered the SAME 3 upgrades
   const wrap=document.getElementById('cards');wrap.innerHTML='';
   pool.forEach(u=>{const el=document.createElement('div');el.className='upg';el.style.setProperty('--c',u.c);
     const owned=Up[u.id]||0;
