@@ -114,7 +114,7 @@ function reset(){
 
   player={x:WORLD.w/2,y:WORLD.h/2,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
     rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
-    xp:0,level:1,next:8,regen:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,
+    xp:0,level:1,next:8,regenRate:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,rushT:0,
     missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:WORLD.w/2,py:WORLD.h/2};
   acc=0;lastTs=0;alpha=0;slowmo=0;   // reset the sim clock for a clean run
 
@@ -248,8 +248,10 @@ function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
   if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Sound.tone(440,900,.25,'sine',.09);}
   else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
     shake=Math.min(shake+18,22);Sound.boom();burst(p.x,p.y,'#ffd95e',46,9);flashHit();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
-  else if(it.type==='magnet'){for(let i=orbs.length-1;i>=0;i--)gainXP(orbs[i].xp);orbs.length=0;
-    Sound.pickup();floatText(p.x,p.y-22,'XP RUSH','#54e6b5');}
+  else if(it.type==='magnet'){p.rushT=600;   // 10s of 2x XP (gainXP doubles while rushT>0)
+    for(let i=0;i<orbs.length;i++)orbs[i].homing=true;   // one-time pulse: flag current orbs to tractor in regardless of range
+    if(typeof _perf!=='undefined'&&_perf.on)console.log('[XP RUSH] pulse flagged',orbs.length,'orbs · rushT=',p.rushT);
+    Sound.pickup();floatText(p.x,p.y-22,'XP RUSH x2','#54e6b5');}
   else if(it.type==='rage'){p.rageT=540;Sound.tone(180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
 }
 
@@ -315,7 +317,7 @@ function applyUpgrade(id){const p=player;
   else if(id==='spd')p.speed*=1.12;
   else if(id==='maxhp'){p.maxhp+=30;p.hp=Math.min(p.maxhp,p.hp+30);}
   else if(id==='magnet'){p.magnet*=1.6;p.magnetSq=p.magnet*p.magnet;}
-  else if(id==='regen')p.regen+=1;
+  else if(id==='regen')p.regenRate+=1;
   else if(id==='velocity'){p.bulletSpd*=1.3;p.dmg*=1.08;}else if(id==='lifesteal')p.lifesteal+=1;
   else if(id==='missile')p.missile++;else if(id==='shield')p.shield++;else if(id==='chain')p.chain++;
   Up[id]=(Up[id]||0)+1;renderLoadout();
@@ -340,5 +342,5 @@ function openLevelUp(){
     wrap.appendChild(el);});
   document.getElementById('levelup').classList.add('show');pauseStart=performance.now();
 }
-function gainXP(n){const p=player;p.xp+=n;
+function gainXP(n){const p=player;if(p.rushT>0)n*=2;p.xp+=n;
   while(p.xp>=p.next){p.xp-=p.next;p.level++;p.next=Math.floor(p.next*1.32+3);pendingLevels++;}}
