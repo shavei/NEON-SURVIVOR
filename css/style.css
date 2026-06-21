@@ -12,12 +12,7 @@
   inset: 0;
   display: block;
   cursor: crosshair;
-  /* Add these lines to give it a sharp structural grid underneath the canvas lines */
   background-color: #05060c;
-  background-image:
-    linear-gradient(rgba(124, 140, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124, 140, 255, 0.03) 1px, transparent 1px);
-  background-size: 64px 64px;
 }
 
   .panel{position:fixed;pointer-events:none;z-index:5}
