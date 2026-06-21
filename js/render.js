@@ -25,15 +25,6 @@ function draw(){
     ctx.globalAlpha=st.alpha;ctx.fillStyle=st.col;ctx.fillRect(st.x,st.y,st.r,st.r);}
   ctx.globalAlpha=1;
 
-  // 2. --- STRUCTURAL ARENA ALIGNMENT GRID LINES ---
-  ctx.strokeStyle='rgba(124,140,255,.04)'; ctx.lineWidth=1; const g=64;
-  const x0=Math.floor(icx/g)*g, y0=Math.floor(icy/g)*g;
-  ctx.beginPath();
-  for(let x=x0; x<icx+W+g; x+=g){ ctx.moveTo(x,icy); ctx.lineTo(x,icy+H); }
-  for(let y=y0; y<icy+H+g; y+=g){ ctx.moveTo(icx,y); ctx.lineTo(icx+W,y); }
-  ctx.stroke();
-  ctx.globalAlpha = 1.0;
-
   // 3. --- SECTOR BORDER SAFETY MATRIX ---
   ctx.strokeStyle='rgba(124,140,255,.35)';ctx.lineWidth=3;ctx.shadowBlur=18;ctx.shadowColor='#7c8cff';
   ctx.strokeRect(0, 0, WORLD.w, WORLD.h); ctx.shadowBlur = 0;
@@ -117,14 +108,11 @@ function draw(){
     while(da>Math.PI)da-=6.283;while(da<-Math.PI)da+=6.283;p.angle+=da*.2;
     ctx.strokeStyle='rgba(255,217,94,.22)';ctx.lineWidth=1.5;ctx.setLineDash([4,6]);
     ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(ix(near)-ipx,iy(near)-ipy);ctx.stroke();ctx.setLineDash([]);}
-  ctx.strokeStyle='rgba(84,230,181,.07)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,p.magnet,0,7);ctx.stroke();
   const sp=Math.hypot(p.vx,p.vy);
   if(sp>.4){const ta=Math.atan2(p.vy,p.vx)+Math.PI;ctx.save();ctx.rotate(ta);
     const fl=9+sp*3+Math.sin(frame*.7)*3;ctx.shadowBlur=16;ctx.shadowColor='#ffb04f';
     const fg=ctx.createLinearGradient(p.r-2,0,p.r-2+fl+6,0);fg.addColorStop(0,'rgba(255,225,120,.95)');fg.addColorStop(1,'rgba(255,90,60,0)');
     ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(p.r-3,5);ctx.lineTo(p.r-3+fl+6,0);ctx.lineTo(p.r-3,-5);ctx.closePath();ctx.fill();ctx.restore();ctx.shadowBlur=0;}
-  ctx.save();ctx.rotate(frame*.02);ctx.strokeStyle=rage?'rgba(255,217,94,.6)':'rgba(124,140,255,.5)';
-  ctx.lineWidth=2;ctx.setLineDash([7,9]);ctx.beginPath();ctx.arc(0,0,p.r+7,0,7);ctx.stroke();ctx.setLineDash([]);ctx.restore();
   ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
   const pr=3+Math.sin(frame*.15)*1.2;ctx.shadowBlur=14;ctx.shadowColor=rage?'#ffd95e':'#7c8cff';
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();
