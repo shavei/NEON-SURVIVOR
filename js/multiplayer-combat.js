@@ -77,10 +77,10 @@ const Coop = {
     this._lastRecv = Date.now(); this._recvHost = null; this._rseq = 0; this._migrations = 0;
     if (typeof Lobby.setAlive === 'function') Lobby.setAlive(true);
     this.electHost();
-    if (typeof NetSync !== 'undefined' && NetSync.start) NetSync.start();   // begin shared-world seed/input sync
+    if (typeof NetSync !== 'undefined' && NetSync.start) { NetSync.start(); if (NetSync.enterLockstep) NetSync.enterLockstep(); }   // co-op IS the shared deterministic world
     return true;
   },
-  stop() { this.active = false; this.host = false; if (typeof NetSync !== 'undefined' && NetSync.stop) NetSync.stop(); },
+  stop() { this.active = false; this.host = false; if (typeof NetSync !== 'undefined') { if (NetSync.exitLockstep) NetSync.exitLockstep(); if (NetSync.stop) NetSync.stop(); } },
   /* my run ended: relinquish authority so peers re-elect off me, but stay in the lobby as a spectator */
   spectate() { this._alive = false; if (typeof Lobby !== 'undefined' && Lobby.setAlive) Lobby.setAlive(false); this.stop(); },
 
@@ -103,6 +103,7 @@ const Coop = {
    * clients watch the host heartbeat and self-promote on timeout (hard-crash cover). */
   netTick(now, dtMs) {
     if (!this.active || typeof Lobby === 'undefined') return;
+    if (typeof NetSync !== 'undefined' && NetSync.lockstep) return;   // shared-world: the world is computed locally from synced inputs — no host roster broadcast
     if (typeof player !== 'undefined' && player) Lobby.setLocalState(player.x, player.y, now);
     Lobby.step(dtMs / 1000, Date.now());
     if (this.host) {

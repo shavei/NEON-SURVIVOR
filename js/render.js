@@ -130,8 +130,21 @@ function draw(){
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
-  // 11b. Co-op teammates — real player ships sharing the same map (world-space; Lobby.peers lerped by Lobby.step)
-  if(typeof Coop!=='undefined'&&Coop.active&&typeof Lobby!=='undefined'){
+  // 11b. Co-op teammates — real player ships sharing the same map.
+  if(typeof NetSync!=='undefined'&&NetSync.lockstep&&typeof players!=='undefined'&&players.length>1){
+    // shared world: remote avatars are REAL sim bodies in players[] — interpolate by px/py like the local ship
+    const _tsp=shipSprite(false,14),_peers=(typeof Lobby!=='undefined')?Lobby.peers:{};
+    ctx.textAlign='center';ctx.font='700 11px Inter,sans-serif';
+    for(let i=0;i<players.length;i++){const a=players[i];if(a===player)continue;
+      const meta=_peers[a.id]||{},col=meta.color||'#54e6ff',ax=ix(a),ay=iy(a);
+      const hx=a.x-a.px,hy=a.y-a.py;if(hx*hx+hy*hy>0.04)a._a=Math.atan2(hy,hx);
+      ctx.save();ctx.translate(ax,ay);if(a.dead)ctx.globalAlpha=.35;
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.shadowBlur=12;ctx.shadowColor=col;
+      ctx.save();ctx.rotate(frame*.02);ctx.setLineDash([7,9]);ctx.beginPath();ctx.arc(0,0,21,0,7);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+      ctx.save();ctx.rotate(a._a||0);ctx.drawImage(_tsp,-_tsp.width/2,-_tsp.height/2);ctx.restore();ctx.shadowBlur=0;
+      ctx.fillStyle=col;ctx.fillText((meta.name||'PLAYER').slice(0,10),0,-26);ctx.restore();}
+    ctx.globalAlpha=1;ctx.textAlign='left';
+  }else if(typeof Coop!=='undefined'&&Coop.active&&typeof Lobby!=='undefined'){
     const _tsp=shipSprite(false,14);
     ctx.textAlign='center';ctx.font='700 11px Inter,sans-serif';
     for(const id in Lobby.peers){const mt=Lobby.peers[id],col=mt.color||'#54e6ff';

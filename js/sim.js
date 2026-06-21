@@ -213,7 +213,7 @@ function updateShared(){
     for(let ai=0;ai<players.length;ai++){const a=players[ai];if(a.dead||a.inv>0||e.cdmg>0)continue;
       const combR=(e.boss?e.r*BOSS.hitRMul:e.r)+a.r,ddx=a.x-e.x,ddy=a.y-e.y;
       if(ddx*ddx+ddy*ddy<combR*combR){a.hp-=e.dmg;a.inv=e.boss?BOSS.invContact:7;e.cdmg=26;
-        e.x-=ux*12;e.y-=uy*12;if(a.hp<=0){a.hp=0;a.dead=true;if(a===player)return gameOver();}}}}
+        e.x-=ux*12;e.y-=uy*12;if(a.hp<=0){a.hp=0;a.dead=true;}}}}   // downed → spectate; the shared sim keeps running for everyone
 
   // ---- boss projectiles vs each avatar ----
   for(let i=ebullets.length-1;i>=0;i--){const b=ebullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
@@ -221,7 +221,7 @@ function updateShared(){
     for(let ai=0;ai<players.length;ai++){const a=players[ai];if(a.dead||a.inv>0)continue;
       const dx=b.x-a.x,dy=b.y-a.y,rr=b.r+a.r;
       if(dx*dx+dy*dy<rr*rr){a.hp-=b.dmg;a.inv=BOSS.invProj;ebullets.splice(i,1);
-        if(a.hp<=0){a.hp=0;a.dead=true;if(a===player)return gameOver();}break;}}}
+        if(a.hp<=0){a.hp=0;a.dead=true;}break;}}}   // downed → spectate (sim continues)
 
   // ---- shared bullets vs shared enemies (both avatars' fire damages the same bodies) ----
   for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
@@ -250,4 +250,7 @@ function updateShared(){
   for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.y+=f.vy;f.life--;if(f.life<=0)floats.splice(i,1);}
   for(let i=bolts.length-1;i>=0;i--){if(--bolts[i].life<=0)bolts.splice(i,1);}
   if(shake>0)shake*=.85;
+  // run ends for EVERYONE only when every avatar is down — deterministic across machines (no per-machine halt)
+  let _alive=0;for(let i=0;i<players.length;i++)if(!players[i].dead)_alive++;
+  if(_alive===0&&state==='play')return gameOver();
 }
