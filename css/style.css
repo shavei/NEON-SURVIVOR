@@ -93,6 +93,13 @@
   .lbrow .sc{color:var(--gold);font-weight:700;min-width:54px;font-size:14px}
   .lbrow .meta{color:var(--muted);font-size:11px}
   .lb .empty{color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1.5}
+  /* loading skeleton: shimmer bars that resolve instantly once the prefetched board lands */
+  .lbrow.skel .sc{min-width:54px;height:12px;border-radius:3px}
+  .lbrow.skel .meta{flex:1;height:10px;border-radius:3px;max-width:160px}
+  .lbrow.skel .sc,.lbrow.skel .meta{background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.14) 37%,rgba(255,255,255,.05) 63%);
+    background-size:400% 100%;animation:lbshimmer 1.2s ease-in-out infinite}
+  @keyframes lbshimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+  @media (prefers-reduced-motion:reduce){.lbrow.skel .sc,.lbrow.skel .meta{animation:none}}
   .menubtn{margin-top:16px;pointer-events:auto;cursor:pointer;background:none;border:none;
     font-family:var(--mono);font-size:13px;color:var(--muted);text-decoration:underline;letter-spacing:.05em}
   .menubtn:hover{color:var(--ink)}

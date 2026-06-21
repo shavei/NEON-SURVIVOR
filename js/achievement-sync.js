@@ -166,7 +166,9 @@ function confirmUsername() {
     if (_authmode === 'editname' && AchSync.enabled() && AchSync.ready()) AchSync.updateName(n);
     else if (typeof savePlayer === 'function') savePlayer(n);
     document.getElementById('username').classList.add('hidden');
-    document.getElementById('start').classList.remove('hidden'); return;
+    document.getElementById('start').classList.remove('hidden');
+    if (typeof LBSync !== 'undefined') LBSync.syncAll();   // identity set → warm all leaderboards in the background
+    return;
   }
   const email = (document.getElementById('authemail').value || '').trim(), pass = document.getElementById('authpass').value || '';
   if (!/.+@.+\..+/.test(email)) { seterr('Enter a valid email address.'); return; }
@@ -184,6 +186,6 @@ function confirmUsername() {
   p.then(done, () => done({ ok: false, error: 'Network error.' }));
 }
 /* AchSync → UI hooks, fired via AchSync._fire (globalThis lookup) */
-function onAuthResolved() { const m = document.getElementById('username'); if (m) m.classList.add('hidden'); document.getElementById('start').classList.remove('hidden'); if (typeof Ach !== 'undefined') Ach.renderPanel(); }
+function onAuthResolved() { const m = document.getElementById('username'); if (m) m.classList.add('hidden'); document.getElementById('start').classList.remove('hidden'); if (typeof Ach !== 'undefined') Ach.renderPanel(); if (typeof LBSync !== 'undefined') LBSync.syncAll(); }
 function onAuthRequired() { showAuth('signin'); }                                    // SDK up, no session → ask to sign in
 function onAuthOffline() { if (typeof getPlayer === 'function' && !getPlayer()) showAuth('local'); else document.getElementById('start').classList.remove('hidden'); }

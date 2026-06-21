@@ -201,20 +201,27 @@ function renderLegends(){
 function fmtTime(sec){const m=Math.floor(sec/60),s=sec%60;return m+':'+String(s).padStart(2,'0');}
 /* ===== global leaderboard (Supabase via net.js) — tabbed by difficulty, top 10 each ===== */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let _gdiff='normal',_gcache={};       // _gcache: diff → rows|null (per-menu-open cache)
+let _gdiff='normal';       // visible tab; rows come from the shared leaderboardCache (leaderboard-sync.js)
 function renderGlobalRows(rows){
   const el=document.getElementById('global');if(!el)return;
   if(rows===null){el.innerHTML='<div class="empty">Global board offline.<br>Scores still save on this device.</div>';return;}
   if(!rows.length){el.innerHTML='<div class="empty">No runs yet.<br>Be the first!</div>';return;}
   el.innerHTML=rows.map((r,i)=>
     `<div class="lbrow"><span class="rank">${i+1}</span><span class="sc">${r.score}</span><span class="meta">${esc(r.username||'—')} · ${fmtTime(r.secs)}</span></div>`).join('');}
+function renderGlobalSkeleton(){const el=document.getElementById('global');if(!el)return;   // shimmer placeholder
+  el.innerHTML=Array.from({length:6},(_,i)=>`<div class="lbrow skel"><span class="rank">${i+1}</span><span class="sc"></span><span class="meta"></span></div>`).join('');}
+/* paint from the prefetched cache → instant when 'ready'; skeleton + background fetch otherwise */
 function renderGlobal(diff){_gdiff=diff;
-  if(_gcache[diff]!==undefined){renderGlobalRows(_gcache[diff]);return;}
-  const el=document.getElementById('global');if(el)el.innerHTML='<div class="empty">Loading…</div>';
-  if(typeof fetchTop!=='function'){renderGlobalRows(null);return;}
-  // only cache successful results — never cache null, so an early (pre-SDK) or failed fetch retries next time
-  fetchTop(diff).then(rows=>{if(rows!==null)_gcache[diff]=rows;if(_gdiff===diff)renderGlobalRows(rows);});}
-function onSupabaseReady(){_gcache={};renderGlobal(_gdiff);   // net.js calls this once the SDK connects → refresh the visible tab
+  if(typeof LBSync==='undefined'){   // sync module absent (shouldn't happen) → legacy direct fetch
+    if(typeof fetchTop!=='function'){renderGlobalRows(null);return;}
+    renderGlobalSkeleton();fetchTop(diff).then(rows=>{if(_gdiff===diff)renderGlobalRows(rows);});return;}
+  const e=LBSync.get(diff);
+  if(e&&e.state==='ready'){renderGlobalRows(e.rows);return;}
+  if(e&&e.state==='error'){renderGlobalRows(null);return;}   // known-offline → message (retry via syncAll on menu open/SDK connect)
+  renderGlobalSkeleton();LBSync.ensure(diff);}                                    // loading/absent → resolves via onLeaderboardUpdate
+/* leaderboard-sync.js calls this when any difficulty's rows land → repaint only if it's the visible tab */
+function onLeaderboardUpdate(diff){if(diff===_gdiff)renderGlobal(diff);}
+function onSupabaseReady(){if(typeof LBSync!=='undefined')LBSync.syncAll(true);renderGlobal(_gdiff);   // SDK connected → re-warm every board
   if(typeof AchSync!=='undefined'&&AchSync.enabled())AchSync.resolveSession();}   // …and resolve the auth session (restore identity + pull achievements)
 document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.remove('on'));b.classList.add('on');
@@ -240,7 +247,7 @@ function showMenu(){
   document.getElementById('sound').classList.remove('show');
   document.getElementById('start').classList.remove('hidden');
   _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
-  syncGlobalTab(_gdiff);_gcache={};renderGlobal(_gdiff);}   // clear cache → fresh fetch each menu open
+  syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);}   // re-warm stale boards; instant if fresh
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';Music.stop();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
@@ -307,7 +314,8 @@ const _lobbyJoin=document.getElementById('lobbyjoin');if(_lobbyJoin)_lobbyJoin.o
 const _lobbyLeave=document.getElementById('lobbyleave');if(_lobbyLeave)_lobbyLeave.onclick=closeLobby;
 const _lobbyStart=document.getElementById('lobbystart');if(_lobbyStart)_lobbyStart.onclick=coopStart;
 
-renderGlobal(_gdiff);   // prime the global board (resolves to offline/empty when unconfigured)
+if(typeof LBSync!=='undefined')LBSync.syncAll();   // kick concurrent prefetch of all difficulty boards at startup
+renderGlobal(_gdiff);   // prime the visible tab (skeleton until rows land; offline/empty when unconfigured)
 bootMenu();             // first-run players get the username modal before the menu
 generateNebula();   // build the deep-space background tile once at startup
 requestAnimationFrame(loop);

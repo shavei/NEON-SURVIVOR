@@ -46,6 +46,12 @@ const NetDebug = {
                    ` · host=${(Coop._recvHost || (Coop.host && L ? L.me : '?'))} · migrations=${Coop._migrations || 0} · alive=${Coop._alive}`);
       }
     }
+    if (typeof leaderboardCache !== 'undefined' && typeof LBSync !== 'undefined') {
+      lines.push('LEADERBOARD (prefetch · TTL ' + (LBSync.TTL / 1000) + 's)');
+      LBSync.DIFFS.forEach(d => { const e = leaderboardCache[d];
+        const age = e && e.ts ? ((Date.now() - e.ts) / 1000).toFixed(1) + 's' : '—';
+        lines.push(` ${d.padEnd(7)} ${((e && e.state) || 'absent').padEnd(7)} rows=${(e && e.rows ? e.rows.length : 0)} age=${age}`); });
+    }
     if (typeof Ach !== 'undefined') {
       const last = Ach._last;
       lines.push(`ACH token=${Ach._token ? 'open' : '—'} · runBosses=${Ach.run.bosses}`);
