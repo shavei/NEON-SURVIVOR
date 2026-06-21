@@ -1,0 +1,23 @@
+# Audit Stage 3 (H8): enforce the CLAUDE.md push-gate on every PR.
+# Runs the full headless verifier suite (syntax + load + boss sim + determinism +
+# lockstep + equivalence + net/coop/achievements). verify:supabase SKIPs cleanly
+# unless *.supabase.co is reachable, so CI stays green without network secrets.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # No third-party deps are needed for the verifiers (pure Node, stub DOM),
+      # so skip install to keep the gate fast and hermetic.
+      - name: Run verifier suite
+        run: npm run verify:all

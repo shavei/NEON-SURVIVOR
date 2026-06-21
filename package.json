@@ -7,7 +7,14 @@
     "verify:upgrades": "node .claude/skills/neon-survivor/verify-upgrades.cjs",
     "verify:equiv": "node .claude/skills/neon-survivor/verify-equiv.cjs",
     "verify:achievements": "node .claude/skills/neon-survivor/verify-achievements.cjs",
-    "verify:net": "node .claude/skills/neon-survivor/verify-net.cjs"
+    "verify:net": "node .claude/skills/neon-survivor/verify-net.cjs",
+    "verify:coop": "node .claude/skills/neon-survivor/verify-coop.cjs",
+    "verify:netsync": "node .claude/skills/neon-survivor/verify-netsync.cjs",
+    "verify:determinism": "node .claude/skills/neon-survivor/verify-determinism.cjs",
+    "verify:lockstep": "node .claude/skills/neon-survivor/verify-lockstep.cjs",
+    "verify:lockstep-live": "node .claude/skills/neon-survivor/verify-lockstep-live.cjs",
+    "verify:supabase": "node .claude/skills/neon-survivor/verify-supabase.cjs",
+    "verify:all": "npm run verify && npm run verify:upgrades && npm run verify:equiv && npm run verify:achievements && npm run verify:net && npm run verify:coop && npm run verify:netsync && npm run verify:determinism && npm run verify:lockstep && npm run verify:lockstep-live && npm run verify:supabase"
   },
   "keywords": [
     "game",
