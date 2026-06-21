@@ -1,317 +1,241 @@
-# Implementation Plan — Unified Multiplayer State Synchronization
+# Implementation Plan — One Shared World: a Deterministic Co-op Simulation
 
 > **Scaffold/plan only. No game logic written yet.** Grounded in the live codebase as of
-> this branch: classic `<script defer>` globals (`index.html:137-151`), the existing
-> host-authoritative co-op stack (`js/network.js`, `js/multiplayer-combat.js`), the
-> leaderboard/identity layer (`js/net.js`), and the fixed-timestep + `alpha` lerp sim
-> (`js/sim.js` / `js/render.js`). Awaiting approval before any code is written.
+> this branch: classic `<script defer>` globals (`index.html:137-151`), the existing co-op
+> stack (`js/network.js`, `js/multiplayer-combat.js`), the leaderboard/identity layer
+> (`js/net.js`), and the fixed-timestep + `alpha` lerp sim (`js/sim.js` / `js/render.js`).
+> Awaiting approval before any code is written.
+
+> **Design north star (from the user):** *"Look at how the player behaves in single-player —
+> that's what I want in multiplayer, all at the same time with multiple players. No ghosts. We
+> both damage the same enemies, we both pick up the same XP. We are actually in the same world."*
+> So the goal is **not** "play as if single-player, side by side" — it is **one genuine
+> single-player simulation that several players inhabit at once.**
 
 ---
 
-## 0 — Audit: what exists today (and why it "feels like separate sessions")
+## 0 — Audit: what exists today, and why it isn't that yet
 
-A game-wide audit of the networking and entity layers was run via subagents. Findings:
+A game-wide audit (run via subagents) of the networking + entity layers found a working but
+**host-authoritative** co-op stack — and that model is the root of the problem.
 
-### 0.1 Networking layer
+### 0.1 The current model
 
 | Concern | Where | Finding |
 |---|---|---|
-| Realtime transport | `js/network.js:39` | **One** channel per room: `SB.channel('lobby:'+roomId, {presence:{key:me}})`. Presence = roster/liveness; Broadcast = everything else. |
-| Broadcast events | `js/multiplayer-combat.js:87-98` | 9 events bound: `enemies`, `drops`, `ekill`, `hit`, `pickup`, `xp`, `shot`, `ping`, `pong`. |
-| Authority model | `js/multiplayer-combat.js:6-14, 65-70` | **Host-authoritative.** Lowest *living* lobby id hosts, runs the real spawner, and broadcasts full `enemies` + `drops` rosters @10 Hz. Non-hosts render those rosters and report `hit`/`pickup` back. |
-| Position transport | `js/network.js:94-101` | Each client broadcasts its own `pos` @10 Hz; peers smooth toward the target (`step()`/`_smooth`). |
-| Identity | `js/net.js:16-18` | `neon_player = {id:uuid, name}` in localStorage. No auth. `Lobby.me` = that uuid. |
-| Persistence | `js/net.js:39-54` | Supabase is used **only** for the append-only `leaderboard` table + an offline retry queue. The *live world* is never persisted — it lives entirely in ephemeral Broadcast. |
-| Headless safety | every entry point | All net code no-ops when `SB` is null (`typeof SB==='undefined'||!SB`), so `verify.cjs` loads with no DOM/network and solo play is byte-for-byte untouched. **Every new file must preserve this.** |
+| Transport | `network.js:39` | One Realtime channel per room (`lobby:{roomId}`); Presence = roster/liveness, Broadcast = everything else. |
+| Authority | `multiplayer-combat.js:6-14, 65-70` | **One host** (lowest living id) runs the real spawner and broadcasts a compact enemy roster @10 Hz. |
+| Clients | `multiplayer-combat.js:25-30, 131-145` | Non-hosts **do not run the real sim.** They build *kinematic copies* of enemies from the roster and glide them (`e.x → e.tx`). |
+| Acknowledged gap | `multiplayer-combat.js:24` | Comment: *"dmg/r/xp/sc are type-derived (not elapsed-scaled) — a known v1 fidelity gap; host stays authoritative."* |
+| Damage path | `multiplayer-combat.js:193-197` | Clients *report* hits; host owns HP. Real shared damage already half-exists here. |
+| Sim clock | `sim.js` (`STEP=1000/60`, `MAXSUBSTEP`) | **Fixed timestep already.** Bodies snapshot `px/py` and lerp by `alpha` in `draw()`. |
+| RNG | `core.js:9` `rand=(a,b)=>a+Math.random()*(b-a)` | Single global RNG. Used for **gameplay** (spawn pos/type, orb scatter, item rolls) *and* **cosmetic** backdrop (`world.js:54-95`, render-only). |
+| Headless safety | every net entry point | All net code no-ops when `SB` is null → `verify.cjs` loads with no DOM/network; solo is byte-for-byte untouched. **Every new file must preserve this.** |
 
-### 0.2 Entity layer
+### 0.2 Why it "feels like separate sessions"
 
-| Entity | Array | ID | Spawn → Move → Delete |
-|---|---|---|---|
-| Enemies | `enemies` | `++_eid` (`world.js:150,159`) | `spawnEnemy()` → AI chase (`sim.js:100`) → `killEnemy()` (`world.js:210`) |
-| XP orbs | `orbs` | `++_oid` (`world.js:222,232`) | kill burst → magnet to nearest player (`sim.js:131-137`) → collect `orbs.splice` (`sim.js:138-141`) |
-| Items | `items` | `++_iid` (`world.js:223,242`) | `spawnItem()` / boss drop → bob + `life--` (`sim.js:66`) → `pickItem()` (`world.js:253`) |
-| Player bullets | `bullets` | **none** (anonymous) | `fire()` (`world.js:188-197`) → velocity (`sim.js:74`) → pierce/expiry splice |
-| Missiles | `missiles` | **none** | `fireMissiles()` (`world.js:267`) → homing (`sim.js:84`) → splice |
-| Boss bullets | `ebullets` | **none** | boss attacks (`world.js:171-183`) → velocity (`sim.js:120`) → splice |
-| Chain bolts | `bolts` | **none** | `castChain()` (`world.js:286`) → 9-tick visual → splice |
+The non-host is a **spectator of the host's world**, not a co-author of a shared one. It renders lossy
+kinematic copies (the `dmg/r/xp/sc` fidelity gap is explicit in the code), and only the host
+experiences the genuine, elapsed-scaled, full-AI single-player simulation. That asymmetry is exactly
+what the user is rejecting. They want **every** player to get the real single-player experience —
+same enemies, same scaling, same boss telegraphs, same magnet — in **one** world.
 
-**Key facts that shape this plan:**
+### 0.3 The pivotal realization
 
-1. **Orbs and items already carry unique ids and `tx/ty` glide fields** — the client reconcile
-   path (`applyDrops`, `multiplayer-combat.js:157-177`) and the lerp pattern
-   (`render.js:10` `ix()/iy()`) already exist. We are *refining* a working scheme, not greenfield.
-2. **Ids are globally monotonic (`_oid`/`_iid`)**, assigned only by whoever runs the spawner.
-   In a symmetric "two main characters" world, two independent spawners would collide on ids.
-   This is the single biggest blocker to making both players authoritative.
-3. **Projectiles are anonymous and never networked** except the cosmetic `shot` tracer
-   (one short line, `applyShot` `multiplayer-combat.js:227-232`). There is no real "fire event."
-4. **The world is host-rostered, not event-driven.** `drops` re-sends the *entire* orb+item set
-   @10 Hz (`broadcastDrops`, `multiplayer-combat.js:148-155`). Clients can't create or destroy
-   world entities — only the host can. That asymmetry *is* the "separate sessions" feeling: the
-   non-host is a spectator of the host's world, not a co-author of a shared one.
+A fixed-timestep auto-shooter whose only true randomness is a single `rand()` call is a textbook
+candidate for **lockstep determinism**. If every machine runs the *real* `update()` from the *same
+seed* on the *same inputs*, every machine computes the *identical* world — same spawns, same orbs,
+same bullets, same boss — with **no per-entity streaming at all.** That is the truest possible "same
+world": not synchronized copies, but the *same computation* run in parallel. It is also the most
+token-efficient, because we broadcast a few bytes of input per tick instead of 140-orb rosters @10 Hz.
 
-### 0.3 The gap, stated precisely
-
-The user's goal — *"both players as main characters in a persistent Global World State"* — requires
-three changes to the current model:
-
-- **Symmetric authority** for world entities (orbs/items), so either player can create/destroy them
-  and both observe it — replacing single-host rostering.
-- **Event-driven lifecycle** (`spawn` / `despawn`) instead of full-roster snapshots, so the world
-  feels shared and bandwidth scales with *churn*, not with *population*.
-- **Persistence** (a Supabase-backed snapshot) so the world survives a reconnect / late join instead
-  of being a per-session ephemeral broadcast.
+This supersedes the earlier "broadcast every orb/bullet" approach: under a shared deterministic sim,
+orbs and bullets are **not** broadcast — they *emerge identically everywhere*. (The entity-broadcast
+design is retained in §6 as the fallback if determinism proves impractical.)
 
 ---
 
-## 1 — Architecture: a new event-lifecycle layer in `js/network-sync.js`
+## 1 — Target architecture: shared deterministic simulation (lockstep)
 
 ```
-neon-survivor/
-├── js/
-│   ├── net.js                  (existing) leaderboard + identity — UNCHANGED
-│   ├── network.js              (existing) lobby Presence + pos — UNCHANGED transport, reused
-│   ├── multiplayer-combat.js   (existing) host-rostered enemies stay here — see §4 migration
-│   ├── network-sync.js         NEW · classic global · the entity-lifecycle + fire-event protocol
-│   └── ...
-└── supabase/
-    └── schema.sql              + world_state table (persistence tier, §3.3)
+Every peer runs the REAL js/sim.js update() — full fidelity, no kinematic copies.
+        │
+        ├─ shared SEED  ........ one PRNG, same sequence on every machine
+        ├─ shared INPUTS ....... each player's movement + upgrade picks, broadcast per tick
+        └─ shared CLOCK ........ the existing fixed STEP=1000/60, advanced in lockstep
+                                   │
+   desync guard ── periodic state hash compare ── snapshot resync (Supabase world_state)
 ```
 
-**Why a new file and not an extension of `multiplayer-combat.js` — see the Truncation Guard, §5.**
+**Three things must be made shared. Everything else is already deterministic.**
 
-`network-sync.js` exposes a single global, `NetSync`, mirroring the existing `Coop`/`Lobby` shape:
-classic script, loads **after** `multiplayer-combat.js` and **before** `achievements.js`/`main.js`,
-no-ops whenever `SB`/`Lobby.channel` is absent, and is driven by thin one-line seams in
-`world.js`/`sim.js` exactly like the existing `Coop.xxx()` calls.
+### 1.1 Shared seed (the only RNG change that matters)
 
----
+- Split `rand()` into two channels:
+  - **`srand()`** — a seeded PRNG (e.g. `mulberry32`) for **gameplay** randomness: spawn position/type
+    (`world.js:136-161`), orb scatter (`world.js:222,232`), item rolls (`world.js:223,242`). Seeded
+    from a single lobby-shared `worldSeed`.
+  - **`rand()`** — stays `Math.random` for **cosmetic-only** draws (nebula/starfield, `world.js:54-95`),
+    which never touch sim state and so may diverge harmlessly between screens.
+- `worldSeed` is chosen once (room creator) and shipped to joiners via Presence metadata on
+  `Lobby.join` — no new channel. Solo play seeds from `Date.now()` and is behaviorally identical to
+  today (`verify.cjs` unaffected: a fixed seed even makes it *more* reproducible).
 
-## 2 — Unified Entity Synchronization
+### 1.2 Shared inputs (tiny — most "inputs" are already derived)
 
-### 2.1 Symmetric ownership via namespaced ids (the enabling change)
+The genius of this game for netcode: **aim is automatic** (`fire()` targets `player.near`, the nearest
+enemy — `world.js:188`), so it is a *pure function of world state*, not an input. With a shared world,
+aim, firing, magnet, and AI are all already identical everywhere. The **only** true inputs are:
 
-Replace "only the host assigns ids" with **owner-namespaced ids**, so any player can spawn world
-entities without collision:
-
-```
-entity.id = ownerShort + ':' + (++localCounter)     // e.g. "a3f1:204"
-ownerShort = Lobby.me.slice(0,4)                     // stable per player
-```
-
-- `world.js` keeps incrementing its local counter; only the *prefix* changes (solo prefix can be
-  `''` so single-player ids stay numeric and `verify.cjs` is unaffected).
-- Every player owns the entities it spawns and is the sole authority for their `despawn`. There is
-  **no host** for orbs/items — both players are equal authors of one shared set.
-- Reconciliation stays id-keyed exactly as `applyDrops` already does, so the receive path is a small
-  edit, not a rewrite.
-
-### 2.2 XP orbs & items — broadcast CREATE / MOVE / DELETE
-
-Three discrete events, sent **only on lifecycle transitions** (not on a fixed roster timer):
-
-| Event | Sender | Payload | When |
-|---|---|---|---|
-| `ent:spawn` | the spawner | `{k, id, x, y, t}` — `k`=kind(`'o'`orb/`'i'`item), `t`=item-type-code (orbs omit) | once, on creation (kill burst, `spawnItem`, boss drop) |
-| `ent:despawn` | the collector | `{k, id}` | once, on pickup/expiry |
-| `ent:move` | owner, **batched** | `{k, m:[[id,x,y]...]}` | see §2.3 — coalesced, low-rate, deltas only |
-
-Receive path (in `NetSync`, reusing the `applyDrops` reconcile logic):
-- `ent:spawn` → push a body with `px/py/tx/ty` seeded to `x,y` (CLAUDE.md gotcha: anything that moves
-  needs the snapshot+lerp pair or it teleports).
-- `ent:despawn` → splice by id. **Idempotent** (ignore unknown id) — covers the
-  collect-race where both players grab the same orb in the same tick; first despawn wins, second is
-  a harmless no-op.
-- **Both players collect from the same orb field.** Whoever reaches an orb first collects it; the
-  collect is arbitrated once (the idempotent `ent:despawn` — second collector finds nothing to remove
-  and never grants), and XP flows to the **shared pool** via the existing `xp` event
-  (`multiplayer-combat.js:189`) so **both players level together**. One field, either player picks it
-  up, both benefit — no per-player private copies.
-
-**Reliability note.** Supabase Broadcast is fire-and-forget (no delivery guarantee). A dropped
-`ent:spawn` would orphan an entity. Mitigation: a **low-rate reconcile heartbeat** (1 Hz) sends a
-compact id-set digest `{k, ids:[...]}`; the receiver despawns anything locally present but absent from
-the digest, and requests a re-`spawn` for anything in the digest it lacks. This is the cheap safety
-net that lets the high-frequency path stay event-only. (The current full-roster `drops` @10 Hz is
-effectively this heartbeat running 10× too fast — we keep the correction, drop the frequency.)
-
-### 2.3 Movement: simulate locally, broadcast sparsely
-
-Streaming every orb's position @10 Hz is exactly what overloads the link today. Orbs only move under
-the **magnet** (`sim.js:131-137`), and **every client already knows every player's position** (via
-the lobby `pos` broadcast). So:
-
-- **Default: client-side deterministic magnet.** Each client runs the existing magnet math against
-  the *shared* set of player positions (`Coop.nearestPlayer` already does multi-player nearest,
-  `multiplayer-combat.js:180`). No movement packets needed — orbs converge identically on every
-  screen because the inputs (orb spawn pos + player positions) are shared. This is the
-  token-efficient answer the brief asks for.
-- **`ent:move` is the fallback only**, used for the rare entity whose motion is *not* a pure function
-  of shared state (e.g. a future knockback/explosion shove). When used it is **batched** into one
-  packet per tick and **delta/quantized** (rounded ints, like `broadcastEnemies`
-  `multiplayer-combat.js:126`). Items effectively never move (they bob in place, `render.js:49`), so
-  items never emit `ent:move` at all.
-
-Net effect: bandwidth scales with *spawns + collects* (a handful per second), not with the 140-orb
-population the current `drops` snapshot pays for every 100 ms.
-
-### 2.4 Projectile visibility — a lightweight `fire` event (real, shared damage)
-
-**Design intent: one shared world. Both players really damage the same enemies — nothing is
-cosmetic.** The `fire` event exists so each player can *see* the other's attacks; the *damage* those
-attacks deal is real and lands on the shared enemy set. We keep the link light by separating the two
-concerns:
-
-```
-fire  {o, x, y, a, t, n}     // owner-short, origin x/y (rounded), base angle (2dp),
-                             // weapon type 0=gun 1=missile 2=chain, n=multishot count
-```
-
-- **One packet per volley, not per bullet.** The receiver reconstructs the spread locally from
-  `(a, n)` using the same fan math as `fire()` (`world.js:191-196`) — so a 5-shot multishot costs the
-  same 1 packet as a single shot. This packet carries *visibility only*.
-- **Damage is real and shared, with single-source attribution.** Each player's bullets run their
-  collision against the **shared** enemy set on the **shooter's own machine**; on a hit, damage is
-  applied to the authoritative enemy HP via the existing `hit`→`applyHit` path
-  (`multiplayer-combat.js:193-197`). So both players genuinely chew down the same enemy. Only the
-  shooter reports its own hits, so shared damage **never double-counts** — the receiver's
-  reconstructed bullets are for sight, the shooter's report is for damage. No `ghost` flag, no
-  "fake" bullets: it's the same enemy, hit by both players, dying once.
-- **Reconstructed bullets carry no ids and need no despawn** — they expire on their local `life`
-  counter (`world.js:196`), and because they don't double-report, they can't double-hit.
-- **Throttled**, reusing the existing 70 ms guard (`multiplayer-combat.js:224`, ~14 Hz). Below the
-  fire rate of fast weapons, but visually continuous. Missiles/chain piggyback the same event with a
-  different `t`, so the receiver draws the right tracer (homing trail vs. lightning) without new
-  channels.
-
-This replaces `shot`/`applyShot` and is a strict superset of it (the old single-line tracer becomes
-the `t=0, n=1` case), upgraded from a cosmetic flourish to a true shared-combat visual.
-
-> **Authority recap (why this is "the same world," not two sessions):** enemy HP/death is arbitrated
-> by one snapshot-owner so an enemy can't be alive on one screen and dead on the other — but **both
-> players feed real damage into it** via `hit`. XP orbs and items are one shared field (§2.1–2.3):
-> **either player can walk over and collect the same orb**, the collect is arbitrated once
-> (idempotent despawn), and XP flows to the shared pool so both level together. There is exactly one
-> set of enemies, one set of orbs, one set of items — co-authored by both players.
-
----
-
-## 3 — Persistent Global World State (the "Supabase stack" tier)
-
-Broadcast is ephemeral: a late joiner or a reconnecting player sees an empty world until new events
-arrive. "Persistent" requires a durable snapshot. Three options were considered:
-
-| Option | Mechanism | Verdict |
+| Input | Source | Broadcast |
 |---|---|---|
-| Postgres Changes | subscribe to row inserts on a `world_entities` table | ❌ a DB round-trip per orb spawn — far too chatty, blows quotas |
-| Broadcast-only | no persistence | ❌ doesn't meet the "persistent" requirement; late joiners desync |
-| **Snapshot upsert** | host upserts a compact world blob to `world_state` on a slow timer | ✅ **chosen** — durable, cheap, decoupled from the hot path |
+| Movement vector | WASD / touch (`sim.js:15-32`) | per-tick, 1 quantized byte-pair per player |
+| Upgrade pick | level-up 1-of-3 (`world.js` upgrade flow) | once per level-up (the 3 options are `srand`-derived → identical on all screens; only the *choice* is sent) |
 
-**3.3 `world_state` table** (additive schema, RLS mirrors `leaderboard`):
+`fire` events, orb broadcasts, enemy rosters — **all deleted.** They were artifacts of the
+non-deterministic model. Bandwidth drops from ~140-entity rosters @10 Hz to ~2-4 bytes/player/tick.
+
+### 1.3 Lockstep clock + input delay
+
+- Each peer broadcasts its input for tick `T` and simulates `T` only once all peers' `T` inputs are in.
+- A small **input-delay buffer** (~2-3 ticks ≈ 33-50 ms) hides latency: you send input for `T+2`,
+  so by the time the sim reaches `T+2` the remote inputs have arrived. For an *auto-aim* shooter where
+  the only manual input is movement, this delay is imperceptible.
+- The existing `MAXSUBSTEP` catch-up loop is retained, but capped so a lagging peer requests a resync
+  (§1.4) rather than fast-forwarding out of sync.
+
+### 1.4 Desync guard + resync (honesty about the one real risk)
+
+JS integer/float math is deterministic, **but transcendental funcs (`Math.sin/cos`) are not guaranteed
+bit-identical across browser engines.** Over long sessions, tiny drift could accumulate. Mitigation —
+a cheap, well-established correction layer:
+
+- Every ~1 s, each peer hashes a compact world digest (enemy ids+rounded positions, orb count, RNG
+  cursor) and the **seed-authority** (lowest living id, reusing `Coop._hostId`) compares.
+- On mismatch, the authority pushes a full **snapshot**; peers hard-reset their world to it. Visible as
+  at most a tiny one-frame correction, rare in practice.
+- This same snapshot path doubles as **late-join / reconnect hydration** (§3) — one mechanism, two uses.
+
+---
+
+## 2 — What this delivers against the user's words
+
+| User requirement | How the shared sim satisfies it |
+|---|---|
+| "How the player behaves in single-player" | Every peer runs the **real** `update()` — full AI, elapsed-scaling, boss telegraphs, magnet. No kinematic copies, no fidelity gap. |
+| "All at the same time, multiple players" | All peers advance the **same** fixed-timestep world in lockstep. |
+| "We both damage the same enemies" | There is literally **one** enemy set, computed identically; each player's auto-fire resolves against it on every machine. Damage isn't *reported* — it just *happens*, the same way, everywhere. |
+| "We both pick up the same XP" | One orb field, identical on all screens. Whoever's avatar reaches an orb collects it; the collect is deterministic from shared positions, so all machines agree without a packet. |
+| "No ghosts" | Nothing is a cosmetic copy. Every bullet, orb, and enemy is a real, simulated, shared entity. |
+| "Actually in the same world" | Not N synced worlds — the **same computation** run in parallel from one seed. |
+
+Remote **players** are the one genuinely external input (their movement), so each remote avatar is
+driven by its broadcast movement vector and rendered with the existing `px/py` + `ix()/iy()` lerp
+(`render.js:10`) — the same interpolation the lobby already uses for peers (`network.js:104-113`).
+
+---
+
+## 3 — Persistence: the "Global World State" via Supabase (`world_state`)
+
+The shared sim is live-only; a reconnecting or late-joining player needs to drop into the world
+*in progress*. Reuse the desync snapshot as durable state:
 
 ```sql
 create table public.world_state (
   room       text primary key,
-  snapshot   jsonb not null,        -- {orbs:[[id,x,y]], items:[[id,t,x,y]], seq, t}
+  seed       bigint not null,         -- the worldSeed (so a rejoin re-derives identical RNG)
+  tick       bigint not null,         -- authoritative sim tick
+  snapshot   jsonb not null,          -- enemies + orbs + items + per-player level/xp
   updated_at timestamptz default now()
 );
--- anyone in a room may read; writes validated/rate-limited like leaderboard inserts
+-- read by anyone in the room; writes validated/rate-limited like leaderboard inserts
 ```
 
-- The current snapshot owner (the lowest living id — we reuse `Coop._hostId`, no new election) upserts
-  the compact orb+item set **once every ~2 s**. One row per room, overwritten in place → trivial
-  storage, bounded write rate.
-- **Join/reconnect hydration:** on `Lobby.join`, `NetSync` does one `SELECT snapshot FROM world_state`
-  and seeds `orbs`/`items` from it, then goes live on Broadcast. The player walks into a populated,
-  continuous world instead of a blank one — this is what makes it feel *persistent and shared* rather
-  than a fresh session.
-- Lives in `net.js`-style functions (`saveWorld(room, snap)` / `loadWorld(room)`) added to
-  `network-sync.js`, headless-safe (`SB` null → no-op), never blocking the sim.
+- The seed-authority upserts every ~2 s (one row/room, overwritten → trivial storage, bounded writes).
+- **Join/reconnect:** `NetSync` does one `SELECT`, seeds the PRNG to `seed`, fast-forwards/loads to
+  `tick`+`snapshot`, then joins the lockstep. The player walks into a populated, continuous world —
+  this is what makes it *persistent and global*, not a fresh session.
+- Functions live `net.js`-style (`saveWorld` / `loadWorld`) in `network-sync.js`; headless-safe
+  (`SB` null → no-op); never block the sim.
 
 ---
 
-## 4 — Migration: fold the host-roster into the event model
+## 4 — Token Efficiency & Modularity (Truncation Guard)
 
-The existing `Coop` enemy rostering (`enemies`/`drops`) is **kept** as the HP/death arbiter — one
-authority decides when a shared enemy dies so it can't be alive on one screen and dead on the other.
-But **both players damage that shared enemy for real** (§2.4): the arbiter just resolves the
-authoritative HP from each player's `hit` reports. The overhaul targets **orbs + items +
-projectiles**, the entities the brief names, plus this shared-damage wiring. Phasing:
+**28 KB (28 672-byte) per-file limit, measured against current sizes:**
 
-1. **Phase 1 — additive.** Land `NetSync` + the `fire` event + client-side magnet, behind the same
-   `Coop.active` gate. Orbs/items still flow through `drops` as a fallback; `NetSync` runs in
-   parallel and is verified equivalent.
-2. **Phase 2 — cutover.** Stop `broadcastDrops` from sending orb/item rosters; `NetSync` lifecycle
-   events become the source of truth, with the 1 Hz digest as the safety net. Delete the now-dead
-   orb/item branches from `applyDrops`.
-3. **Phase 3 — persistence + symmetry.** Enable namespaced ids (§2.1) and `world_state` hydration
-   (§3). This is the step that promotes the non-host from spectator to co-author.
-
-Each phase is independently shippable and independently verifiable.
-
----
-
-## 5 — Token Efficiency & Modularity (Truncation Guard)
-
-**The 28 KB (28 672-byte) per-file truncation limit, measured against current sizes:**
-
-| File | Bytes | Headroom to 28 KB | Role in this overhaul |
+| File | Bytes | Headroom | Role in this overhaul |
 |---|---:|---:|---|
 | `main.js` | 24 146 | **4 526** | wiring only — must NOT absorb sync logic |
-| `core.js` | 21 535 | 7 137 | untouched |
-| `world.js` | 19 553 | 9 119 | gains only one-line `NetSync.xxx()` seams |
-| `multiplayer-combat.js` | 16 588 | 12 084 | host-roster stays; **not** the home for the new protocol |
-| `render.js` | 12 535 | 16 137 | gains ghost-bullet draw (small) |
-| `sim.js` | 9 666 | 19 006 | gains magnet-on-shared-positions + seams |
+| `core.js` | 21 535 | 7 137 | gains the `srand` PRNG split (small, surgical) |
+| `world.js` | 19 553 | 9 119 | swap `rand→srand` at gameplay sites; one-line `NetSync` seams |
+| `multiplayer-combat.js` | 16 588 | 12 084 | host-roster code is **retired** here (net shrink) |
+| `render.js` | 12 535 | 16 137 | unchanged (already lerps peers) |
+| `sim.js` | 9 666 | 19 006 | lockstep gate around `update()`; movement-input seam |
 | `net.js` | 4 039 | 24 633 | untouched (leaderboard concern) |
 
-**Decision: YES — the overhaul requires a dedicated `js/network-sync.js`.** Rationale:
+**Decision: YES — a dedicated `js/network-sync.js` is required.** Rationale:
 
-- **`main.js` is the danger file** at 4.5 KB of headroom. The new protocol is an estimated
-  3–4 KB (spawn/despawn/move/fire send+receive, digest reconcile, persistence I/O). Putting any of it
-  in `main.js` — or in `world.js`/`sim.js`, which must stay lean hot-loop files — risks crossing the
-  limit as the protocol grows in phases 2–3.
-- **`multiplayer-combat.js` could physically hold it** (12 KB headroom) but **shouldn't**: it is the
-  *host-authoritative roster* engine, a conceptually distinct authority model from the *symmetric
-  event-lifecycle* layer. Mixing them in one 20 KB file hurts readability and re-creates the coupling
-  problem this overhaul exists to undo. Separation of concerns > raw byte budget.
-- A new file keeps **every** file comfortably under 28 KB indefinitely and gives the protocol room to
-  grow without a future emergency split.
-
-**Modularity rules for the new file** (consistent with the existing net stack):
-- Classic global `NetSync`, loaded after `multiplayer-combat.js`, before `achievements.js`.
-- Every entry point no-ops when `SB`/`Lobby.channel` is absent → `verify.cjs` and solo play untouched.
-- World/sim integration is **one-line seams** (`NetSync.onSpawnOrb(o)`, `NetSync.onFire(x,y,a,t,n)`,
-  `NetSync.onDespawn('o',id)`), so `world.js`/`sim.js` grow by bytes, not blocks.
-- Compact wire format (positional arrays, rounded ints) reused from `broadcastEnemies`.
+- **`main.js` is the danger file** (4.5 KB headroom). The lockstep engine — input ring-buffer, tick
+  scheduler, seed handshake, hash/resync, `world_state` I/O — is an estimated 4-6 KB and must not land
+  in `main.js`, `world.js`, or `sim.js` (the lean hot-loop files).
+- The new model is a **distinct concern** from both the leaderboard (`net.js`) and the soon-retired
+  host-roster (`multiplayer-combat.js`). A separate file keeps every file well under 28 KB
+  indefinitely and isolates the protocol for clean phased work.
+- **Modularity rules** (matching the existing net stack): classic global `NetSync`, loaded after
+  `multiplayer-combat.js`, before `achievements.js`; no-ops when `SB`/`Lobby.channel` absent
+  (`verify.cjs` + solo untouched); world/sim integration is **one-line seams**
+  (`NetSync.localInput(mx,my)`, `NetSync.pickUpgrade(i)`, `NetSync.shouldStep()`); compact wire format
+  (quantized ints) reused from `broadcastEnemies`.
 
 ---
 
-## 6 — Verification gates (per CLAUDE.md, before any push)
+## 5 — Phased rollout (each phase shippable + verifiable)
 
-1. `node .claude/skills/neon-survivor/verify.cjs` — syntax + headless load + boss sim must stay green.
-   `NetSync` must load and no-op under Node (no `window`/`document`/`supabase`/`fetch` at top level).
-2. `node .claude/skills/neon-survivor/verify-upgrades.cjs` — unaffected, run as regression.
-3. `node .claude/skills/neon-survivor/verify-equiv.cjs` — assert solo behavior is byte-for-byte
-   unchanged (the `Coop.active===false` and empty-prefix id paths must match pre-change output).
+1. **Determinism foundation.** Split `rand`/`srand`, seed from a constant, prove solo play is
+   unchanged via `verify-equiv.cjs`. No networking yet. *(This is the make-or-break phase: if the sim
+   isn't reproducible from a seed on one machine, lockstep can't work.)*
+2. **Seed handshake + input transport.** Ship `worldSeed` over Presence; broadcast movement inputs;
+   `NetSync` buffers them. Still single-sim (host) — just proving the input pipe.
+3. **Lockstep cutover.** Every peer runs the real `update()` gated on input availability + delay
+   buffer. Retire the `enemies`/`drops`/`fire` broadcasts and the kinematic-copy path in
+   `multiplayer-combat.js`. **This is where both players become true co-authors of one world.**
+4. **Desync guard + `world_state` persistence.** Hash compare, snapshot resync, join/reconnect
+   hydration. Delivers robustness + the "persistent global world."
+
+---
+
+## 6 — Fallback: event-lifecycle model (if determinism proves impractical)
+
+If cross-browser float drift can't be tamed cheaply, fall back to the **authoritative shared sim**:
+one peer runs the real `update()`; others send movement inputs and receive a fuller (lossless,
+elapsed-scaled — closing the current fidelity gap) authoritative state, with client-side prediction of
+their own avatar to hide latency. This still gives "one shared world, real damage, shared XP," but the
+sim runs on one machine rather than symmetrically. Under this fallback the earlier per-entity
+broadcasts (`ent:spawn`/`ent:despawn`, type-aware `fire` events) return as the transport. Documented
+here so the decision is reversible without re-planning.
+
+---
+
+## 7 — Verification gates (per CLAUDE.md, before any push)
+
+1. `verify.cjs` — syntax + headless load + boss sim stays green; `NetSync` loads + no-ops under Node.
+2. `verify-upgrades.cjs` — regression on the upgrade flow (now an input).
+3. `verify-equiv.cjs` — **critical:** solo behavior byte-for-byte unchanged once seeded; the
+   determinism phase lives or dies here.
 4. `vercel` preview build succeeds.
-5. Manual two-tab co-op smoke: spawn an orb in tab A, confirm it appears, magnets, and despawns
-   exactly once across both tabs; confirm each tab sees the other's `fire` tracers; kill a tab and
-   reload it — confirm `world_state` hydration repopulates the world.
+5. Two-tab smoke: same seed → identical spawns; kill an enemy in tab A → dies in tab B at the same
+   tick; both collect from one orb field; reload a tab → `world_state` hydration drops it back into the
+   live world.
 
 ---
 
-## 7 — Open questions for approval
+## 8 — Decision needed before coding
 
-1. **Shared damage — DECIDED.** Both players deal real damage to the same enemies. Mechanism:
-   per-shooter local collision against the shared enemy set + authoritative `hit` reports to the one
-   HP arbiter (§2.4). No cosmetic/ghost bullets. The only thing the arbiter owns is *when the shared
-   enemy dies*, so it dies once, for both.
-2. **Shared XP — DECIDED.** One orb field; either player can collect any orb; collect is arbitrated
-   once (idempotent despawn) and XP goes to the shared pool so both level together (§2.2).
-3. **Persistence scope** — persist orbs+items only (cheap), or also player progress/level for a truly
-   "persistent" world that survives all players leaving? Recommendation: orbs+items for v1.
-4. **Enemy spawn ownership** — keep one snapshot-owner spawning + arbitrating enemy HP (this plan), or
-   let either player also spawn enemies into the shared set? Recommendation: single spawn-owner for
-   v1 (avoids duplicate waves); both still *damage* every enemy regardless of who spawned it.
+**Lockstep deterministic sim (§1, recommended) vs. authoritative shared sim (§6 fallback).**
+Lockstep is the truest "same world, full single-player fidelity for everyone, symmetric, minimal
+bandwidth," at the cost of determinism engineering (seeded RNG + a desync guard for `sin/cos` drift).
+The authoritative fallback is more robust to float drift but runs the sim on one machine and needs
+prediction. Recommendation: **build the determinism foundation (Phase 1) first** — it's required by
+both paths and its `verify-equiv` result tells us empirically whether full lockstep is safe before we
+commit to it.
