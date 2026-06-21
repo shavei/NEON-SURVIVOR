@@ -93,4 +93,19 @@ const NetSync = {
   inputAt(id, tick) { const ring = this._buf[id], v = ring && ring[tick]; return v ? { mx: v[0] / 127, my: v[1] / 127 } : null; },
   haveAll(tick, ids) { for (let i = 0; i < ids.length; i++) { const r = this._buf[ids[i]]; if (!r || r[tick] === undefined) return false; } return true; },
   stats() { return this._stats; },
+
+  /* ===== lockstep stepper (Phase 3) =====
+   * The control core the shared-world tick (sim.js updateShared) runs on. INPUT_DELAY buffers a couple
+   * of ticks so a peer's input for tick T has arrived by the time everyone simulates T. ready() gates
+   * the advance; applyInputs() loads each avatar's input for the tick from the ring (holding the last
+   * known value if a packet is late, so a brief drop coasts rather than freezes). */
+  INPUT_DELAY: 2,
+  lockstep: false,
+  _ids() { const out = []; if (typeof players !== 'undefined') for (let i = 0; i < players.length; i++) out.push(players[i].id); out.sort(); return out; },
+  ready(tick) { return this.haveAll(tick, this._ids()); },        // may every avatar's input for `tick` is present?
+  applyInputs(tick) {
+    if (typeof players === 'undefined') return;
+    for (let i = 0; i < players.length; i++) { const a = players[i], v = this.inputAt(a.id, tick);
+      if (v) a.input = [v.mx, v.my]; else if (!a.input) a.input = [0, 0]; }   // late packet → hold last input
+  },
 };
