@@ -95,6 +95,35 @@ create policy "runs insert open" on public.runs for insert
 create policy "runs readable"    on public.runs for select using (true);
 -- no update/delete policy → only /api/verify (service_role) can verify a run and set its score.
 
+
+-- ============================================================
+-- PROFILES — durable identity. One row per Supabase Auth user, anchored on auth.users(id). This is
+-- what makes progress GLOBAL: player_achievements.player_id and runs.player_id are set to this same id
+-- once a player signs in, so the same person resolves to the same badges on every device/browser.
+-- (No row is created until a user authenticates; offline/local play still uses net.js' legacy uuid.)
+-- ============================================================
+create table if not exists public.profiles (
+  id          uuid primary key references auth.users(id) on delete cascade,
+  username    text not null check (char_length(username) between 1 and 16),
+  created_at  timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "profiles readable"      on public.profiles;
+drop policy if exists "owner writes profile"    on public.profiles;
+drop policy if exists "owner updates profile"   on public.profiles;
+-- world-readable (show anyone's name); each user may write/update only their OWN row (auth.uid() = id).
+create policy "profiles readable"    on public.profiles for select using (true);
+create policy "owner writes profile" on public.profiles for insert with check (auth.uid() = id);
+create policy "owner updates profile" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
+
+-- NOTE (P3): once legacy player_achievements rows are re-keyed to auth ids by /api/claim.js, add an FK
+-- for integrity:  alter table public.player_achievements add constraint player_achievements_player_fk
+--                 foreign key (player_id) references public.profiles(id) on delete cascade;
+-- Deferred so the constraint doesn't reject still-orphaned legacy player_ids before the claim runs.
+
+
 -- ---------- harden the EXISTING leaderboard (FUTURE cutover, NOT run yet) ----------
 -- Today's "anyone can insert" (above) lets any client post any score. Once /api/verify also writes
 -- the leaderboard server-side, drop the client insert policy so the service role is the only writer:

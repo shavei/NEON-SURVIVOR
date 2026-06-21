@@ -83,13 +83,16 @@
 </div>
 
 <div class="overlay hidden" id="username">
-  <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">PICK A USERNAME</div>
-  <p class="tag" style="margin-top:12px">This is how you'll show up on the global leaderboard. 3–16 characters.</p>
+  <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">SIGN IN</div>
+  <p class="tag" style="margin-top:12px" id="authtag">Sign in to sync your achievements across every device.</p>
   <div class="unamebox">
-    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. NEONRIDER" aria-label="username">
+    <input id="authemail" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="email" aria-label="email">
+    <input id="authpass" type="password" autocomplete="current-password" placeholder="password (min 6)" aria-label="password">
+    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="display name (3–16)" aria-label="display name">
     <div class="unameerr" id="unameerr"></div>
   </div>
-  <button class="btn" id="unameok">✔ CONFIRM</button>
+  <button class="btn" id="unameok">✔ SIGN IN</button>
+  <button class="menubtn" id="authtoggle">New here? Create an account</button>
 </div>
 
 <div class="overlay hidden" id="over">
@@ -134,7 +137,7 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: config → core → audio-engine → world → sim → render → ui-engine → net → network → multiplayer-combat → network-sync → achievements → leaderboard-engine → netdebug → main -->
+<!-- classic scripts, shared global scope — load order matters: config → core → audio-engine → world → sim → render → ui-engine → net → network → multiplayer-combat → network-sync → achievements → achievement-sync → leaderboard-engine → netdebug → main -->
 <script defer src="js/config.js"></script>
 <script defer src="js/core.js"></script>
 <script defer src="js/audio-engine.js"></script>
@@ -147,6 +150,7 @@
 <script defer src="js/multiplayer-combat.js"></script>
 <script defer src="js/network-sync.js"></script>
 <script defer src="js/achievements.js"></script>
+<script defer src="js/achievement-sync.js"></script>
 <script defer src="js/leaderboard-engine.js"></script>
 <script defer src="js/netdebug.js"></script>
 <script defer src="js/main.js"></script>

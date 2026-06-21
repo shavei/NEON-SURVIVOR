@@ -214,29 +214,25 @@ function renderGlobal(diff){_gdiff=diff;
   if(typeof fetchTop!=='function'){renderGlobalRows(null);return;}
   // only cache successful results — never cache null, so an early (pre-SDK) or failed fetch retries next time
   fetchTop(diff).then(rows=>{if(rows!==null)_gcache[diff]=rows;if(_gdiff===diff)renderGlobalRows(rows);});}
-function onSupabaseReady(){_gcache={};renderGlobal(_gdiff);}   // net.js calls this once the SDK connects → refresh the visible tab
+function onSupabaseReady(){_gcache={};renderGlobal(_gdiff);   // net.js calls this once the SDK connects → refresh the visible tab
+  if(typeof AchSync!=='undefined'&&AchSync.enabled())AchSync.resolveSession();}   // …and resolve the auth session (restore identity + pull achievements)
 document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.remove('on'));b.classList.add('on');
   renderGlobal(b.dataset.d);});
 function syncGlobalTab(diff){document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.toggle('on',z.dataset.d===diff));}
 
-/* ===== first-run username onboarding (gates the menu; identity persists via net.js) ===== */
+/* ===== identity onboarding (gates the menu) — Supabase Auth when online, local name when not =====
+ * Modes: 'signin'/'signup' (email+password, cloud identity via AchSync) · 'editname' (rename the
+ * signed-in/local profile) · 'local' (offline/unconfigured first-run name, legacy local-only id). */
 function sanitizeName(s){return String(s||"").replace(/[\u0000-\u001f]/g,"").replace(/\s+/g," ").trim().slice(0,16);}
-function showUsername(edit){const m=document.getElementById('username');if(!m)return;
-  const inp=document.getElementById('uname'),err=document.getElementById('unameerr');
-  if(err)err.textContent='';
-  if(inp){const p=(typeof getPlayer==='function')&&getPlayer();inp.value=edit&&p?p.name:'';}
-  m.classList.remove('hidden');if(inp)try{inp.focus();}catch(e){}}
-function confirmUsername(){
-  const inp=document.getElementById('uname'),err=document.getElementById('unameerr');
-  const n=sanitizeName(inp&&inp.value);
-  if(n.length<3){if(err)err.textContent='Please use at least 3 characters.';return;}
-  if(typeof savePlayer==='function')savePlayer(n);
-  document.getElementById('username').classList.add('hidden');
-  document.getElementById('start').classList.remove('hidden');}
-function bootMenu(){   // first run → name modal before the menu; returning players go straight in
+/* The auth-modal UI (showAuth / confirmUsername) and the AchSync→UI hooks (onAuthResolved /
+ * onAuthRequired / onAuthOffline) live in js/achievement-sync.js — kept out of main.js so this file
+ * stays under the 28 KB silent-truncation threshold. sanitizeName (above) + bootMenu (below) stay here. */
+function bootMenu(){   // auth-gated when online/configured; otherwise legacy local name on first run
+  if(typeof AchSync!=='undefined'&&AchSync.enabled()){
+    document.getElementById('start').classList.add('hidden');AchSync.boot();return;}
   if(typeof getPlayer==='function'&&!getPlayer()){
-    document.getElementById('start').classList.add('hidden');showUsername(false);}}
+    document.getElementById('start').classList.add('hidden');showAuth('local');}}
 
 function showMenu(){
   document.getElementById('over').classList.add('hidden');
@@ -260,7 +256,10 @@ document.getElementById('quityes').onclick=quitToMenu;
 document.getElementById('tomenu').onclick=showMenu;
 const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=confirmUsername;
 const _unameInput=document.getElementById('uname');if(_unameInput)_unameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
-const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showUsername(true);
+const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showAuth('editname');
+const _authtoggle=document.getElementById('authtoggle');if(_authtoggle)_authtoggle.onclick=()=>showAuth(_authmode==='signup'?'signin':'signup');
+const _authpass=document.getElementById('authpass');if(_authpass)_authpass.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
+const _authemail=document.getElementById('authemail');if(_authemail)_authemail.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
 renderLegends();
 if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
 
