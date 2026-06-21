@@ -13,7 +13,9 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '../../..');
 const SEED = 4242;
-const FILES = ['js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/network-sync.js', 'js/main.js'];
+// Full index.html load order (matches the page exactly) — main.js references confirmUsername/showAuth from
+// achievement-sync.js at load, so the bundle must match the page or it ReferenceErrors at boot.
+const FILES = ['js/config.js', 'js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/net.js', 'js/network.js', 'js/multiplayer-combat.js', 'js/network-sync.js', 'js/achievements.js', 'js/achievement-sync.js', 'js/leaderboard-sync.js', 'js/leaderboard-engine.js', 'js/netdebug.js', 'js/main.js'];
 const bundle = FILES.map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
 
 function makeSandbox() {
@@ -36,7 +38,7 @@ const prelude = (mathSeed) => `(function(){ var __s=${mathSeed}>>>0; Math.random
 const driver = (me, other) => `
 ;(function(){
   startGame(); seedRng(${SEED});
-  Lobby = { me:'${me}', peers:{} }; Lobby.peers['${other}'] = { x:1500, y:1500 };
+  Lobby.me='${me}'; Lobby.peers=Object.create(null); Lobby.peers['${other}'] = { x:1500, y:1500 };   // mutate the real const Lobby (network.js) — don't reassign
   NetSync.enterLockstep();                          // builds players[p1,p2] @ world centre, primes 0..DELAY
   for(var i=0;i<players.length;i++){players[i].hp=1e9;players[i].maxhp=1e9;}   // immortal: isolate lockstep mechanics from death/end path
   t0=0; now=0;

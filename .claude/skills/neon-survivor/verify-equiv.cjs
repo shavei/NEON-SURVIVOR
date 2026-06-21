@@ -19,7 +19,11 @@ const scriptA = fs.readFileSync(path.resolve(__dirname, 'baseline-original.js'),
 // audio-engine.js defines the `Music` facade (core.js's old Music is now SynthMusic, the fallback).
 // Audio never touches game state, so the snapshot hash must still match the pre-audio baseline.
 // ui-engine.js is screen-space HUD (minimap) only — reads globals, never mutates sim state, so the hash still matches.
-const scriptB = ['js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/main.js']
+// Full index.html load order (matches the page exactly). net/network/achievement/leaderboard files are inert
+// in headless (no top-level Math.random, setTimeout stubbed) so the gameplay snapshot stays identical
+// to the pre-network baseline — but main.js references confirmUsername/showAuth from achievement-sync.js
+// at load, so they must be present or the split build ReferenceErrors at boot.
+const scriptB = ['js/config.js', 'js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/net.js', 'js/network.js', 'js/multiplayer-combat.js', 'js/network-sync.js', 'js/achievements.js', 'js/achievement-sync.js', 'js/leaderboard-sync.js', 'js/leaderboard-engine.js', 'js/netdebug.js', 'js/main.js']
   .map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
 
 // ---- Stub DOM / canvas / audio (mirrors verify.cjs) ----

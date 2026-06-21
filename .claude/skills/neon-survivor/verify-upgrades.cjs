@@ -53,14 +53,14 @@ const driver = `
     spd:       function(b){ return { speed: b.speed*1.12 }; },
     maxhp:     function(b){ return { maxhp: b.maxhp+30, hp: Math.min(b.maxhp+30, b.hp+30) }; },
     magnet:    function(b){ var m=b.magnet*1.6; return { magnet: m, magnetSq: m*m }; },
-    regen:     function(b){ return { regen: b.regen+1 }; },
+    regen:     function(b){ return { regenRate: b.regenRate+1 }; },   // applyUpgrade mutates p.regenRate (world.js), not p.regen
     lifesteal: function(b){ return { lifesteal: b.lifesteal+1 }; },
     velocity:  function(b){ return { bulletSpd: b.bulletSpd*1.3, dmg: b.dmg*1.08 }; },
     missile:   function(b){ return { missile: b.missile+1 }; },
     shield:    function(b){ return { shield: b.shield+1 }; },
     chain:     function(b){ return { chain: b.chain+1 }; }
   };
-  var WATCH = ['dmg','rate','multi','pierce','speed','maxhp','hp','magnet','magnetSq','regen','lifesteal','bulletSpd','missile','shield','chain'];
+  var WATCH = ['dmg','rate','multi','pierce','speed','maxhp','hp','magnet','magnetSq','regenRate','lifesteal','bulletSpd','missile','shield','chain'];
   var EPS = 1e-9, fails = [], n = 0;
   function snap(){ var s={}; for (var i=0;i<WATCH.length;i++) s[WATCH[i]]=player[WATCH[i]]; return s; }
 

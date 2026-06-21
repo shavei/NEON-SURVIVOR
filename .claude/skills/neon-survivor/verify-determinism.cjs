@@ -11,7 +11,9 @@
 const fs = require('fs'), path = require('path'), vm = require('vm'), crypto = require('crypto');
 const ROOT = path.resolve(__dirname, '../../..');
 
-const scriptB = ['js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/main.js']
+// Full index.html load order (matches the page exactly) — main.js references confirmUsername/showAuth from
+// achievement-sync.js at load, so the bundle must match the page or it ReferenceErrors at boot.
+const scriptB = ['js/config.js', 'js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/net.js', 'js/network.js', 'js/multiplayer-combat.js', 'js/network-sync.js', 'js/achievements.js', 'js/achievement-sync.js', 'js/leaderboard-sync.js', 'js/leaderboard-engine.js', 'js/netdebug.js', 'js/main.js']
   .map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
 
 function makeSandbox() {
