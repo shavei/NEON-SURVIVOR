@@ -115,7 +115,8 @@ function loop(ts){now=ts;
     acc+=dt;
     let n=0;
     while(acc>=STEP&&n<MAXSUBSTEP&&state==='play'){                          // update() may flip state (gameOver/levelup) → stop simulating at once
-      if(typeof NetSync!=='undefined'&&NetSync.lockstep){if(!NetSync.stepShared())break;}   // shared world: advance only when every peer's input has arrived (else stall, never fork)
+      if(typeof Online!=='undefined'&&Online.active)Online.tick();          // server-authoritative: send input only; the world arrives as snapshots (applySnapshot)
+      else if(typeof NetSync!=='undefined'&&NetSync.lockstep){if(!NetSync.stepShared())break;}   // shared world: advance only when every peer's input has arrived (else stall, never fork)
       else update();
       acc-=STEP;n++;}
     if(n===MAXSUBSTEP)acc=0;                           // drop unrecoverable backlog
@@ -135,7 +136,19 @@ function startGame(){Sound.init();Sound.resume();Music.start();reset();state='pl
   if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');}
+/* Server-authoritative run: connect to the Node authority (GAME_SERVER_URL) and let snapshots drive the
+ * world (the loop calls Online.tick() instead of update()). Returns false if no server is configured, so
+ * callers can fall back to startGame(). Wiring a menu button + the online game-over handoff are the
+ * remaining UI steps; Online stays dormant (active=false) until this is called, so behaviour is unchanged. */
+function startOnline(room){
+  if(typeof Online==='undefined'||!Online.start({room:room||'GLOBAL',difficulty:(typeof DIFF!=='undefined'&&DIFF.key)||'normal'}))return false;
+  Sound.init();Sound.resume();Music.start();reset();state='play';   // reset() inits the world arrays snapshots reconcile into
+  if(typeof Ach!=='undefined')Ach.onRunStart();
+  document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
+  document.getElementById('sound').classList.add('show');return true;
+}
 function gameOver(){state='over';Music.die();
+  if(typeof Online!=='undefined'&&Online.active)Online.stop();   // leave the authoritative session on death
   if(typeof Coop!=='undefined')Coop.spectate();   // relinquish authority (alive:false) so a living teammate hosts on — no enemy freeze
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
