@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "HTML5 canvas auto-shooter, vanilla JS, no deps, offline",
   "scripts": {
+    "start": "node server/game-server.js",
     "verify": "node .claude/skills/neon-survivor/verify.cjs",
+    "verify:server": "node .claude/skills/neon-survivor/verify-server-parity.cjs && node .claude/skills/neon-survivor/verify-ws-server.cjs && node .claude/skills/neon-survivor/verify-transport.cjs",
     "verify:upgrades": "node .claude/skills/neon-survivor/verify-upgrades.cjs",
     "verify:equiv": "node .claude/skills/neon-survivor/verify-equiv.cjs",
     "verify:achievements": "node .claude/skills/neon-survivor/verify-achievements.cjs",

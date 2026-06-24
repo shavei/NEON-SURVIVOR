@@ -50,7 +50,7 @@ function update(){
         const dx=e.x-ox,dy=e.y-oy,distHit=e.r+9;
         if((dx*dx+dy*dy)<(distHit*distHit)){
           hitEnemy(e,sdmg,'#54e6b5');e.scd=16;burst(ox,oy,'#54e6b5',5,3);
-          if(now-lastPingSnd>50){Sound.ping();lastPingSnd=now;}}}}}
+          if(now-lastPingSnd>50){Fx.sfx('ping');lastPingSnd=now;}}}}}
 
   const elapsed=(now-t0)/1000;
   // PvE co-op scaling — P=player count (1 when solo → neutral). Count ×= damped-linear mul; interval ÷= √P.
@@ -110,12 +110,12 @@ function update(){
       if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
         particles.push({x:e.px,y:e.py,vx:-ux*.3,vy:-uy*.3,r:rand(1.4,2.6),life:rand(10,18),col:'#ff9d2e'});
       if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}      // telegraph expired → dispatch attack[e.atk]
-        else if(--e.bossT<=0){e.tele=BOSS.teleT;Sound.ping();}}}
+        else if(--e.bossT<=0){e.tele=BOSS.teleT;Fx.sfx('ping');}}}
     }else if(e.tx!==undefined){e.x+=(e.tx-e.x)*0.25;e.y+=(e.ty-e.y)*0.25;}   // client: glide to host roster position  // cadence elapsed → start wind-up telegraph
     // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger)
     if(p.inv<=0&&e.cdmg<=0){const combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;
       if(dp*dp<combR*combR){
-        p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);flashHit();Sound.hurt();
+        p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);Fx.flash();Fx.sfx('hurt');
         burst(p.x,p.y,'#ff5fa2',14,5);e.x-=ux*12;e.y-=uy*12;
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
@@ -123,7 +123,7 @@ function update(){
   for(let i=ebullets.length-1;i>=0;i--){const b=ebullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
     if(b.life<=0){ebullets.splice(i,1);continue;}
     if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,rr=b.r+p.r;
-      if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);flashHit();Sound.hurt();
+      if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');
         burst(p.x,p.y,'#ff3b6b',10,5);ebullets.splice(i,1);
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
@@ -140,14 +140,14 @@ function update(){
     const collectR=p.r+6;
     if(dSq<(collectR*collectR)){orbs.splice(i,1);
       if(_coopOn&&Coop.host)Coop.orbCollected(o);else gainXP(o.xp);
-      burst(o.x,o.y,'#54e6b5',5,2.5);Sound.pickup();}}
+      burst(o.x,o.y,'#54e6b5',5,2.5);Fx.sfx('pickup');}}
 
   for(let i=particles.length-1;i>=0;i--){const q=particles[i];q.x+=q.vx;q.y+=q.vy;q.vx*=.92;q.vy*=.92;q.life--;if(q.life<=0)particles.splice(i,1);}
   for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.y+=f.vy;f.life--;if(f.life<=0)floats.splice(i,1);}
   for(let i=bolts.length-1;i>=0;i--){if(--bolts[i].life<=0)bolts.splice(i,1);}
   if(shake>0)shake*=.85;
-  if(pendingLevels>0&&state==='play'){pendingLevels--;Sound.level();openLevelUp();}
-  updateHUD(elapsed);
+  if(pendingLevels>0&&state==='play'){pendingLevels--;Fx.sfx('level');Fx.levelUp();}
+  Fx.hud(elapsed);
 }
 
 /* ========== SHARED-WORLD TICK (lockstep) ==========

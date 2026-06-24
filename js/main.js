@@ -261,7 +261,7 @@ document.getElementById('quitbtn').onclick=()=>document.getElementById('quitconf
 document.getElementById('quitno').onclick=()=>document.getElementById('quitconfirm').classList.remove('show');
 document.getElementById('quityes').onclick=quitToMenu;
 document.getElementById('tomenu').onclick=showMenu;
-const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=confirmUsername;
+const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=()=>confirmUsername();
 const _unameInput=document.getElementById('uname');if(_unameInput)_unameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
 const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showAuth('editname');
 const _authtoggle=document.getElementById('authtoggle');if(_authtoggle)_authtoggle.onclick=()=>showAuth(_authmode==='signup'?'signin':'signup');
