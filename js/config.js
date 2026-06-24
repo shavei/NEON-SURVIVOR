@@ -13,4 +13,4 @@ const SUPA_FUNCTIONS_URL='';
  * via MockServerTransport (single-player / elected-host). Set to the Render service's WSS origin to
  * route the world through the cloud authority via WebSocketTransport, e.g.
  * wss://neon-survivor-server.onrender.com */
-const GAME_SERVER_URL='';
+const GAME_SERVER_URL='wss://neon-survivor-5zq3.onrender.com';
