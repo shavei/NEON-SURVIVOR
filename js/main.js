@@ -29,7 +29,7 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;  
   if(k==='f4'){e.preventDefault();if(typeof NetDebug!=='undefined')NetDebug.toggle();}   // dev network overlay
   if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();});
-addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+addEventListener('keyup',e=>{if(e.key)keys[e.key.toLowerCase()]=false;});   // guard e.key (undefined on autofill/IME keyups)
 /* floating virtual joystick — only on mobile; anchors at first touch, sim.js reads touch.{x,y,cx,cy} unchanged */
 const JOYR=46;   // visual nub clamp radius (sim deadzone stays at 8px)
 cv.addEventListener('touchstart',e=>{if(!IS_MOBILE)return;const t=e.touches[0];

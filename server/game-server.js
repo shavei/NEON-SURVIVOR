@@ -73,7 +73,10 @@ class GameServer {
   _tickAll() {
     for (const r of this.rooms.values()) {
       if (r.clients.size === 0) continue;
-      r.host.tick();
+      // tick a live run; if a run ended (all avatars down → state 'over'), start a fresh one so the
+      // room never sits dead. (Server-side gameOver() only flips state — it can't crash the process.)
+      if (r.host.state === 'play') r.host.tick();
+      else r.host.restart();
       r.seq++;
       if (r.seq % this.sendEvery === 0) {
         const str = JSON.stringify(Object.assign({ t: 'snap' }, r.host.snapshot()));

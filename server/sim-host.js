@@ -60,18 +60,31 @@ class SimHost {
     const ids = JSON.stringify(playerIds);
     vm.runInContext(`
       DIFF = DIFFS[${JSON.stringify(diff)}];
-      seedRng(${seed >>> 0}); reset(); state = 'play';
-      players = ${ids}.map(function(id, i){ return makeAvatar(1500 + i * 220, 1500, id); });
-      player = players[0];
-      t0 = 0; now = 0; frame = 0; spawnTimer = 0; bossOn = false; nextBoss = ${Number(opts.nextBoss) || 60};
-      // input/tick/snapshot bridge installed once; keeps all sim mutation inside the VM context.
-      globalThis.__byId = {}; for (var i=0;i<players.length;i++) globalThis.__byId[players[i].id]=players[i];
+      // (re)build the shared world from a seed + roster — used at construction and on restart.
+      globalThis.__boot = function(sd, roster){
+        seedRng(sd >>> 0); reset(); state = 'play';
+        players = roster.map(function(id, i){ return makeAvatar(1500 + i * 220, 1500, id); });
+        player = players[0];
+        t0 = 0; now = 0; frame = 0; spawnTimer = 0; bossOn = false; nextBoss = ${Number(opts.nextBoss) || 60};
+        globalThis.__byId = {}; for (var i=0;i<players.length;i++) globalThis.__byId[players[i].id]=players[i];
+      };
+      // CRITICAL: the shared tick calls gameOver() when every avatar is down. That lives in main.js,
+      // which the server never loads — so without this stub the call throws inside the 60 Hz interval and
+      // crashes the whole process (all rooms die, snapshots stop). Server-side it just ends the run; the
+      // GameServer wrapper restarts the room so it never sits dead.
+      globalThis.gameOver = function(){ state = 'over'; };
+      __boot(${seed >>> 0}, ${ids});
+      // start a fresh run on a new seed, keeping whoever is still connected (called when state!=='play').
+      globalThis.__restart = function(){ var roster = players.map(function(p){ return p.id; }); __boot((Math.random()*0xffffffff)>>>0, roster); };
       globalThis.__setInput = function(id, mx, my){ var a = globalThis.__byId[id]; if (a) a.input = [mx, my]; };
       globalThis.__addPlayer = function(id){ if (globalThis.__byId[id]) return;
         var A = spawnAnchor(); var a = makeAvatar(A.x, A.y, id); players.push(a); globalThis.__byId[id] = a; };
       globalThis.__removePlayer = function(id){ var a = globalThis.__byId[id]; if (!a) return;
         var i = players.indexOf(a); if (i >= 0) players.splice(i, 1); delete globalThis.__byId[id]; };
       globalThis.__tick = function(){ now += ${STEP}; updateShared(); return frame; };
+      // state/frame are lexical lets in this context — expose accessors so the host wrapper can read them.
+      globalThis.__getState = function(){ return state; };
+      globalThis.__getFrame = function(){ return frame; };
       globalThis.__snapshot = function(){
         var r = function(n){ return Math.round(n * 100) / 100; };
         return {
@@ -114,11 +127,14 @@ class SimHost {
   /** Advance the authoritative world one fixed 1/60 s tick. Returns the new frame number. */
   tick() { return this._g.__tick(); }
 
+  /** Start a fresh run (new seed) keeping the connected roster — used when a run has ended (state!=='play'). */
+  restart() { this._g.__restart(); return this; }
+
   /** Serialize the authoritative state clients need to render (no cosmetics — those are client-local). */
   snapshot() { return this._g.__snapshot(); }
 
-  get frame() { return this._g.frame; }
-  get state() { return this._g.state; }
+  get frame() { return this._g.__getFrame(); }
+  get state() { return this._g.__getState(); }
 }
 
 module.exports = { SimHost, STEP, SIM_FILES };
