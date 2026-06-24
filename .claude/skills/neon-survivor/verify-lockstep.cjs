@@ -14,7 +14,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm'), crypto = r
 const ROOT = path.resolve(__dirname, '../../..');
 const SEED = 1337, TICKS = 360;
 
-const FILES = ['js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/network-sync.js', 'js/main.js'];
+const FILES = ['js/config-sim.js', 'js/core.js', 'js/audio-engine.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/network-sync.js', 'js/main.js'];
 const bundle = FILES.map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
 
 function makeSandbox() {

@@ -20,7 +20,7 @@ g.window = g; g.console = console;
 g.__sent = [];
 g.Lobby = { me: 'bbb', channel: {}, send(event, payload) { g.__sent.push({ event, payload }); } };
 
-const src = ['js/core.js', 'js/network-sync.js'].map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
+const src = ['js/config-sim.js', 'js/core.js', 'js/network-sync.js'].map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
 
 const DRIVER = `
 ;(function(){ var fails = 0;
