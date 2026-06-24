@@ -67,6 +67,10 @@ class SimHost {
       // input/tick/snapshot bridge installed once; keeps all sim mutation inside the VM context.
       globalThis.__byId = {}; for (var i=0;i<players.length;i++) globalThis.__byId[players[i].id]=players[i];
       globalThis.__setInput = function(id, mx, my){ var a = globalThis.__byId[id]; if (a) a.input = [mx, my]; };
+      globalThis.__addPlayer = function(id){ if (globalThis.__byId[id]) return;
+        var A = spawnAnchor(); var a = makeAvatar(A.x, A.y, id); players.push(a); globalThis.__byId[id] = a; };
+      globalThis.__removePlayer = function(id){ var a = globalThis.__byId[id]; if (!a) return;
+        var i = players.indexOf(a); if (i >= 0) players.splice(i, 1); delete globalThis.__byId[id]; };
       globalThis.__tick = function(){ now += ${STEP}; updateShared(); return frame; };
       globalThis.__snapshot = function(){
         var r = function(n){ return Math.round(n * 100) / 100; };
@@ -86,6 +90,22 @@ class SimHost {
     this._g = g;
     this.seed = seed >>> 0;
     this.playerIds = playerIds.slice();
+  }
+
+  /** Add an avatar to the live roster (a client joining mid-run). Spawns near the world centre. */
+  addPlayer(id) {
+    if (this.playerIds.includes(id)) return this;
+    this._g.__addPlayer(String(id));
+    this.playerIds.push(String(id));
+    return this;
+  }
+
+  /** Remove an avatar (a client leaving). The shared world keeps running for the rest. */
+  removePlayer(id) {
+    this._g.__removePlayer(String(id));
+    const i = this.playerIds.indexOf(String(id));
+    if (i >= 0) this.playerIds.splice(i, 1);
+    return this;
   }
 
   /** Record a client's input for the next tick. mx/my are the normalized move axes in [-1,1]. */
