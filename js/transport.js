@@ -22,7 +22,7 @@ function serializeWorld() {
   const r = n => Math.round(n * 100) / 100;
   return {
     frame: frame, now: now, score: score, wave: wave, kills: kills, bossOn: bossOn, state: state,
-    players: players.map(a => ({ id: a.id, x: r(a.x), y: r(a.y), hp: r(a.hp), maxhp: a.maxhp, level: a.level, xp: r(a.xp), dead: !!a.dead, vx: r(a.vx), vy: r(a.vy) })),
+    players: players.map(a => ({ id: a.id, x: r(a.x), y: r(a.y), hp: r(a.hp), maxhp: a.maxhp, level: a.level, xp: r(a.xp), next: a.next, dead: !!a.dead, vx: r(a.vx), vy: r(a.vy) })),
     enemies: enemies.map(e => ({ id: e.id, x: r(e.x), y: r(e.y), r: e.r, hp: r(e.hp), maxhp: r(e.maxhp), type: e.type, boss: !!e.boss, tele: e.tele | 0, atk: e.atk | 0 })),
     orbs: orbs.map(o => ({ id: o.id, x: r(o.x), y: r(o.y) })),
     items: items.map(it => ({ id: it.id, x: r(it.x), y: r(it.y), type: it.type })),
@@ -116,8 +116,9 @@ function applySnapshot(s) {
  * by GAME_SERVER_URL — empty/unset means stay on the in-page paths (solo update / lockstep co-op), so
  * this is purely additive. `Online.active` is the single flag main.js's loop branches on. */
 const Online = {
-  transport: null, active: false, localId: null, _ready: false,
+  transport: null, active: false, localId: null, _ready: false, _snapMs: 0, _snapInt: 50,
   _genId() { return 'web_' + Math.random().toString(36).slice(2, 9); },
+  _now() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); },
   /* opts: {room, seed?, difficulty?, id?}. Returns false if no server is configured. */
   start(opts) {
     opts = opts || {};
@@ -126,8 +127,11 @@ const Online = {
     this.localId = opts.id || this._genId();
     this._ready = false;
     this._over = false;
+    this._snapMs = 0;
     this.transport = new WebSocketTransport(url);
     this.transport.onSnapshot(s => {
+      // time the snapshot so the loop can interpolate body motion across the gap between snapshots
+      const t = this._now(); if (this._snapMs) this._snapInt = Math.min(200, Math.max(16, t - this._snapMs)); this._snapMs = t;
       applySnapshot(s);
       player = players.find(p => p.id === this.localId) || player;   // keep the camera on the local avatar
       this._ready = true;
@@ -138,6 +142,22 @@ const Online = {
     this.transport.connect(Object.assign({}, opts, { id: this.localId }));
     this.active = true;
     return true;
+  },
+  /* render interpolation factor: how far we are through the current snapshot interval (0..1). Drives the
+   * same px→x lerp draw() uses, so bodies glide smoothly between 20 Hz snapshots at the display refresh. */
+  alpha() { if (!this._snapMs) return 0; return clamp((this._now() - this._snapMs) / this._snapInt, 0, 1); },
+  /* once-per-frame client presentation the server doesn't do for us: follow the camera on the local
+   * avatar and refresh the HUD (health/XP). update() runs neither online, so without this the camera
+   * stays frozen (world looks static) and the HUD never updates. `a` = the interpolation factor. */
+  present(a) {
+    const p = player; if (!p || typeof W === 'undefined') return;
+    const px = lerp(p.px === undefined ? p.x : p.px, p.x, a), py = lerp(p.py === undefined ? p.y : p.py, p.y, a);
+    const mx2 = W * 0.30, my2 = H * 0.30, sxp = px - cam.x, syp = py - cam.y;
+    if (sxp < mx2) cam.x = px - mx2; else if (sxp > W - mx2) cam.x = px - (W - mx2);
+    if (syp < my2) cam.y = py - my2; else if (syp > H - my2) cam.y = py - (H - my2);
+    cam.x = clamp(cam.x, 0, Math.max(0, WORLD.w - W)); cam.y = clamp(cam.y, 0, Math.max(0, WORLD.h - H));
+    cam.px = cam.x; cam.py = cam.y;                       // camera is followed directly — don't double-interpolate it in draw()
+    if (typeof updateHUD === 'function') updateHUD((now - t0) / 1000);
   },
   /* same input sampling update() uses (keys/touch are main.js globals, resolved at call time) */
   _sample() {
