@@ -9,8 +9,10 @@ COPY js ./js
 COPY server ./server
 COPY package.json ./
 
-ENV PORT=8080
-EXPOSE 8080
+ENV NODE_ENV=production
+# Render (and most PaaS) inject PORT at runtime; server/game-server.js reads process.env.PORT
+# and falls back to 8787 for local runs. EXPOSE is informational only.
+EXPOSE 8787
 
 # server/game-server.js listens on $PORT, ticks each room's SimHost at 60 Hz, broadcasts snapshots.
 CMD ["node", "server/game-server.js"]

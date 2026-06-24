@@ -28,24 +28,25 @@ server → client : {t:'welcome', id, seed, room} | {t:'snap', ...authoritativeS
 npm run verify:server   # server-parity + ws round-trip + transport-parity (all no-deps)
 ```
 
-## Deploy to Fly.io
-The repo ships a `Dockerfile` + `fly.toml` (root). The image copies only `js/` + `server/` (no install).
+## Deploy to Render
+The repo ships a `Dockerfile` + `render.yaml` (root). The image copies only `js/` + `server/` (no install).
 
-```sh
-fly launch --no-deploy      # first time: claims an app name, keep the provided fly.toml
-fly deploy
-fly scale count 1           # rooms are in-memory → keep ONE machine so all clients share the world
-```
+- **Blueprint:** in Render, New → Blueprint → pick this repo; it reads `render.yaml` (Docker web
+  service, health check `/healthz`).
+- **Existing Web Service (dashboard):** set Runtime = **Docker** (uses `./Dockerfile`) and
+  Health Check Path = **`/healthz`**. (If you instead chose a **Node** runtime: Build Command empty,
+  Start Command `node server/game-server.js`.)
 
 Notes:
-- WebSockets ride Fly's HTTPS service; browsers connect with `wss://<app>.fly.dev`.
-- `auto_stop_machines` lets the single machine sleep when idle and wake on the next connection
-  (~1–2s cold start). Set `min_machines_running = 1` in `fly.toml` for always-on (no cold start).
-- Keep the deployment at one machine (`fly scale count 1`): rooms live in memory, so a second machine
-  would host a *different* set of rooms. Multi-machine needs sticky routing or a shared store (future).
+- Render injects `PORT`; the server binds `process.env.PORT` automatically — nothing to configure.
+- WebSockets ride Render's HTTPS service; browsers connect with `wss://<service>.onrender.com`.
+- Free instances sleep after ~15 min idle and cold-start (~tens of seconds) on the next connection;
+  use a paid instance for always-on.
+- Keep **one instance** (`numInstances: 1`): rooms live in memory, so a second instance would host a
+  *different* set of rooms. Multi-instance needs sticky sessions or a shared store (future).
 
 ## Wiring the client (Phase 5)
-Set `GAME_SERVER_URL` in `js/config.js` to the Fly origin, e.g. `wss://neon-survivor.fly.dev`. The
+Set `GAME_SERVER_URL` in `js/config.js` to the Render origin, e.g. `wss://neon-survivor-server.onrender.com`. The
 client's `WebSocketTransport` (`js/transport.js`) then routes the world through this authority; empty
 keeps the in-page `MockServerTransport` (single-player / elected-host). The main-loop cutover that makes
 the client a pure renderer + input sender is the remaining Phase 5 integration step.
