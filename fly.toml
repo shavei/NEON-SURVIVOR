@@ -1,0 +1,34 @@
+# NEON SURVIVOR — authoritative game server (server/game-server.js) on Fly.io.
+# Rename `app` to your Fly app, then: fly launch --no-deploy (first time) / fly deploy.
+app = "neon-survivor"
+primary_region = "iad"   # pick the region closest to most players (fly platform regions)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+# WebSocket traffic rides Fly's HTTPS service (browser connects with wss://). force_https upgrades
+# http→https so wss works from the (https) Vercel-hosted client.
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Rooms live in-memory in ONE machine, so keep the deployment at a single machine
+  # (`fly scale count 1`). auto start/stop lets that machine sleep when no clients are
+  # connected and wake on the next connection (a ~1-2s cold start). Set
+  # min_machines_running = 1 to eliminate cold starts (always-on, small cost).
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "5s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

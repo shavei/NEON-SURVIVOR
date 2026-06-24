@@ -70,7 +70,12 @@ class WSSocket extends EventEmitter {
 class WSServer extends EventEmitter {
   constructor({ port = 8787, server = null } = {}) {
     super();
-    this.server = server || http.createServer((req, res) => { res.writeHead(426); res.end('Upgrade Required'); });
+    // Default HTTP handler: 200 on health probes (Fly.io checks hit a path), 426 on everything else.
+    // WebSocket upgrades are handled by the 'upgrade' listener below regardless of this handler.
+    this.server = server || http.createServer((req, res) => {
+      if (req.method === 'GET' && (req.url === '/' || req.url === '/healthz')) { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('neon-survivor authoritative server: ok'); }
+      else { res.writeHead(426); res.end('Upgrade Required'); }
+    });
     this.server.on('upgrade', (req, socket) => {
       const key = req.headers['sec-websocket-key'];
       if (!key) { socket.destroy(); return; }
