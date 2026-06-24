@@ -92,12 +92,15 @@ function applySnapshot(s) {
     for (const d of snap) {
       let o = d.id != null ? byId[d.id] : null;
       if (!o) { o = make(d); o.px = d.x; o.py = d.y; }
+      else { o.px = o.x; o.py = o.y; }                 // snapshot prev pos so draw() lerps existing bodies smoothly
       Object.assign(o, d);
       out.push(o);
     }
     return out;
   };
-  if (s.players) for (const d of s.players) { const a = players.find(p => p.id === d.id); if (a) { a.px = a.x; a.py = a.y; Object.assign(a, d); } }
+  // players: add remote avatars we don't yet have, update existing, drop those who left — so the
+  // local `players` set mirrors the authoritative roster (camera/`player` fixed up by the Online controller).
+  if (s.players) players = reconcile(players, s.players, d => makeAvatar(d.x, d.y, d.id));
   enemies = reconcile(enemies, s.enemies, d => ({ hit: 0, scd: 0, cdmg: 0, col: d.boss ? '#ff3b6b' : '#7c8cff' }));
   orbs = reconcile(orbs, s.orbs, () => ({ r: 4, xp: 1, col: '#54e6b5' }));
   items = reconcile(items, s.items, d => ({ r: 16, bob: 0 }));
@@ -107,4 +110,42 @@ function applySnapshot(s) {
   missiles = s.missiles.map(m => Object.assign({ r: 5, px: m.x, py: m.y }, m));
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { MockServerTransport, WebSocketTransport, serializeWorld, bootWorld, applySnapshot };
+/* ===== Online — the client loop's server-authoritative mode ===== */
+/* When connected, the game loop stops simulating: each tick it just samples local input and SENDS it;
+ * the world arrives as snapshots (applySnapshot writes the in-page globals, render.js draws them). Gated
+ * by GAME_SERVER_URL — empty/unset means stay on the in-page paths (solo update / lockstep co-op), so
+ * this is purely additive. `Online.active` is the single flag main.js's loop branches on. */
+const Online = {
+  transport: null, active: false, localId: null, _ready: false,
+  _genId() { return 'web_' + Math.random().toString(36).slice(2, 9); },
+  /* opts: {room, seed?, difficulty?, id?}. Returns false if no server is configured. */
+  start(opts) {
+    opts = opts || {};
+    const url = (typeof GAME_SERVER_URL !== 'undefined' && GAME_SERVER_URL) || '';
+    if (!url || typeof WebSocket === 'undefined') return false;
+    this.localId = opts.id || this._genId();
+    this._ready = false;
+    this.transport = new WebSocketTransport(url);
+    this.transport.onSnapshot(s => {
+      applySnapshot(s);
+      player = players.find(p => p.id === this.localId) || player;   // keep the camera on the local avatar
+      this._ready = true;
+    });
+    this.transport.connect(Object.assign({}, opts, { id: this.localId }));
+    this.active = true;
+    return true;
+  },
+  /* same input sampling update() uses (keys/touch are main.js globals, resolved at call time) */
+  _sample() {
+    let mx = 0, my = 0;
+    if (keys['w'] || keys['arrowup']) my -= 1; if (keys['s'] || keys['arrowdown']) my += 1;
+    if (keys['a'] || keys['arrowleft']) mx -= 1; if (keys['d'] || keys['arrowright']) mx += 1;
+    if (typeof touch !== 'undefined' && touch) { const dx = touch.x - touch.cx, dy = touch.y - touch.cy, m = Math.hypot(dx, dy); if (m > 8) { mx = dx / m; my = dy / m; } }
+    return [mx, my];
+  },
+  /* called once per fixed tick from the loop while active: send input only (server owns the world) */
+  tick() { if (!this.active || !this.transport) return; const i = this._sample(); this.transport.sendInput(i[0], i[1]); },
+  stop() { if (this.transport) this.transport.disconnect(); this.transport = null; this.active = false; this._ready = false; }
+};
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { MockServerTransport, WebSocketTransport, Online, serializeWorld, bootWorld, applySnapshot };
