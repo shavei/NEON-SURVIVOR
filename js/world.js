@@ -153,13 +153,13 @@ function reset(){
   for(const k in Up)delete Up[k];           // clear upgrade tracker so PLAY AGAIN starts fresh
   score=0;wave=1;spawnTimer=0;itemTimer=900;shake=0;frame=0;kills=0;pendingLevels=0;t0=performance.now();
   nextBoss=60;bossOn=false;
-  Music.reset();   // clear boss track (real + synth) if last run died mid-fight
+  Fx.music('reset');   // clear boss track (real + synth) if last run died mid-fight
 
   cam.x=clamp(player.x-W/2,0,Math.max(0,WORLD.w-W));
   cam.y=clamp(player.y-H/2,0,Math.max(0,WORLD.h-H));
   cam.px=cam.x;cam.py=cam.y;
 
-  renderLoadout();
+  Fx.loadout();
 }
 
 /* ========== SPAWNING ========== */
@@ -191,8 +191,8 @@ function spawnBoss(){
   enemies.push({id:++_eid,x,y,r:46,hp,maxhp:hp,spd:BOSS.speedBase+tier*BOSS.speedTier,col:'#ff3b6b',
     dmg:BOSS.contactDmg*DIFF.dmg,xp:35,sc:400+tier*100,hit:0,scd:0,cdmg:0,dead:false,
     type:'boss',boss:true,bossT:BOSS.cdBase,tele:0,atk:0,dashT:0,dvx:0,dvy:0,name:'WARDEN '+tier});
-  bossOn=true;showToast('💀','BOSS — WARDEN '+tier,'#ff3b6b');
-  Sound.boom();shake=Math.min(shake+10,16);Music.enterBoss();
+  bossOn=true;Fx.toast('💀','BOSS — WARDEN '+tier,'#ff3b6b');
+  Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss');
 }
 // cooldown till the next telegraph, tightening with tier
 function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-Math.floor((now-t0)/1000/60)*8);}
@@ -204,15 +204,15 @@ function bossAttack(e){
     const n=10+Math.min(10,tier*2),base=Math.atan2(player.y-e.y,player.x-e.x);
     for(let k=0;k<n;k++){const a=base+k/n*6.283;
       ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3.3,vy:Math.sin(a)*3.3,r:7,dmg:e.dmg*BOSS.projDmg,life:220});}
-    Sound.zap();e.bossT=bossCD();e.atk=1;
+    Fx.sfx('zap');e.bossT=bossCD();e.atk=1;
   }else if(e.atk===1){                             // 1) TARGETED DASH — lunge along a locked vector
     const a=Math.atan2(player.y-e.y,player.x-e.x);
     e.dvx=Math.cos(a)*BOSS.dashSpd;e.dvy=Math.sin(a)*BOSS.dashSpd;e.dashT=BOSS.dashT;
-    Sound.boom();shake=Math.min(shake+7,16);       // cadence/atk advance on dash-end
+    Fx.sfx('boom');shake=Math.min(shake+7,16);       // cadence/atk advance on dash-end
   }else{                                            // 2) AOE GROUND SLAM — outward shockwave ring to outrun
     const n=BOSS.slamN;for(let k=0;k<n;k++){const a=k/n*6.283;
       ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.slamSpd,vy:Math.sin(a)*BOSS.slamSpd,r:9,dmg:e.dmg*BOSS.projDmg,life:200});}
-    Sound.boom();shake=Math.min(shake+13,20);e.bossT=bossCD();e.atk=0;
+    Fx.sfx('boom');shake=Math.min(shake+13,20);e.bossT=bossCD();e.atk=0;
   }
 }
 
@@ -224,7 +224,7 @@ function fire(p){p=p||player;   // p defaults to the local avatar → solo calls
   for(let i=0;i<n;i++){const a=baseAng+(i-(n-1)/2)*spread;
     bullets.push({x:p.x,y:p.y,vx:Math.cos(a)*p.bulletSpd,vy:Math.sin(a)*p.bulletSpd,r:4,dmg,pierce:p.pierce,life:70});}
   shake=Math.min(shake+1.2,7);
-  if(now-lastShootSnd>60){Sound.shoot();lastShootSnd=now;}
+  if(now-lastShootSnd>60){Fx.sfx('shoot');lastShootSnd=now;}
   if(typeof Coop!=='undefined')Coop.fireShot(p.x,p.y,baseAng);   // co-op: broadcast a cosmetic shot tracer (no-op solo/offline)
 }
 function burst(x,y,col,n,sp){n=Math.min(n,340-particles.length);if(n<=0)return;
@@ -246,19 +246,19 @@ function killEnemy(e,col){
   const _own=(typeof Coop==='undefined'||!Coop.active||Coop.host);
   if(typeof Coop!=='undefined')Coop.onKill(e);   // co-op host: broadcast the kill so every client replays it
   if(e.boss){
-    bossOn=false;nextBoss=(now-t0)/1000+50;Music.exitBoss();   // next boss 50s after this one falls; music back to normal track
+    bossOn=false;nextBoss=(now-t0)/1000+50;Fx.music('exitBoss');   // next boss 50s after this one falls; music back to normal track
     if(typeof Ach!=='undefined')Ach.onBossKill();              // achievements: count Wardens felled this run
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
-    shake=Math.min(shake+18,24);Sound.boom();flashHit();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
+    shake=Math.min(shake+18,24);Fx.sfx('boom');Fx.flash();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
     floatText(e.x,e.y-30,'BOSS DOWN  +'+e.sc,'#ffd95e');
     if(_own){for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-40,40),y:e.y+srand(-40,40),r:4,xp:1,col:'#54e6b5'});
       const it=ITEMS[Math.floor(srand(0,ITEMS.length))];     // guaranteed reward drop
       items.push({id:++_iid,x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
-      showToast(it.ico,it.label+' (boss drop)',it.col);}
+      Fx.toast(it.ico,it.label+' (boss drop)',it.col);}
     return;
   }
   burst(e.x,e.y,e.col,e.type==='tank'?22:10,e.type==='tank'?5:4);
-  floatText(e.x,e.y,'+'+e.sc,e.col);shake=Math.min(shake+(e.type==='tank'?6:1.5),10);Sound.death();
+  floatText(e.x,e.y,'+'+e.sc,e.col);shake=Math.min(shake+(e.type==='tank'?6:1.5),10);Fx.sfx('death');
   if(player.lifesteal>0&&player.lsCd<=0&&player.hp<player.maxhp){
     player.hp=Math.min(player.maxhp,player.hp+player.lifesteal);player.lsCd=6;}   // capped to ~10 HP/s
   if(_own)for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-8,8),y:e.y+srand(-8,8),r:4,xp:1,col:'#54e6b5'});
@@ -275,7 +275,7 @@ function spawnItem(){const t=ITEMS[Math.floor(srand(0,ITEMS.length))];
   const ang=srand(0,6.283),d=srand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
   const x=clamp(player.x+Math.cos(ang)*d,90,WORLD.w-90),y=clamp(player.y+Math.sin(ang)*d,90,WORLD.h-90);
   items.push({id:++_iid,x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
-  showToast(t.ico,t.label,t.col);}
+  Fx.toast(t.ico,t.label,t.col);}
 function showToast(ico,label,col){const el=document.getElementById('toast');
   el.style.setProperty('--tc',col);el.style.color=col;
   el.innerHTML=`<span class="tico">${ico}</span><span>${label}<br><small>appeared on the map</small></span>`;
@@ -285,16 +285,16 @@ function showToast(ico,label,col){const el=document.getElementById('toast');
 function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
   const coopOn=(typeof Coop!=='undefined'&&Coop.active),coopClient=coopOn&&!Coop.host;
   if(coopClient)Coop.reportPickup(it);   // host removes the item + applies global bomb/magnet for everyone
-  if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Sound.tone(440,900,.25,'sine',.09);}
+  if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Fx.sfx('tone',440,900,.25,'sine',.09);}
   else if(it.type==='bomb'){if(coopClient)return;for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
-    shake=Math.min(shake+18,22);Sound.boom();burst(p.x,p.y,'#ffd95e',46,9);flashHit();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
+    shake=Math.min(shake+18,22);Fx.sfx('boom');burst(p.x,p.y,'#ffd95e',46,9);Fx.flash();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
   else if(it.type==='magnet'){if(coopClient)return;
     if(coopOn){let tot=0;for(let i=orbs.length-1;i>=0;i--)tot+=orbs[i].xp;orbs.length=0;Coop.shareXP(tot);}   // co-op shared pool: instant bank for everyone
     else{p.rushT=600;   // solo: 10s of 2x XP (gainXP doubles while rushT>0)
       for(let i=0;i<orbs.length;i++)orbs[i].homing=true;   // one-time pulse: flag current orbs to tractor in regardless of range (magnet stat untouched)
       if(typeof _perf!=='undefined'&&_perf.on)console.log('[XP RUSH] pulse flagged',orbs.length,'orbs · rushT=',p.rushT);}
-    Sound.pickup();floatText(p.x,p.y-22,coopOn?'XP RUSH':'XP RUSH x2','#54e6b5');}
-  else if(it.type==='rage'){p.rageT=540;Sound.tone(180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
+    Fx.sfx('pickup');floatText(p.x,p.y-22,coopOn?'XP RUSH':'XP RUSH x2','#54e6b5');}
+  else if(it.type==='rage'){p.rageT=540;Fx.sfx('tone',180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
 }
 
 /* ========== WEAPON ARCHETYPES ========== */
@@ -307,10 +307,10 @@ function fireMissiles(p){p=p||player;
     const a=srand(0,7);
     missiles.push({x:p.x,y:p.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
       spd:5.2,turn:.18,r:5,dmg:22+p.missile*7,target:tgt,life:140});}
-  Sound.tone(380,520,.12,'triangle',.05);
+  Fx.sfx('tone',380,520,.12,'triangle',.05);
 }
 function explodeMissile(m){
-  const rad=72,radSq=rad*rad;burst(m.x,m.y,'#ffd95e',20,5);shake=Math.min(shake+5,12);Sound.boom();
+  const rad=72,radSq=rad*rad;burst(m.x,m.y,'#ffd95e',20,5);shake=Math.min(shake+5,12);Fx.sfx('boom');
   floatText(m.x,m.y,'💥','#ffd95e');
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];const dx=m.x-e.x,dy=m.y-e.y;
@@ -333,7 +333,7 @@ function castChain(p){p=p||player;
       if(dSq<ndSq){ndSq=dSq;nx=e;}
     }
     cur=nx;}
-  Sound.zap();shake=Math.min(shake+2,8);
+  Fx.sfx('zap');shake=Math.min(shake+2,8);
 }
 
 /* ========== LEVEL MANAGEMENT ========== */
@@ -362,7 +362,7 @@ function applyUpgrade(id){const p=player;
   else if(id==='regen')p.regenRate+=1;
   else if(id==='velocity'){p.bulletSpd*=1.3;p.dmg*=1.08;}else if(id==='lifesteal')p.lifesteal+=1;
   else if(id==='missile')p.missile++;else if(id==='shield')p.shield++;else if(id==='chain')p.chain++;
-  Up[id]=(Up[id]||0)+1;renderLoadout();
+  Up[id]=(Up[id]||0)+1;Fx.loadout();
 }
 function renderLoadout(){
   const box=document.getElementById('loadout');box.innerHTML='';

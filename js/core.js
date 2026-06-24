@@ -106,6 +106,24 @@ const Sound={
 };
 let lastShootSnd=0,lastPingSnd=0;
 
+/* ========== PRESENTATION PORT (Fx) ==========
+ * The single seam between the SIMULATION (world.js/sim.js) and the CLIENT-only presentation layer
+ * (audio + DOM). The sim never names Sound/Music/showToast/flashHit/updateHUD/renderLoadout directly —
+ * it calls Fx.*, which forwards to whatever the host wired up. In the browser these resolve to the
+ * real engines; under the headless/authoritative-server build (no audio-engine/render/main loaded)
+ * every forward typeof-guards to a no-op, so the same world.js/sim.js run server-side untouched.
+ * Phase 4: the Node server may also replace Fx wholesale. A/V is cosmetic-only — excluded from the
+ * determinism/equiv hashes — so routing through this port changes zero gameplay state. */
+const Fx={
+  sfx(n,...a){ if(typeof Sound!=='undefined'&&Sound[n])Sound[n](...a); },           // one-shot SFX by name
+  music(n,...a){ if(typeof Music!=='undefined'&&Music[n])Music[n](...a); },         // music facade event by name
+  toast(...a){ if(typeof showToast==='function')showToast(...a); },                 // map toast (DOM)
+  flash(){ if(typeof flashHit==='function')flashHit(); },                           // red hit flash (DOM)
+  hud(...a){ if(typeof updateHUD==='function')updateHUD(...a); },                   // HUD repaint (DOM)
+  loadout(){ if(typeof renderLoadout==='function')renderLoadout(); },               // weapon pips (DOM)
+  levelUp(){ if(typeof openLevelUp==='function')openLevelUp(); },                   // level-up card modal (DOM + offer)
+};
+
 /* ========== SYNTHWAVE MUSIC ENGINE (procedural fallback) ==========
    Renamed Music -> SynthMusic. js/audio-engine.js now owns the public `Music` facade and
    delegates here whenever real instrument stems aren't loaded (asset-less, file://, or decode
