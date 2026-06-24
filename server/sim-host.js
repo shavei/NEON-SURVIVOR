@@ -89,7 +89,7 @@ class SimHost {
         var r = function(n){ return Math.round(n * 100) / 100; };
         return {
           frame: frame, now: now, score: score, wave: wave, kills: kills, bossOn: bossOn, state: state,
-          players: players.map(function(a){ return { id:a.id, x:r(a.x), y:r(a.y), hp:r(a.hp), maxhp:a.maxhp, level:a.level, xp:r(a.xp), dead:!!a.dead, vx:r(a.vx), vy:r(a.vy) }; }),
+          players: players.map(function(a){ return { id:a.id, x:r(a.x), y:r(a.y), hp:r(a.hp), maxhp:a.maxhp, level:a.level, xp:r(a.xp), next:a.next, dead:!!a.dead, vx:r(a.vx), vy:r(a.vy) }; }),
           enemies: enemies.map(function(e){ return { id:e.id, x:r(e.x), y:r(e.y), r:e.r, hp:r(e.hp), maxhp:r(e.maxhp), type:e.type, boss:!!e.boss, tele:e.tele|0, atk:e.atk|0 }; }),
           orbs: orbs.map(function(o){ return { id:o.id, x:r(o.x), y:r(o.y) }; }),
           items: items.map(function(it){ return { id:it.id, x:r(it.x), y:r(it.y), type:it.type }; }),

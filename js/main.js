@@ -119,7 +119,9 @@ function loop(ts){now=ts;
       acc-=STEP;n++;}
     if(n===MAXSUBSTEP)acc=0;                           // drop unrecoverable backlog
     _perf.ticks=n;
-    alpha=acc/STEP;                                    // fractional tick → render interpolation factor
+    if(typeof Online!=='undefined'&&Online.active){    // online: interpolate to the snapshot clock + run client-side camera/HUD
+      alpha=Online.alpha();Online.present(alpha);}
+    else alpha=acc/STEP;                               // solo: fractional sim tick → render interpolation factor
     draw();
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame

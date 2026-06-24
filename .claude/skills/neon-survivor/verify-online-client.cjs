@@ -40,11 +40,12 @@ function makeClient(port) {
   const port = gs.port;
   const g = makeClient(port);
 
-  // pump input on a 33 ms clock (rotating keys so the avatar moves); snapshots arrive async on the host loop.
+  // pump input on a 33 ms clock (rotating keys so the avatar moves) AND run the client present step
+  // (camera follow + HUD), exactly like main.js's loop. snapshots arrive async on the host loop.
   let t = 0;
   const timer = setInterval(() => {
     const ph = t++ % 8;
-    vm.runInContext(`keys = { w:${ph < 4}, s:${ph >= 4}, d:${ph % 4 < 2}, a:${ph % 4 >= 2} }; Online.tick();`, g);
+    vm.runInContext(`keys = { w:${ph < 4}, s:${ph >= 4}, d:${ph % 4 < 2}, a:${ph % 4 >= 2} }; Online.tick(); Online.present(Online.alpha());`, g);
   }, 33);
 
   await new Promise(r => setTimeout(r, RUN_MS));
@@ -53,12 +54,14 @@ function makeClient(port) {
   const snap = vm.runInContext(`JSON.stringify({ ready:Online._ready, localId:Online.localId,
     frame:frame, score:score, enemies:enemies.length, orbs:orbs.length,
     players:players.map(p=>({id:p.id,x:Math.round(p.x),y:Math.round(p.y)})),
-    playerId:(player&&player.id), playerX:(player&&Math.round(player.x)) });`, g);
+    playerId:(player&&player.id), playerX:(player&&Math.round(player.x)),
+    camx:Math.round(cam.x), camy:Math.round(cam.y), next:(player&&player.next), W:W, H:H });`, g);
   vm.runInContext('Online.stop();', g);
   gs.close();
   const r = JSON.parse(snap);
   console.log('client ready=' + r.ready + ' localId=' + r.localId + ' frame=' + r.frame + ' enemies=' + r.enemies + ' score=' + r.score);
   console.log('client players=' + JSON.stringify(r.players) + ' camera->' + r.playerId);
+  console.log('camera=(' + r.camx + ',' + r.camy + ') player viewport-tracked, player.next=' + r.next);
 
   const me = r.players.find(p => p.id === 'web1');
   let fails = 0;
@@ -68,9 +71,13 @@ function makeClient(port) {
   if (!me) { fails++; console.error('FAIL — local avatar web1 missing from the reconciled roster.'); }
   if (r.playerId !== 'web1') { fails++; console.error('FAIL — camera/`player` not bound to the local avatar (' + r.playerId + ').'); }
   if (me && Math.abs(me.x - 1500) < 1 && Math.abs(me.y - 1500) < 1) { fails++; console.error('FAIL — local avatar never moved under server authority.'); }
+  // camera-follow (present): the local avatar must stay inside the viewport [cam, cam+W/H], not drift off
+  if (me && !(me.x >= r.camx - 1 && me.x <= r.camx + r.W + 1 && me.y >= r.camy - 1 && me.y <= r.camy + r.H + 1)) {
+    fails++; console.error('FAIL — camera did not follow: player (' + me.x + ',' + me.y + ') outside viewport (' + r.camx + ',' + r.camy + ')+(' + r.W + ',' + r.H + ').'); }
+  if (r.next == null) { fails++; console.error('FAIL — player.next (XP-to-level) missing from snapshot → HUD XP bar would be wrong.'); }
 
   if (fails) process.exit(1);
-  console.log('\nPASS — the online client sent inputs and rendered the server world: frame ' + r.frame + ', ' +
-    r.enemies + ' enemies, local avatar present + moved, camera bound. Client simulates nothing; the server is authoritative.');
+  console.log('\nPASS — online client renders the server world with camera following + HUD data (next=' + r.next + '): frame ' +
+    r.frame + ', ' + r.enemies + ' enemies, avatar moved + viewport-tracked. Client simulates nothing; server is authoritative.');
   process.exit(0);
 })().catch(e => { console.error('ERROR: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 5).join('\n')); process.exit(1); });
