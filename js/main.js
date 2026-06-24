@@ -26,7 +26,6 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;  
   if(k==='p'&&(state==='play'||state==='pause'))togglePause();
   if(k==='m')Sound.toggle();
   if(k==='f3'){e.preventDefault();togglePerf();}   // dev FPS benchmark overlay
-  if(k==='f4'){e.preventDefault();if(typeof NetDebug!=='undefined')NetDebug.toggle();}   // dev network overlay
   if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();});
 addEventListener('keyup',e=>{if(e.key)keys[e.key.toLowerCase()]=false;});   // guard e.key (undefined on autofill/IME keyups)
@@ -115,33 +114,34 @@ function loop(ts){now=ts;
     acc+=dt;
     let n=0;
     while(acc>=STEP&&n<MAXSUBSTEP&&state==='play'){                          // update() may flip state (gameOver/levelup) → stop simulating at once
-      if(typeof Online!=='undefined'&&Online.active)Online.tick();          // server-authoritative: send input only; the world arrives as snapshots (applySnapshot)
-      else if(typeof NetSync!=='undefined'&&NetSync.lockstep){if(!NetSync.stepShared())break;}   // shared world: advance only when every peer's input has arrived (else stall, never fork)
-      else update();
+      if(typeof Online!=='undefined'&&Online.active)Online.tick();          // server-authoritative co-op: send input only; the world arrives as snapshots (applySnapshot)
+      else update();                                                        // solo: simulate locally
       acc-=STEP;n++;}
     if(n===MAXSUBSTEP)acc=0;                           // drop unrecoverable backlog
     _perf.ticks=n;
     alpha=acc/STEP;                                    // fractional tick → render interpolation factor
     draw();
-    if(typeof Coop!=='undefined')Coop.netTick(ts,dt);  // co-op pump: push my pos, glide peers, host broadcasts roster
-    if(typeof NetSync!=='undefined'){NetSync.flush(ts);NetSync.saveWorld(ts);}  // shared-world: send inputs + host persists a world snapshot (~0.5 Hz)
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
     if((state==='levelup'||state==='pause')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position
   }
   perfFrame(ts);
-  if(typeof NetDebug!=='undefined')NetDebug.tick();
   requestAnimationFrame(loop);}
-function startGame(){Sound.init();Sound.resume();Music.start();reset();state='play';
+function startGame(){if(typeof Online!=='undefined')Online.stop();_onlineRoom=null;   // solo: drop any online session
+  Sound.init();Sound.resume();Music.start();reset();state='play';
   if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');}
-/* Server-authoritative run: connect to the Node authority (GAME_SERVER_URL) and let snapshots drive the
- * world (the loop calls Online.tick() instead of update()). Returns false if no server is configured, so
- * callers can fall back to startGame(). Wiring a menu button + the online game-over handoff are the
- * remaining UI steps; Online stays dormant (active=false) until this is called, so behaviour is unchanged. */
+/* PLAY AGAIN: reconnect to the same online room if the last run was online; otherwise a fresh solo run. */
+function playAgain(){if(_onlineRoom){if(startOnline(_onlineRoom))return;}startGame();}
+/* Server-authoritative co-op run: connect to the Node authority (GAME_SERVER_URL) for a room and let
+ * snapshots drive the world (the loop calls Online.tick() instead of update()). Everyone who starts the
+ * same room code shares one live server world. Returns false if no server is configured. */
+let _onlineRoom=null;   // current online room (drives "Play Again" reconnect); null while solo
 function startOnline(room){
-  if(typeof Online==='undefined'||!Online.start({room:room||'GLOBAL',difficulty:(typeof DIFF!=='undefined'&&DIFF.key)||'normal'}))return false;
+  room=room||'GLOBAL';
+  if(typeof Online==='undefined'||!Online.start({room,difficulty:(typeof DIFF!=='undefined'&&DIFF.key)||'normal'}))return false;
+  _onlineRoom=room;
   Sound.init();Sound.resume();Music.start();reset();state='play';   // reset() inits the world arrays snapshots reconcile into
   if(typeof Ach!=='undefined')Ach.onRunStart();
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
@@ -149,7 +149,6 @@ function startOnline(room){
 }
 function gameOver(){state='over';Music.die();
   if(typeof Online!=='undefined'&&Online.active)Online.stop();   // leave the authoritative session on death
-  if(typeof Coop!=='undefined')Coop.spectate();   // relinquish authority (alive:false) so a living teammate hosts on — no enemy freeze
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
@@ -263,12 +262,13 @@ function showMenu(){
   syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);}   // re-warm stale boards; instant if fresh
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';Music.stop();
+  if(typeof Online!=='undefined')Online.stop();_onlineRoom=null;   // leave any online room
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   document.getElementById('quitconfirm').classList.remove('show');
   showMenu();}
 
 document.getElementById('startbtn').onclick=startGame;
-document.getElementById('againbtn').onclick=startGame;
+document.getElementById('againbtn').onclick=playAgain;
 document.getElementById('resumebtn').onclick=()=>{if(state==='pause')togglePause();};
 document.getElementById('quitbtn').onclick=()=>document.getElementById('quitconfirm').classList.add('show');
 document.getElementById('quitno').onclick=()=>document.getElementById('quitconfirm').classList.remove('show');
@@ -283,45 +283,27 @@ const _authemail=document.getElementById('authemail');if(_authemail)_authemail.a
 renderLegends();
 if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
 
-/* ===== peaceful multiplayer lobby — Supabase Presence hub (network.js) ===== */
-let _lobbyOn=false,_lobbyRaf=0,_lobbyLast=0;
-const _lobbyEl=document.getElementById('lobby'),_lobbyCv=document.getElementById('lobbycanvas');
-const _lobbyCtx=_lobbyCv&&_lobbyCv.getContext?_lobbyCv.getContext('2d'):null;
-let _lme={x:260,y:150,tx:260,ty:150};   // local avatar drifts to where you click/touch the hub
-function openLobby(){const e=_lobbyEl;if(!e)return;e.classList.remove('hidden');
-  document.getElementById('start').classList.add('hidden');}
-function closeLobby(){if(typeof Coop!=='undefined')Coop.stop();if(typeof Lobby!=='undefined')Lobby.leave();_lobbyOn=false;
-  if(_lobbyRaf)cancelAnimationFrame(_lobbyRaf);_lobbyRaf=0;
+/* ===== multiplayer — authoritative server rooms (server/game-server.js via WebSocketTransport) =====
+ * Everyone who starts the same room code joins ONE live server world. No Supabase realtime: the Node
+ * authority owns the sim; clients send input + render snapshots (js/transport.js → Online). */
+const _lobbyEl=document.getElementById('lobby');
+function _roomCode(){const inp=document.getElementById('roomcode');
+  return String((inp&&inp.value)||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);}
+function _serverReady(){return typeof GAME_SERVER_URL!=='undefined'&&!!GAME_SERVER_URL;}
+function openLobby(){if(!_lobbyEl)return;_lobbyEl.classList.remove('hidden');
+  document.getElementById('start').classList.add('hidden');
+  const err=document.getElementById('lobbyerr');if(err)err.textContent=_serverReady()?'':'Online server not configured (set GAME_SERVER_URL).';}
+function closeLobby(){if(typeof Online!=='undefined')Online.stop();_onlineRoom=null;
   if(_lobbyEl)_lobbyEl.classList.add('hidden');showMenu();}
-/* leave the cosmetic hub canvas and launch the REAL game as a host-authoritative PvE co-op run */
-function coopStart(){
-  const err=document.getElementById('lobbyerr');
-  if(typeof Coop==='undefined'||!Coop.start()){if(err)err.textContent='Join a room first to start a co-op run.';return;}
-  _lobbyOn=false;if(_lobbyRaf)cancelAnimationFrame(_lobbyRaf);_lobbyRaf=0;
-  if(_lobbyEl)_lobbyEl.classList.add('hidden');
-  startGame();   // normal single-player boot — Coop.active just layers networked enemies + teammates on top
-}
-function joinLobby(){
-  const inp=document.getElementById('roomcode'),err=document.getElementById('lobbyerr');
-  const room=String((inp&&inp.value)||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12)||'GLOBAL';
-  if(typeof Lobby==='undefined'||!Lobby.join(room,{name:(getPlayer()||{}).name||'Player'})){
-    if(err)err.textContent='Lobby offline — set Supabase config to play together.';return;}
-  if(err)err.textContent='';_lobbyOn=true;_lobbyLast=performance.now();_lobbyRender();}
-function _lobbyRender(ts){
-  if(!_lobbyOn)return;ts=ts||performance.now();const dt=Math.min(.05,(ts-_lobbyLast)/1000);_lobbyLast=ts;
-  _lme.x+=(_lme.tx-_lme.x)*(1-Math.exp(-12*dt));_lme.y+=(_lme.ty-_lme.y)*(1-Math.exp(-12*dt));
-  if(typeof Lobby!=='undefined'){Lobby.setLocalState(_lme.x,_lme.y,ts);Lobby.step(dt,Date.now());}
-  if(_lobbyCtx){const g=_lobbyCtx,W=_lobbyCv.width,H=_lobbyCv.height;g.clearRect(0,0,W,H);
-    g.fillStyle='rgba(84,230,255,.08)';g.fillRect(0,0,W,H);
-    if(typeof Lobby!=='undefined')for(const id in Lobby.peers){const p=Lobby.peers[id];
-      g.fillStyle=p.color||'#ff5fa2';g.beginPath();g.arc(p.x,p.y,9,0,6.283);g.fill();
-      g.fillStyle='#cfe';g.font='11px monospace';g.fillText((p.name||'').slice(0,10),p.x+12,p.y+4);}
-    g.fillStyle='#54e6ff';g.beginPath();g.arc(_lme.x,_lme.y,10,0,6.283);g.fill();}
-  const r=document.getElementById('lobbyroster');
-  if(r&&typeof Lobby!=='undefined')r.textContent='In room '+(Lobby.room||'—')+': '+(Lobby.count()+1)+' player(s)';
-  _lobbyRaf=requestAnimationFrame(_lobbyRender);}
-if(_lobbyCv)_lobbyCv.addEventListener('pointerdown',e=>{const b=_lobbyCv.getBoundingClientRect();
-  _lme.tx=(e.clientX-b.left)*(_lobbyCv.width/b.width);_lme.ty=(e.clientY-b.top)*(_lobbyCv.height/b.height);});
+/* JOIN just locks in + echoes the room code; the live run starts on START (everyone shares the code). */
+function joinLobby(){const err=document.getElementById('lobbyerr'),roster=document.getElementById('lobbyroster');
+  if(!_serverReady()){if(err)err.textContent='Online server not configured.';return;}
+  const room=_roomCode()||'GLOBAL';if(err)err.textContent='';
+  if(roster)roster.textContent='Room '+room+' — share this code, then START. Same code = same live game.';}
+/* launch the authoritative co-op run for this room code */
+function coopStart(){const err=document.getElementById('lobbyerr');
+  if(!startOnline(_roomCode()||'GLOBAL')){if(err)err.textContent='Online server not configured.';return;}
+  if(_lobbyEl)_lobbyEl.classList.add('hidden');}
 const _lobbyBtn=document.getElementById('lobbybtn');if(_lobbyBtn)_lobbyBtn.onclick=openLobby;
 const _lobbyJoin=document.getElementById('lobbyjoin');if(_lobbyJoin)_lobbyJoin.onclick=joinLobby;
 const _lobbyLeave=document.getElementById('lobbyleave');if(_lobbyLeave)_lobbyLeave.onclick=closeLobby;
