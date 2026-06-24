@@ -9,7 +9,7 @@
     "verify:upgrades": "node .claude/skills/neon-survivor/verify-upgrades.cjs",
     "verify:equiv": "node .claude/skills/neon-survivor/verify-equiv.cjs",
     "verify:achievements": "node .claude/skills/neon-survivor/verify-achievements.cjs",
-    "verify:net": "node .claude/skills/neon-survivor/verify-net.cjs"
+    "verify:online": "node .claude/skills/neon-survivor/verify-online-client.cjs && node .claude/skills/neon-survivor/verify-online-coop.cjs && node .claude/skills/neon-survivor/verify-server-resilience.cjs"
   },
   "keywords": [
     "game",

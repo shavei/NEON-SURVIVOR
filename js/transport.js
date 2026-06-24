@@ -125,11 +125,15 @@ const Online = {
     if (!url || typeof WebSocket === 'undefined') return false;
     this.localId = opts.id || this._genId();
     this._ready = false;
+    this._over = false;
     this.transport = new WebSocketTransport(url);
     this.transport.onSnapshot(s => {
       applySnapshot(s);
       player = players.find(p => p.id === this.localId) || player;   // keep the camera on the local avatar
       this._ready = true;
+      // local avatar down → end the run on this client (show the game-over screen). gameOver() lives in
+      // main.js (calls Online.stop), so the camera freezes on the death frame; "Play Again" reconnects.
+      if (player && player.dead && !this._over) { this._over = true; if (typeof gameOver === 'function') gameOver(); }
     });
     this.transport.connect(Object.assign({}, opts, { id: this.localId }));
     this.active = true;
