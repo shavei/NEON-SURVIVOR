@@ -184,7 +184,14 @@ const NetSync = {
     mix(this._tick); if (typeof score !== 'undefined') mix(score);
     for (let i = 0; i < enemies.length; i++) { const e = enemies[i]; mix(e.id); mix(e.x * 8); mix(e.y * 8); mix(e.hp); }
     if (typeof orbs !== 'undefined') for (let i = 0; i < orbs.length; i++) { mix(orbs[i].id ? 1 : 0); mix(orbs[i].x * 4); mix(orbs[i].y * 4); }
-    if (typeof players !== 'undefined') for (let i = 0; i < players.length; i++) { mix(players[i].x * 8); mix(players[i].y * 8); }
+    // M5: hash each avatar's upgrade/level/build, not just its position — an upgrade fork (C1) changes
+    // dmg/multi/pierce/level and the bullet volley but leaves positions equal for a while, so a
+    // position-only digest is blind to it. Bullets are part of the shared world, so fold them in too.
+    if (typeof players !== 'undefined') for (let i = 0; i < players.length; i++) { const a = players[i];
+      mix(a.x * 8); mix(a.y * 8); mix(a.hp); mix(a.level); mix(a.dmg * 100); mix(a.multi); mix(a.pierce);
+      mix(a.missile); mix(a.shield); mix(a.chain); }
+    if (typeof bullets !== 'undefined') { mix(bullets.length);
+      for (let i = 0; i < bullets.length; i++) { const b = bullets[i]; mix(b.x * 4); mix(b.y * 4); mix(b.pierce); } }
     return h >>> 0;
   },
 
