@@ -144,10 +144,12 @@ function gameOver(){state='over';Music.die();
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
   document.getElementById('hibest').textContent=score>=best?'★ NEW BEST!':'best: '+best;
   document.getElementById('over').classList.remove('hidden');}
+function syncPauseIcon(){const b=document.getElementById('mpause');if(b)b.textContent=state==='pause'?'▶':'⏸';}
 function togglePause(){
   if(state==='play'){state='pause';needsDraw=true;Music.stop();pauseStart=performance.now();showPause();}
   else if(state==='pause'){state='play';Music.start();t0+=performance.now()-pauseStart;
-    document.getElementById('pause').classList.add('hidden');}}
+    document.getElementById('pause').classList.add('hidden');}
+  syncPauseIcon();}
 function showPause(){
   const p=player,elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
   const dps=elapsed>0?(score/elapsed).toFixed(1):'0';
