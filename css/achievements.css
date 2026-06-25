@@ -2,8 +2,11 @@
  * Loaded as a separate <link> after css/style.css so the core stylesheet stays modular.
  * Reuses the root palette (--ink/--muted/--gold/--mint/--pink) defined in style.css. */
 
-/* ===== gallery: category tabs ===== */
-.ach-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+/* host override: #achlist still carries the legacy .achlist class (display:flex; max-height:200px;
+ * overflow:auto). The gallery is ONE scroll region — so neutralise the flex+cap here (id beats class)
+ * and let #achlist itself scroll. Without this the nested .ach-grid scroller collapses to a sliver. */
+#achlist{display:block;max-height:300px;overflow-y:auto;padding-right:4px}
+.ach-tabs{position:sticky;top:0;z-index:1;background:#0a0b14;padding:2px 0 8px;margin-bottom:4px;display:flex;gap:6px;flex-wrap:wrap}
 .ach-tab{flex:1 1 auto;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;cursor:pointer;pointer-events:auto;
   padding:5px 8px;border-radius:7px;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.12);transition:.15s}
 .ach-tab:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
@@ -20,8 +23,7 @@
 .cos-chip .cos-ico{font-size:14px}
 
 /* ===== gallery: tiered cards ===== */
-.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;
-  max-height:260px;overflow-y:auto;padding-right:4px}
+.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
 .ach-card{--tier-glow:#d9875a;position:relative;display:flex;flex-direction:column;gap:7px;padding:11px 12px;border-radius:12px;
   background:rgba(10,12,22,.6);border:1px solid var(--tier-glow);transition:opacity .2s,box-shadow .25s,border-color .25s}
 .ach-card.tier-bronze{--tier-glow:#d9875a}
