@@ -63,6 +63,57 @@ create table if not exists public.player_achievements (
 );
 create index if not exists player_ach_player_idx on public.player_achievements (player_id);
 
+-- TIERED PROGRESSION (additive, non-breaking). Existing rows backfill as fully-unlocked/complete.
+-- current_progress + is_unlocked let a badge exist BEFORE it unlocks; the PK stays the upsert key.
+-- NOTE: /api/verify writes is_unlocked=true on grant; partial (locked) progress for the progress
+-- bars is tracked in the CLIENT mirror (js/achievements.js) — the server only persists unlocks.
+alter table public.player_achievements
+  add column if not exists current_progress integer not null default 0,
+  add column if not exists is_unlocked       boolean not null default true;
+
+-- Bronze/Silver/Gold chaining for the gallery. Cross-checked fields (metric/threshold/difficulty)
+-- are unchanged; tier/chain are display+reward metadata only. hidden = secret (render ??? until seen).
+alter table public.achievement_defs
+  add column if not exists tier   text check (tier in ('bronze','silver','gold')),
+  add column if not exists chain  text,
+  add column if not exists hidden boolean not null default false;
+
+-- ============================================================
+-- COSMETICS — Gold-tier rewards. A gold achievement grant ALSO drops a cosmetic into the player's
+-- inventory (server-side, same /api/verify transaction). Like player_achievements: world-readable,
+-- service-role-only insert (no client write policy → a forged claim can't mint a skin). The ONE
+-- client write allowed is flipping `equipped` on a row the owner already holds.
+-- ============================================================
+create table if not exists public.cosmetics_definitions (
+  id     text primary key,                                    -- 'crimson_husk','void_warden',...
+  kind   text not null check (kind in ('skin','trail')),
+  title  text not null,
+  unlock_achievement_id text references public.achievement_defs(id)   -- the GOLD def that grants it
+);
+
+create table if not exists public.cosmetics_inventory (
+  player_id    uuid not null,
+  cosmetic_id  text not null references public.cosmetics_definitions(id),
+  granted_at   timestamptz not null default now(),
+  equipped     boolean not null default false,
+  primary key (player_id, cosmetic_id)
+);
+create index if not exists cosmetics_inv_player_idx on public.cosmetics_inventory (player_id);
+
+alter table public.cosmetics_definitions enable row level security;
+alter table public.cosmetics_inventory   enable row level security;
+
+drop policy if exists "cosmetic defs readable" on public.cosmetics_definitions;
+create policy "cosmetic defs readable" on public.cosmetics_definitions for select using (true);
+
+drop policy if exists "cosmetics readable"    on public.cosmetics_inventory;
+drop policy if exists "owner equips cosmetic" on public.cosmetics_inventory;
+-- READABLE by all (show off cosmetics); INSERT only by service role (no insert policy). The owner
+-- may UPDATE only their own row, and only to (un)equip — never to grant themselves a new cosmetic.
+create policy "cosmetics readable"    on public.cosmetics_inventory for select using (true);
+create policy "owner equips cosmetic" on public.cosmetics_inventory for update
+  using (auth.uid() = player_id) with check (auth.uid() = player_id);
+
 -- One row per run, keyed by a server-issued token → makes /api/verify idempotent and gives it a
 -- trusted anchor (started_at, difficulty) to sanity-check the submitted run against.
 create table if not exists public.runs (
@@ -148,6 +199,36 @@ insert into public.achievement_defs (id,title,description,metric,threshold,diffi
 on conflict (id) do update set
   title=excluded.title, description=excluded.description, metric=excluded.metric,
   threshold=excluded.threshold, difficulty=excluded.difficulty, sort=excluded.sort;
+
+-- ---------- TIER CHAINS (keep-and-add): tag the existing defs into Bronze/Silver/Gold families,
+--            then add the 4 new GOLD caps. Each gold cap maps to a cosmetic below. ----------
+update public.achievement_defs set tier='bronze', chain='combat_kills' where id='swarm_breaker';
+update public.achievement_defs set tier='silver', chain='combat_kills' where id='one_man_army';
+update public.achievement_defs set tier='bronze', chain='wave_depth'   where id='wave_rider';
+update public.achievement_defs set tier='silver', chain='wave_depth'   where id='wave_master';
+update public.achievement_defs set tier='bronze', chain='score_run'    where id='high_scorer';
+update public.achievement_defs set tier='silver', chain='score_run'    where id='score_legend';
+update public.achievement_defs set tier='bronze', chain='boss_hunt'    where id='boss_slayer';
+update public.achievement_defs set tier='silver', chain='boss_hunt'    where id='warden_hunter';
+
+insert into public.achievement_defs (id,title,description,metric,threshold,difficulty,sort,tier,chain) values
+  ('annihilator',  'Annihilator',  'Kill 1,000 enemies in a single run.', 'kills', 1000,   null,13,'gold','combat_kills'),
+  ('abyss_walker', 'Abyss Walker', 'Reach wave 30.',                      'wave',  30,     null,14,'gold','wave_depth'),
+  ('neon_god',     'Neon God',     'Score 100,000 in a single run.',      'score', 100000, null,15,'gold','score_run'),
+  ('warden_legend','Warden Legend','Defeat 50 Wardens (lifetime).',       'bosses',50,     null,16,'gold','boss_hunt')
+on conflict (id) do update set
+  title=excluded.title, description=excluded.description, metric=excluded.metric,
+  threshold=excluded.threshold, difficulty=excluded.difficulty, sort=excluded.sort,
+  tier=excluded.tier, chain=excluded.chain;
+
+-- ---------- COSMETIC REWARDS (one per gold cap; idempotent) ----------
+insert into public.cosmetics_definitions (id,kind,title,unlock_achievement_id) values
+  ('crimson_husk',   'skin',  'Crimson Husk',     'annihilator'),
+  ('void_warden',    'skin',  'Void Warden',      'abyss_walker'),
+  ('neon_god_trail', 'trail', 'Neon God Trail',   'neon_god'),
+  ('warden_halo',    'trail', 'Warden Halo',      'warden_legend')
+on conflict (id) do update set
+  kind=excluded.kind, title=excluded.title, unlock_achievement_id=excluded.unlock_achievement_id;
 
 
 -- ============================================================

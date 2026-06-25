@@ -113,12 +113,33 @@ const AchSync = {
     id = id || ((typeof getPlayer === 'function' && getPlayer()) || {}).id;
     if (!this.ready() || !id || typeof Ach === 'undefined') return Promise.resolve();
     try {
+      const self = this;
       return SB.from('player_achievements').select('achievement_id').eq('player_id', id).then(function (res) {
         if (!res || res.error || !Array.isArray(res.data)) return;
         const cloud = res.data.map(function (r) { return r.achievement_id; });
         const s = Ach._load();
         const localOnly = (s.unlocked || []).filter(function (x) { return cloud.indexOf(x) < 0; });
         s.unlocked = cloud.concat(localOnly);
+        Ach._save(s);
+        if (typeof Ach.renderPanel === 'function') Ach.renderPanel();
+        self.pullCosmetics(id);                                       // …and reconcile the gold-tier rewards
+      }, function () {});
+    } catch (e) { return Promise.resolve(); }
+  },
+
+  /* read the server-granted cosmetics for this id into the local mirror so the showcase reflects cloud
+   * truth on any device. Cloud is authoritative; optimistic local-only ids are preserved (re-confirmed
+   * on the next /api/verify). No-op offline/headless. */
+  pullCosmetics(id) {
+    id = id || ((typeof getPlayer === 'function' && getPlayer()) || {}).id;
+    if (!this.ready() || !id || typeof Ach === 'undefined') return Promise.resolve();
+    try {
+      return SB.from('cosmetics_inventory').select('cosmetic_id').eq('player_id', id).then(function (res) {
+        if (!res || res.error || !Array.isArray(res.data)) return;
+        const cloud = res.data.map(function (r) { return r.cosmetic_id; });
+        const s = Ach._load();
+        const localOnly = (s.cosmetics || []).filter(function (x) { return cloud.indexOf(x) < 0; });
+        s.cosmetics = cloud.concat(localOnly);
         Ach._save(s);
         if (typeof Ach.renderPanel === 'function') Ach.renderPanel();
       }, function () {});
@@ -139,27 +160,32 @@ function showAuth(mode) {
   const title = m.querySelector('.title'), tag = document.getElementById('authtag');
   const email = document.getElementById('authemail'), pass = document.getElementById('authpass'), uname = document.getElementById('uname');
   const ok = document.getElementById('unameok'), toggle = document.getElementById('authtoggle'), err = document.getElementById('unameerr');
+  const otpbtn = document.getElementById('authotp'), code = document.getElementById('authcode');
   if (err) err.textContent = '';
+  if (typeof _otpStage !== 'undefined') _otpStage = null;        // (auth-otp.js) leaving any mode cancels an in-flight OTP
+  _setShown(code, false);                                        // code field hidden until "email me a code" sends one
   const local = (mode === 'editname' || mode === 'local');
   if (local) {
-    _setShown(email, false); _setShown(pass, false); _setShown(uname, true); _setShown(toggle, false);
+    _setShown(email, false); _setShown(pass, false); _setShown(uname, true); _setShown(toggle, false); _setShown(otpbtn, false);
     if (title) title.textContent = mode === 'editname' ? 'EDIT NAME' : 'PICK A USERNAME';
     if (tag) tag.textContent = 'How you show up on the global leaderboard. 3–16 characters.';
     if (ok) ok.textContent = mode === 'editname' ? '✔ SAVE' : '✔ CONFIRM';
     if (uname) { const p = (typeof getPlayer === 'function') && getPlayer(); uname.value = mode === 'editname' && p ? p.name : ''; }
   } else {
     const signup = mode === 'signup';
-    _setShown(email, true); _setShown(pass, true); _setShown(uname, signup); _setShown(toggle, true);
+    _setShown(email, true); _setShown(pass, true); _setShown(uname, signup); _setShown(toggle, true); _setShown(otpbtn, true);
     if (title) title.textContent = signup ? 'CREATE ACCOUNT' : 'SIGN IN';
     if (tag) tag.textContent = signup ? 'Create an account to sync achievements across every device.' : 'Sign in to sync your achievements across every device.';
     if (ok) ok.textContent = signup ? '✔ CREATE ACCOUNT' : '✔ SIGN IN';
     if (toggle) toggle.textContent = signup ? 'Have an account? Sign in' : 'New here? Create an account';
+    if (otpbtn) otpbtn.textContent = '📧 Email me a 6-digit code instead';
   }
   m.classList.remove('hidden'); document.getElementById('start').classList.add('hidden');
   const f = local ? uname : email; if (f) try { f.focus(); } catch (e) {}
 }
 function confirmUsername() {
   const err = document.getElementById('unameerr'), seterr = t => { if (err) err.textContent = t; };
+  if (typeof _otpStage !== 'undefined' && _otpStage === 'sent') { confirmOtp(); return; }   // OTP code pending → verify it (auth-otp.js)
   if (_authmode === 'editname' || _authmode === 'local') {
     const n = sanitizeName(document.getElementById('uname').value);
     if (n.length < 3) { seterr('Please use at least 3 characters.'); return; }

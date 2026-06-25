@@ -22,7 +22,7 @@ g.setInterval = () => 1; g.clearInterval = () => {}; g.setTimeout = () => 1; g.c
 g.performance = { now: () => 0 }; g.devicePixelRatio = 1; g.innerWidth = 800; g.innerHeight = 600;
 g.AudioContext = function () { return any; }; g.webkitAudioContext = g.AudioContext; g.matchMedia = () => ({ matches: false, addEventListener() {} });
 
-try { eval(script + ';globalThis.Ach=Ach;'); }
+try { eval(script + ';globalThis.Ach=Ach;globalThis.COSMETIC_MAP=COSMETIC_MAP;globalThis.COSMETICS=COSMETICS;'); }
 catch (e) { console.error('LOAD ERROR:', e.message); process.exit(1); }
 const server = require(path.join(ROOT, 'api/verify.js'));
 const Ach = g.Ach;
@@ -76,5 +76,23 @@ ok(!server.validateRun(run, { score: 10, wave: 20, kills: 2, secs: 80, level: 5,
 ok(!server.validateRun(Object.assign({}, run, { verified: true }), { score: 10, wave: 1, kills: 0, secs: 1, level: 1, difficulty: 'normal' }).ok, 'already-verified rejected');
 ok(!server.validateRun(null, { score: 10, wave: 1, kills: 0, secs: 1, level: 1, difficulty: 'normal' }).ok, 'unknown run rejected');
 
-console.log(fail ? ('\nACHIEVEMENTS — ' + fail + ' FAILED') : '\nACHIEVEMENTS — ALL PASS (' + Ach.CATALOG.length + ' defs)');
+// 6) tier/chain integrity + gold→cosmetic mapping (client COSMETIC_MAP === server COSMETIC_MAP, all gold)
+const C = g.COSMETIC_MAP, COS = g.COSMETICS;
+ok(JSON.stringify(C) === JSON.stringify(server.COSMETIC_MAP), 'client and server COSMETIC_MAP identical');
+const byId = Object.fromEntries(Ach.CATALOG.map(d => [d.id, d]));
+Object.keys(C).forEach(id => {
+  ok(!!byId[id], 'cosmetic source achievement exists: ' + id);
+  ok(byId[id] && byId[id].tier === 'gold', 'cosmetic source is a GOLD tier: ' + id);
+  ok(COS.some(c => c.id === C[id]), 'cosmetic def exists for ' + C[id]);
+});
+COS.forEach(c => {
+  ok(['skin', 'trail'].includes(c.kind), 'valid cosmetic kind ' + c.id);
+  ok(C[c.from] === c.id, 'cosmetic ' + c.id + ' maps back from gold ' + c.from);
+});
+ok(norm(server.cosmeticsFor(['annihilator', 'first_blood'])) === 'crimson_husk', 'cosmeticsFor returns only mapped gold rewards');
+// every chain has exactly one gold cap
+const golds = {}; Ach.CATALOG.forEach(d => { if (d.chain && d.tier === 'gold') golds[d.chain] = (golds[d.chain] || 0) + 1; });
+Object.keys(golds).forEach(ch => ok(golds[ch] === 1, 'chain ' + ch + ' has one gold cap'));
+
+console.log(fail ? ('\nACHIEVEMENTS — ' + fail + ' FAILED') : '\nACHIEVEMENTS — ALL PASS (' + Ach.CATALOG.length + ' defs · ' + COS.length + ' cosmetics)');
 process.exit(fail ? 1 : 0);
