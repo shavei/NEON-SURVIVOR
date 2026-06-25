@@ -76,17 +76,17 @@
 </div>
 
 <div class="overlay hidden" id="username">
-  <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">SIGN IN</div>
+  <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">GRID ACCESS</div>
   <p class="tag" style="margin-top:12px" id="authtag">Sign in to sync your achievements across every device.</p>
   <form class="unamebox" onsubmit="return false">
     <input id="authemail" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="email" aria-label="email">
     <input id="authpass" type="password" autocomplete="current-password" placeholder="password (min 6)" aria-label="password">
     <input id="authcode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" spellcheck="false" placeholder="6-digit code" aria-label="verification code">
-    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="display name (3–16)" aria-label="display name">
+    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="callsign (3–16)" aria-label="callsign">
     <div class="unameerr" id="unameerr"></div>
   </form>
   <button class="btn" id="unameok">✔ SIGN IN</button>
-  <button class="menubtn" id="authotp">📧 Email me a 6-digit code instead</button>
+  <button class="menubtn" id="authotp">📧 Log in with a code instead</button>
   <button class="menubtn" id="authtoggle">New here? Create an account</button>
 </div>
 
@@ -132,7 +132,7 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-engine → world → sim → render → ui-engine → net → achievements → achievements-ui → achievement-sync → auth-otp → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
+<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-engine → world → sim → render → ui-engine → net → achievements → achievements-ui → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
 <script defer src="js/config.js"></script>
 <script defer src="js/config-sim.js"></script>
 <script defer src="js/core.js"></script>
@@ -145,7 +145,7 @@
 <script defer src="js/achievements.js"></script>
 <script defer src="js/achievements-ui.js"></script>
 <script defer src="js/achievement-sync.js"></script>
-<script defer src="js/auth-otp.js"></script>
+<script defer src="js/auth-uplink.js"></script>
 <script defer src="js/leaderboard-sync.js"></script>
 <script defer src="js/leaderboard-engine.js"></script>
 <script defer src="js/main.js"></script>

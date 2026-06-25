@@ -225,12 +225,12 @@ document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
 function syncGlobalTab(diff){document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.toggle('on',z.dataset.d===diff));}
 
 /* ===== identity onboarding (gates the menu) — Supabase Auth when online, local name when not =====
- * Modes: 'signin'/'signup' (email+password, cloud identity via AchSync) · 'editname' (rename the
- * signed-in/local profile) · 'local' (offline/unconfigured first-run name, legacy local-only id). */
+ * The "GRID ACCESS" modal: password is the primary login, a 6-digit OTP is the alternate login, and
+ * signup sets a password + confirms via an emailed code. 'editname'/'local' cover the local name. */
 function sanitizeName(s){return String(s||"").replace(/[\u0000-\u001f]/g,"").replace(/\s+/g," ").trim().slice(0,16);}
-/* The auth-modal UI (showAuth / confirmUsername) and the AchSync→UI hooks (onAuthResolved /
- * onAuthRequired / onAuthOffline) live in js/achievement-sync.js — kept out of main.js so this file
- * stays under the 28 KB silent-truncation threshold. sanitizeName (above) + bootMenu (below) stay here. */
+/* The Grid Access modal UI (showAuth / confirmUsername) and the AchSync→UI hooks (onAuthResolved /
+ * onAuthRequired / onAuthOffline) live in js/auth-uplink.js — which self-wires its own buttons — kept
+ * out of main.js so this file stays under the 28 KB truncation line. sanitizeName + bootMenu stay here. */
 function bootMenu(){   // auth-gated when online/configured; otherwise legacy local name on first run
   if(typeof AchSync!=='undefined'&&AchSync.enabled()){
     // cover the screen with #boot while the Supabase SDK loads async — otherwise the bare HUD
@@ -260,12 +260,8 @@ document.getElementById('quitbtn').onclick=()=>document.getElementById('quitconf
 document.getElementById('quitno').onclick=()=>document.getElementById('quitconfirm').classList.remove('show');
 document.getElementById('quityes').onclick=quitToMenu;
 document.getElementById('tomenu').onclick=showMenu;
-const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=()=>confirmUsername();
-const _unameInput=document.getElementById('uname');if(_unameInput)_unameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
-const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showAuth('editname');
-const _authtoggle=document.getElementById('authtoggle');if(_authtoggle)_authtoggle.onclick=()=>showAuth(_authmode==='signup'?'signin':'signup');
-const _authpass=document.getElementById('authpass');if(_authpass)_authpass.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
-const _authemail=document.getElementById('authemail');if(_authemail)_authemail.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
+/* Grid Access modal buttons (unameok / authotp / authtoggle / editname + input Enter keys) self-wire in
+ * js/auth-uplink.js — see that file's _isBrowser block. Kept there so all auth UI lives in one place. */
 renderLegends();
 if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
 
