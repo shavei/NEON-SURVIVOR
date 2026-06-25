@@ -3,8 +3,8 @@
  * BEFORE main.js (main wires the modal + boot to AchSync). Headless/offline-safe: every SB/DOM/storage
  * touch is guarded, so verify*.cjs load it clean and offline play never throws (SB===null → no-ops).
  *
- * Identity model: Supabase Auth (email+password) issues a durable user_id that survives a browser
- * clear via the refresh token. On login we adopt that id into neon_player (net.js) so every existing
+ * Identity model: Supabase Auth (email+password, or alternate 6-digit OTP) issues a durable user_id
+ * that survives a browser clear via the refresh token. On login we adopt that id into neon_player (net.js) so every existing
  * caller (submitScore, Ach.onRunStart, /api/verify) keys to the SAME id on every device. The local
  * `neon_ach:<id>` mirror becomes a per-user cache that we overwrite from the cloud on login (pull).
  * The authoritative writer stays /api/verify.js — this module only reads back what the server granted. */
@@ -38,22 +38,26 @@ const AchSync = {
     } catch (e) { return Promise.resolve(null); }
   },
 
-  /* create an account: sign up → seed the profile display name → adopt + hydrate. Resolves {ok,error}. */
-  signUp(email, password, username) {
+  /* ----- thin auth wrappers (orchestrated by auth-uplink.js' Grid Access modal) -----
+   * Each resolves a plain {ok,error,...} object and NEVER rejects, so the UI can chain without try/catch.
+   * Password is the primary login; OTP is the alternate login + the signup email-confirmation step. */
+
+  /* SIGNUP step 1: create the account with a password. Resolves {ok, hasSession, user, error}.
+   * hasSession=false (the usual case, email-confirm ON) → Supabase emailed a 6-digit code; the modal
+   * collects it and calls verifyCode(...,'signup',callsign). hasSession=true (confirm OFF) → adopt now. */
+  pwSignUp(email, password) {
     if (!this.ready()) return Promise.resolve({ ok: false, error: 'Offline — can’t create an account right now.' });
-    const self = this;
     try {
       return SB.auth.signUp({ email: email, password: password }).then(function (res) {
         if (res && res.error) return { ok: false, error: res.error.message || 'Sign-up failed.' };
         const user = res && res.data && res.data.user;
         if (!user) return { ok: false, error: 'Sign-up failed.' };
-        if (!(res.data && res.data.session)) return { ok: false, error: 'Account created — confirm your email, then sign in.' };
-        return self._adopt(user, username);
+        return { ok: true, hasSession: !!(res.data && res.data.session), user: user };
       }, function () { return { ok: false, error: 'Network error.' }; });
     } catch (e) { return Promise.resolve({ ok: false, error: 'Network error.' }); }
   },
 
-  /* sign in to an existing account → adopt + hydrate. Resolves {ok,error}. */
+  /* LOGIN (primary): sign in to an existing account with the password → adopt + hydrate. {ok,error}. */
   signIn(email, password) {
     if (!this.ready()) return Promise.resolve({ ok: false, error: 'Offline — can’t sign in right now.' });
     const self = this;
@@ -64,6 +68,44 @@ const AchSync = {
         if (!user) return { ok: false, error: 'Sign-in failed.' };
         return self._adopt(user);
       }, function () { return { ok: false, error: 'Network error.' }; });
+    } catch (e) { return Promise.resolve({ ok: false, error: 'Network error.' }); }
+  },
+
+  /* email a 6-digit code. createUser=false on the alternate-login path (no account → nudge to signup);
+   * the signup path uses pwSignUp's own confirmation email, not this. Resolves {ok,error}. */
+  otpRequest(email, createUser) {
+    if (!this.ready()) return Promise.resolve({ ok: false, error: 'Offline — can’t email a code right now.' });
+    try {
+      return SB.auth.signInWithOtp({ email: email, options: { shouldCreateUser: !!createUser } }).then(
+        function (res) { return (res && res.error) ? { ok: false, error: res.error.message || 'Couldn’t send the code.' } : { ok: true }; },
+        function () { return { ok: false, error: 'Network error.' }; });
+    } catch (e) { return Promise.resolve({ ok: false, error: 'Network error.' }); }
+  },
+
+  /* re-send a code already in flight (type:'signup' for the confirmation email). Resolves {ok,error}. */
+  resend(email, type) {
+    if (!this.ready()) return Promise.resolve({ ok: false, error: 'Offline — can’t resend right now.' });
+    try {
+      return SB.auth.resend({ type: type || 'signup', email: email }).then(
+        function (res) { return (res && res.error) ? { ok: false, error: res.error.message || 'Couldn’t resend.' } : { ok: true }; },
+        function () { return { ok: false, error: 'Network error.' }; });
+    } catch (e) { return Promise.resolve({ ok: false, error: 'Network error.' }); }
+  },
+
+  /* verify a typed 6-digit code → adopt the resulting session (same downstream path as password login).
+   * type:'signup' confirms a freshly created account (pass the chosen callsign); type:'email' is the
+   * alternate code-login for an existing account. Resolves {ok, id, name, error}. */
+  verifyCode(email, token, type, username) {
+    if (!this.ready()) return Promise.resolve({ ok: false, error: 'Offline — can’t verify right now.' });
+    const self = this;
+    try {
+      return SB.auth.verifyOtp({ email: email, token: token, type: type || 'email' }).then(
+        function (res) {
+          if (res && res.error) return { ok: false, error: res.error.message || 'Invalid or expired code.' };
+          const user = res && res.data && res.data.user;
+          if (!user) return { ok: false, error: 'Invalid or expired code.' };
+          return self._adopt(user, username);
+        }, function () { return { ok: false, error: 'Network error.' }; });
     } catch (e) { return Promise.resolve({ ok: false, error: 'Network error.' }); }
   },
 
@@ -149,74 +191,8 @@ const AchSync = {
     } catch (e) { return Promise.resolve(); }
   },
 
-  /* late-bound call into a global UI hook (onAuth* below); swallow if absent/headless */
+  /* late-bound call into a global UI hook (onAuth* in auth-uplink.js); swallow if absent/headless */
   _fire(name, arg) { try { if (typeof globalThis[name] === 'function') globalThis[name](arg); } catch (e) {} },
 };
-
-/* ===== auth-modal UI — lives here (not main.js) to keep main.js under the 28 KB truncation line =====
- * Reuses the single #username overlay. Modes: 'signin'/'signup' (email+password) · 'editname' (rename)
- * · 'local' (offline/unconfigured first-run name). main.js wires the buttons + bootMenu to these. */
-let _authmode = 'signin';
-function _setShown(el, on) { if (el) el.style.display = on ? '' : 'none'; }
-function showAuth(mode) {
-  _authmode = mode; const m = document.getElementById('username'); if (!m) return;
-  const title = m.querySelector('.title'), tag = document.getElementById('authtag');
-  const email = document.getElementById('authemail'), pass = document.getElementById('authpass'), uname = document.getElementById('uname');
-  const ok = document.getElementById('unameok'), toggle = document.getElementById('authtoggle'), err = document.getElementById('unameerr');
-  const otpbtn = document.getElementById('authotp'), code = document.getElementById('authcode');
-  if (err) err.textContent = '';
-  if (typeof _otpStage !== 'undefined') _otpStage = null;        // (auth-otp.js) leaving any mode cancels an in-flight OTP
-  _setShown(code, false);                                        // code field hidden until "email me a code" sends one
-  const local = (mode === 'editname' || mode === 'local');
-  if (local) {
-    _setShown(email, false); _setShown(pass, false); _setShown(uname, true); _setShown(toggle, false); _setShown(otpbtn, false);
-    if (title) title.textContent = mode === 'editname' ? 'EDIT NAME' : 'PICK A USERNAME';
-    if (tag) tag.textContent = 'How you show up on the global leaderboard. 3–16 characters.';
-    if (ok) ok.textContent = mode === 'editname' ? '✔ SAVE' : '✔ CONFIRM';
-    if (uname) { const p = (typeof getPlayer === 'function') && getPlayer(); uname.value = mode === 'editname' && p ? p.name : ''; }
-  } else {
-    const signup = mode === 'signup';
-    _setShown(email, true); _setShown(pass, true); _setShown(uname, signup); _setShown(toggle, true); _setShown(otpbtn, true);
-    if (title) title.textContent = signup ? 'CREATE ACCOUNT' : 'SIGN IN';
-    if (tag) tag.textContent = signup ? 'Create an account to sync achievements across every device.' : 'Sign in to sync your achievements across every device.';
-    if (ok) ok.textContent = signup ? '✔ CREATE ACCOUNT' : '✔ SIGN IN';
-    if (toggle) toggle.textContent = signup ? 'Have an account? Sign in' : 'New here? Create an account';
-    if (otpbtn) otpbtn.textContent = '📧 Email me a 6-digit code instead';
-  }
-  m.classList.remove('hidden'); document.getElementById('start').classList.add('hidden');
-  const f = local ? uname : email; if (f) try { f.focus(); } catch (e) {}
-}
-function confirmUsername() {
-  const err = document.getElementById('unameerr'), seterr = t => { if (err) err.textContent = t; };
-  if (typeof _otpStage !== 'undefined' && _otpStage === 'sent') { confirmOtp(); return; }   // OTP code pending → verify it (auth-otp.js)
-  if (_authmode === 'editname' || _authmode === 'local') {
-    const n = sanitizeName(document.getElementById('uname').value);
-    if (n.length < 3) { seterr('Please use at least 3 characters.'); return; }
-    if (_authmode === 'editname' && AchSync.enabled() && AchSync.ready()) AchSync.updateName(n);
-    else if (typeof savePlayer === 'function') savePlayer(n);
-    document.getElementById('username').classList.add('hidden');
-    document.getElementById('start').classList.remove('hidden');
-    if (typeof LBSync !== 'undefined') LBSync.syncAll();   // identity set → warm all leaderboards in the background
-    return;
-  }
-  const email = (document.getElementById('authemail').value || '').trim(), pass = document.getElementById('authpass').value || '';
-  if (!/.+@.+\..+/.test(email)) { seterr('Enter a valid email address.'); return; }
-  if (pass.length < 6) { seterr('Password must be at least 6 characters.'); return; }
-  let name = '';
-  if (_authmode === 'signup') { name = sanitizeName(document.getElementById('uname').value); if (name.length < 3) { seterr('Display name: at least 3 characters.'); return; } }
-  seterr(_authmode === 'signup' ? 'Creating account…' : 'Signing in…');
-  const ok = document.getElementById('unameok'); if (ok) ok.disabled = true;
-  const done = r => {
-    if (ok) ok.disabled = false;
-    if (r && r.ok) { document.getElementById('username').classList.add('hidden'); document.getElementById('start').classList.remove('hidden'); if (typeof Ach !== 'undefined') Ach.renderPanel(); }
-    else seterr((r && r.error) || 'Something went wrong.');
-  };
-  const p = _authmode === 'signup' ? AchSync.signUp(email, pass, name) : AchSync.signIn(email, pass);
-  p.then(done, () => done({ ok: false, error: 'Network error.' }));
-}
-/* AchSync → UI hooks, fired via AchSync._fire (globalThis lookup). Each clears the #boot cover
- * (shown by bootMenu while the SDK loaded) before revealing the menu or the auth modal. */
-function _hideBoot() { const b = document.getElementById('boot'); if (b) b.classList.add('hidden'); }
-function onAuthResolved() { _hideBoot(); const m = document.getElementById('username'); if (m) m.classList.add('hidden'); document.getElementById('start').classList.remove('hidden'); if (typeof Ach !== 'undefined') Ach.renderPanel(); if (typeof LBSync !== 'undefined') LBSync.syncAll(); }
-function onAuthRequired() { _hideBoot(); showAuth('signin'); }                        // SDK up, no session → ask to sign in
-function onAuthOffline() { _hideBoot(); if (typeof getPlayer === 'function' && !getPlayer()) showAuth('local'); else document.getElementById('start').classList.remove('hidden'); }
+/* The Grid Access modal UI (showAuth / confirmUsername / onAuth* hooks) lives in js/auth-uplink.js —
+ * kept out of this file AND main.js so each stays under the 28 KB silent-truncation threshold. */
