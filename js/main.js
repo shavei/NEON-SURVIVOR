@@ -130,7 +130,8 @@ function startGame(){
   Sound.init();Sound.resume();Music.start();reset();state='play';
   if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
-  document.getElementById('sound').classList.add('show');}
+  document.getElementById('sound').classList.add('show');
+  const mp=document.getElementById('mpause');if(mp)mp.hidden=false;}   // reveal touch-pause for the run (CSS gates it to mobile)
 function playAgain(){startGame();}
 function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
@@ -246,6 +247,7 @@ function showMenu(){
   document.getElementById('over').classList.add('hidden');
   document.getElementById('pause').classList.add('hidden');
   document.getElementById('sound').classList.remove('show');
+  const mp=document.getElementById('mpause');if(mp)mp.hidden=true;   // re-stow touch-pause when leaving the run
   document.getElementById('start').classList.remove('hidden');
   _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
   syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);}   // re-warm stale boards; instant if fresh
