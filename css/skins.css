@@ -1,0 +1,47 @@
+/* NEON SURVIVOR — skins.css : the Skins sub-tab of the Showcase panel.
+ * Loaded as a separate <link> after css/achievements.css so the core stylesheets stay modular.
+ * Reuses the root palette (--ink/--muted/--gold/--mono) from style.css and matches the achievement-gallery look. */
+
+/* sub-tab toggle injected above #achlist (Achievements | Skins) — mirrors .ach-tabs */
+.show-tabs{display:flex;gap:6px;margin-bottom:8px}
+.show-tab{flex:1 1 auto;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;cursor:pointer;pointer-events:auto;
+  padding:6px 8px;border-radius:7px;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.12);transition:.15s}
+.show-tab:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
+.show-tab.on{color:#0b0c12;background:var(--gold);border-color:var(--gold)}
+
+/* #skinlist shares the .achlist host override (block + own scroll region) from achievements.css */
+#skinlist{display:block;max-height:300px;overflow-y:auto;padding-right:4px}
+
+.skin-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.skin-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted)}
+.skin-n{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--gold)}
+
+/* ===== cards ===== */
+.skin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.skin-card{--skin-accent:#54e6b5;position:relative;display:flex;flex-direction:column;gap:8px;padding:11px 12px;border-radius:12px;
+  background:rgba(10,12,22,.6);border:1px solid var(--skin-accent);transition:opacity .2s,box-shadow .25s,border-color .25s,transform .15s}
+.skin-card.owned{opacity:1;box-shadow:0 0 10px -2px var(--skin-accent)}
+.skin-card.locked{opacity:.5;border-color:rgba(255,255,255,.18);border-style:dashed}
+.skin-card.equipped{opacity:1;animation:skinNeonPulse 1.6s ease-in-out infinite}
+
+.skin-card-head{display:flex;align-items:center;gap:7px}
+.skin-card-head .skin-ico{font-size:20px;filter:drop-shadow(0 0 6px var(--skin-accent))}
+.skin-card-head .skin-tag{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--skin-accent);border:1px solid var(--skin-accent);border-radius:5px;padding:1px 5px;opacity:.85}
+.skin-card-body b{display:block;font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.25}
+.skin-card-body span{display:block;font-size:10.5px;color:var(--muted);line-height:1.3;margin-top:2px}
+
+/* equip button / equipped badge / lock hint */
+.skin-btn{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;cursor:pointer;pointer-events:auto;
+  padding:6px 0;border-radius:7px;color:var(--skin-accent);background:rgba(255,255,255,.04);
+  border:1px solid var(--skin-accent);transition:.15s}
+.skin-btn:hover{color:#0b0c12;background:var(--skin-accent);box-shadow:0 0 12px -2px var(--skin-accent)}
+.skin-badge{font-family:var(--mono);font-size:10px;font-weight:800;letter-spacing:.08em;text-align:center;
+  padding:6px 0;border-radius:7px;color:#0b0c12;background:var(--skin-accent);box-shadow:0 0 12px -1px var(--skin-accent)}
+.skin-lock{font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;color:var(--muted);text-align:center;padding:5px 0}
+
+@keyframes skinNeonPulse{0%,100%{box-shadow:0 0 5px var(--skin-accent),inset 0 0 6px -2px var(--skin-accent);border-color:var(--skin-accent)}
+  50%{box-shadow:0 0 18px var(--skin-accent),0 0 30px -6px var(--skin-accent),inset 0 0 10px -2px var(--skin-accent);border-color:#fff}}
+
+@media (prefers-reduced-motion:reduce){
+  .skin-card.equipped{animation:none;box-shadow:0 0 16px -2px var(--skin-accent)}}

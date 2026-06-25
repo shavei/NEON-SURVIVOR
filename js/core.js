@@ -33,16 +33,24 @@ function enemySprite(type,white){const k='e'+type+(white?'w':'');if(_spr[k])retu
   else{g.beginPath();for(let i=0;i<m.sides;i++){const a=i/m.sides*6.283,x=Math.cos(a)*m.r,y=Math.sin(a)*m.r;i?g.lineTo(x,y):g.moveTo(x,y);}g.closePath();g.fill();
     if(m.ring&&!white){g.shadowBlur=0;g.lineWidth=2;g.strokeStyle=m.ring;g.stroke();}}   // contrasting outline so threats read apart from teal XP orbs
   return _spr[k]=c;}
-// player hull baked once per rage-state (gradient + shadow are expensive; the hull is static)
-function shipSprite(rage,r){const k='s'+(rage?1:0)+'_'+r;if(_spr[k])return _spr[k];
+// equipped-skin hull palettes (non-rage). Default = the stock orange hull; unknown ids fall back to it,
+// so cosmetics added later never break the avatar. rage is a temporary power state → always overrides to gold.
+const _SKIN_DEF={c0:'#37223f',c1:'#ff8a5e',shadow:'#d97757',stroke:'#ffd9c2'};
+const SKIN_PALETTE={
+  crimson_husk:{c0:'#3a0f16',c1:'#ff3b4e',shadow:'#ff3b6b',stroke:'#ffd2d8'},
+  void_warden :{c0:'#1d0f3a',c1:'#9a5cff',shadow:'#9a5cff',stroke:'#e6d2ff'},
+};
+// player hull baked once per (rage,r,skin) — gradient + shadow are expensive; the hull is static
+function shipSprite(rage,r,skin){const pal=(!rage&&skin&&SKIN_PALETTE[skin])||_SKIN_DEF;
+  const k='s'+(rage?1:0)+'_'+r+'_'+(rage||!SKIN_PALETTE[skin]?'def':skin);if(_spr[k])return _spr[k];
   const pad=22,S=(r+pad)*2;shipSprite._s=S;
   const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');
-  g.translate(S/2,S/2);g.shadowBlur=18;g.shadowColor=rage?'#ffd95e':'#d97757';
+  g.translate(S/2,S/2);g.shadowBlur=18;g.shadowColor=rage?'#ffd95e':pal.shadow;
   const grd=g.createLinearGradient(-r,0,r+4,0);
-  grd.addColorStop(0,rage?'#6b3410':'#37223f');grd.addColorStop(1,rage?'#ffd95e':'#ff8a5e');
+  grd.addColorStop(0,rage?'#6b3410':pal.c0);grd.addColorStop(1,rage?'#ffd95e':pal.c1);
   g.fillStyle=grd;g.beginPath();
   g.moveTo(r+5,0);g.lineTo(-r+3,r-1);g.lineTo(-r+8,0);g.lineTo(-r+3,-(r-1));g.closePath();g.fill();
-  g.strokeStyle=rage?'#fff7d6':'#ffd9c2';g.lineWidth=1.5;g.stroke();
+  g.strokeStyle=rage?'#fff7d6':pal.stroke;g.lineWidth=1.5;g.stroke();
   return _spr[k]=c;}
 
 /* DIFFICULTY (DIFFS/DIFF), BOSS tunables and COOP scaling now live in config-sim.js (loaded first). */

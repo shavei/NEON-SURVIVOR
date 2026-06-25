@@ -113,7 +113,7 @@ function draw(){
     const fl=9+sp*3+Math.sin(frame*.7)*3;ctx.shadowBlur=16;ctx.shadowColor='#ffb04f';
     const fg=ctx.createLinearGradient(p.r-2,0,p.r-2+fl+6,0);fg.addColorStop(0,'rgba(255,225,120,.95)');fg.addColorStop(1,'rgba(255,90,60,0)');
     ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(p.r-3,5);ctx.lineTo(p.r-3+fl+6,0);ctx.lineTo(p.r-3,-5);ctx.closePath();ctx.fill();ctx.restore();ctx.shadowBlur=0;}
-  ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
+  ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r,typeof Skins!=='undefined'?Skins.equipped():null);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
   const pr=3+Math.sin(frame*.15)*1.2;ctx.shadowBlur=14;ctx.shadowColor=rage?'#ffd95e':'#7c8cff';
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
