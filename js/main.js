@@ -114,14 +114,11 @@ function loop(ts){now=ts;
     acc+=dt;
     let n=0;
     while(acc>=STEP&&n<MAXSUBSTEP&&state==='play'){                          // update() may flip state (gameOver/levelup) → stop simulating at once
-      if(typeof Online!=='undefined'&&Online.active)Online.tick();          // server-authoritative co-op: send input only; the world arrives as snapshots (applySnapshot)
-      else update();                                                        // solo: simulate locally
+      update();
       acc-=STEP;n++;}
     if(n===MAXSUBSTEP)acc=0;                           // drop unrecoverable backlog
     _perf.ticks=n;
-    if(typeof Online!=='undefined'&&Online.active){    // online: interpolate to the snapshot clock + run client-side camera/HUD
-      alpha=Online.alpha();Online.present(alpha);}
-    else alpha=acc/STEP;                               // solo: fractional sim tick → render interpolation factor
+    alpha=acc/STEP;                                    // fractional sim tick → render interpolation factor
     draw();
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
@@ -129,28 +126,13 @@ function loop(ts){now=ts;
   }
   perfFrame(ts);
   requestAnimationFrame(loop);}
-function startGame(){if(typeof Online!=='undefined')Online.stop();_onlineRoom=null;   // solo: drop any online session
+function startGame(){
   Sound.init();Sound.resume();Music.start();reset();state='play';
   if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');}
-/* PLAY AGAIN: reconnect to the same online room if the last run was online; otherwise a fresh solo run. */
-function playAgain(){if(_onlineRoom){if(startOnline(_onlineRoom))return;}startGame();}
-/* Server-authoritative co-op run: connect to the Node authority (GAME_SERVER_URL) for a room and let
- * snapshots drive the world (the loop calls Online.tick() instead of update()). Everyone who starts the
- * same room code shares one live server world. Returns false if no server is configured. */
-let _onlineRoom=null;   // current online room (drives "Play Again" reconnect); null while solo
-function startOnline(room){
-  room=room||'GLOBAL';
-  if(typeof Online==='undefined'||!Online.start({room,difficulty:(typeof DIFF!=='undefined'&&DIFF.key)||'normal'}))return false;
-  _onlineRoom=room;
-  Sound.init();Sound.resume();Music.start();reset();state='play';   // reset() inits the world arrays snapshots reconcile into
-  if(typeof Ach!=='undefined')Ach.onRunStart();
-  document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
-  document.getElementById('sound').classList.add('show');return true;
-}
+function playAgain(){startGame();}
 function gameOver(){state='over';Music.die();
-  if(typeof Online!=='undefined'&&Online.active)Online.stop();   // leave the authoritative session on death
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
@@ -264,7 +246,6 @@ function showMenu(){
   syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);}   // re-warm stale boards; instant if fresh
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';Music.stop();
-  if(typeof Online!=='undefined')Online.stop();_onlineRoom=null;   // leave any online room
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   document.getElementById('quitconfirm').classList.remove('show');
   showMenu();}
@@ -284,32 +265,6 @@ const _authpass=document.getElementById('authpass');if(_authpass)_authpass.addEv
 const _authemail=document.getElementById('authemail');if(_authemail)_authemail.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
 renderLegends();
 if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
-
-/* ===== multiplayer — authoritative server rooms (server/game-server.js via WebSocketTransport) =====
- * Everyone who starts the same room code joins ONE live server world. No Supabase realtime: the Node
- * authority owns the sim; clients send input + render snapshots (js/transport.js → Online). */
-const _lobbyEl=document.getElementById('lobby');
-function _roomCode(){const inp=document.getElementById('roomcode');
-  return String((inp&&inp.value)||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);}
-function _serverReady(){return typeof GAME_SERVER_URL!=='undefined'&&!!GAME_SERVER_URL;}
-function openLobby(){if(!_lobbyEl)return;_lobbyEl.classList.remove('hidden');
-  document.getElementById('start').classList.add('hidden');
-  const err=document.getElementById('lobbyerr');if(err)err.textContent=_serverReady()?'':'Online server not configured (set GAME_SERVER_URL).';}
-function closeLobby(){if(typeof Online!=='undefined')Online.stop();_onlineRoom=null;
-  if(_lobbyEl)_lobbyEl.classList.add('hidden');showMenu();}
-/* JOIN just locks in + echoes the room code; the live run starts on START (everyone shares the code). */
-function joinLobby(){const err=document.getElementById('lobbyerr'),roster=document.getElementById('lobbyroster');
-  if(!_serverReady()){if(err)err.textContent='Online server not configured.';return;}
-  const room=_roomCode()||'GLOBAL';if(err)err.textContent='';
-  if(roster)roster.textContent='Room '+room+' — share this code, then START. Same code = same live game.';}
-/* launch the authoritative co-op run for this room code */
-function coopStart(){const err=document.getElementById('lobbyerr');
-  if(!startOnline(_roomCode()||'GLOBAL')){if(err)err.textContent='Online server not configured.';return;}
-  if(_lobbyEl)_lobbyEl.classList.add('hidden');}
-const _lobbyBtn=document.getElementById('lobbybtn');if(_lobbyBtn)_lobbyBtn.onclick=openLobby;
-const _lobbyJoin=document.getElementById('lobbyjoin');if(_lobbyJoin)_lobbyJoin.onclick=joinLobby;
-const _lobbyLeave=document.getElementById('lobbyleave');if(_lobbyLeave)_lobbyLeave.onclick=closeLobby;
-const _lobbyStart=document.getElementById('lobbystart');if(_lobbyStart)_lobbyStart.onclick=coopStart;
 
 if(typeof LBSync!=='undefined')LBSync.syncAll();   // kick concurrent prefetch of all difficulty boards at startup
 renderGlobal(_gdiff);   // prime the visible tab (skeleton until rows land; offline/empty when unconfigured)
