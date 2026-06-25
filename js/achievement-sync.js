@@ -211,7 +211,9 @@ function confirmUsername() {
   const p = _authmode === 'signup' ? AchSync.signUp(email, pass, name) : AchSync.signIn(email, pass);
   p.then(done, () => done({ ok: false, error: 'Network error.' }));
 }
-/* AchSync → UI hooks, fired via AchSync._fire (globalThis lookup) */
-function onAuthResolved() { const m = document.getElementById('username'); if (m) m.classList.add('hidden'); document.getElementById('start').classList.remove('hidden'); if (typeof Ach !== 'undefined') Ach.renderPanel(); if (typeof LBSync !== 'undefined') LBSync.syncAll(); }
-function onAuthRequired() { showAuth('signin'); }                                    // SDK up, no session → ask to sign in
-function onAuthOffline() { if (typeof getPlayer === 'function' && !getPlayer()) showAuth('local'); else document.getElementById('start').classList.remove('hidden'); }
+/* AchSync → UI hooks, fired via AchSync._fire (globalThis lookup). Each clears the #boot cover
+ * (shown by bootMenu while the SDK loaded) before revealing the menu or the auth modal. */
+function _hideBoot() { const b = document.getElementById('boot'); if (b) b.classList.add('hidden'); }
+function onAuthResolved() { _hideBoot(); const m = document.getElementById('username'); if (m) m.classList.add('hidden'); document.getElementById('start').classList.remove('hidden'); if (typeof Ach !== 'undefined') Ach.renderPanel(); if (typeof LBSync !== 'undefined') LBSync.syncAll(); }
+function onAuthRequired() { _hideBoot(); showAuth('signin'); }                        // SDK up, no session → ask to sign in
+function onAuthOffline() { _hideBoot(); if (typeof getPlayer === 'function' && !getPlayer()) showAuth('local'); else document.getElementById('start').classList.remove('hidden'); }

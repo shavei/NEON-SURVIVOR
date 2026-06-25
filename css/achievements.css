@@ -2,6 +2,13 @@
  * Loaded as a separate <link> after css/style.css so the core stylesheet stays modular.
  * Reuses the root palette (--ink/--muted/--gold/--mint/--pink) defined in style.css. */
 
+/* #boot "Connecting…" animated ellipsis */
+.bootdots::after{content:'';animation:bootdots 1.3s steps(4,end) infinite}
+@keyframes bootdots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+/* empty state when no achievements are unlocked in the active filter */
+.ach-empty{font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--muted);padding:10px 2px}
+
 /* host override: #achlist still carries the legacy .achlist class (display:flex; max-height:200px;
  * overflow:auto). The gallery is ONE scroll region — so neutralise the flex+cap here (id beats class)
  * and let #achlist itself scroll. Without this the nested .ach-grid scroller collapses to a sliver. */
