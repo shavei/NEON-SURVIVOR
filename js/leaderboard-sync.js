@@ -40,13 +40,17 @@ const LBSync = {
 
   /* fire ALL difficulties at once. `force` refetches even fresh entries. Logs a batch-timing audit so
    * parallelism is provable: total ≈ slowest single fetch when concurrent, ≈ their sum if serialized. */
+  /* debug-only audit log: silent unless the F3 perf overlay (_perf.on) is toggled on, so a normal
+   * console stays clean. Guarded for headless where _perf/console may be absent. */
+  _log(...a) { if (typeof _perf !== 'undefined' && _perf.on && typeof console !== 'undefined') console.log('[LBSync]', ...a); },
+
   syncAll(force) {
     const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (typeof console !== 'undefined') console.log('[LBSync] batch start', LBSync.DIFFS.join(','));
+    LBSync._log('batch start', LBSync.DIFFS.join(','));
     const jobs = LBSync.DIFFS.map(d => (force ? LBSync._one(d) : LBSync.ensure(d)));
     return Promise.all(jobs).then(() => {
       const ms = ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0).toFixed(0);
-      if (typeof console !== 'undefined') console.log('[LBSync] batch done in ' + ms + 'ms',
+      LBSync._log('batch done in ' + ms + 'ms',
         LBSync.DIFFS.map(d => d + ':' + ((leaderboardCache[d] || {}).state || '—')).join(' '));
     });
   },

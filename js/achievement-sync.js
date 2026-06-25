@@ -130,11 +130,14 @@ const AchSync = {
   /* read the server-granted cosmetics for this id into the local mirror so the showcase reflects cloud
    * truth on any device. Cloud is authoritative; optimistic local-only ids are preserved (re-confirmed
    * on the next /api/verify). No-op offline/headless. */
+  _cosmeticsOff: false,   // set once the cosmetics_inventory table is found missing (older deployed schema) → stop re-requesting it (no repeat 404s)
   pullCosmetics(id) {
     id = id || ((typeof getPlayer === 'function' && getPlayer()) || {}).id;
-    if (!this.ready() || !id || typeof Ach === 'undefined') return Promise.resolve();
+    if (this._cosmeticsOff || !this.ready() || !id || typeof Ach === 'undefined') return Promise.resolve();
+    const self = this;
     try {
       return SB.from('cosmetics_inventory').select('cosmetic_id').eq('player_id', id).then(function (res) {
+        if (res && res.error) { const c = res.error.code, m = (res.error.message || ''); if (c === 'PGRST205' || c === '42P01' || /find the table|does not exist/i.test(m)) self._cosmeticsOff = true; }
         if (!res || res.error || !Array.isArray(res.data)) return;
         const cloud = res.data.map(function (r) { return r.cosmetic_id; });
         const s = Ach._load();

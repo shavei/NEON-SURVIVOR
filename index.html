@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>NEON SURVIVOR — built by Claude Code</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a12'/><circle cx='16' cy='16' r='8' fill='none' stroke='%23ff5fa2' stroke-width='3'/><circle cx='16' cy='16' r='2.5' fill='%2354e6b5'/></svg>">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/achievements.css">
 <!-- Vercel Speed Insights -->
@@ -77,13 +78,13 @@
 <div class="overlay hidden" id="username">
   <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">SIGN IN</div>
   <p class="tag" style="margin-top:12px" id="authtag">Sign in to sync your achievements across every device.</p>
-  <div class="unamebox">
+  <form class="unamebox" onsubmit="return false">
     <input id="authemail" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="email" aria-label="email">
     <input id="authpass" type="password" autocomplete="current-password" placeholder="password (min 6)" aria-label="password">
     <input id="authcode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" spellcheck="false" placeholder="6-digit code" aria-label="verification code">
     <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="display name (3–16)" aria-label="display name">
     <div class="unameerr" id="unameerr"></div>
-  </div>
+  </form>
   <button class="btn" id="unameok">✔ SIGN IN</button>
   <button class="menubtn" id="authotp">📧 Email me a 6-digit code instead</button>
   <button class="menubtn" id="authtoggle">New here? Create an account</button>
