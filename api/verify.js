@@ -16,20 +16,38 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 /* ---- achievement catalog: MUST stay in lockstep with js/achievements.js.
  *      verify-achievements.cjs cross-checks the two are byte-identical. ---- */
 const CATALOG = [
-  { id:'first_blood',   metric:'kills',  threshold:1,     difficulty:null },
-  { id:'swarm_breaker', metric:'kills',  threshold:100,   difficulty:null },
-  { id:'one_man_army',  metric:'kills',  threshold:500,   difficulty:null },
-  { id:'high_scorer',   metric:'score',  threshold:10000, difficulty:null },
-  { id:'score_legend',  metric:'score',  threshold:50000, difficulty:null },
-  { id:'wave_rider',    metric:'wave',   threshold:10,    difficulty:null },
-  { id:'wave_master',   metric:'wave',   threshold:20,    difficulty:null },
-  { id:'boss_slayer',   metric:'bosses', threshold:1,     difficulty:null },
-  { id:'warden_hunter', metric:'bosses', threshold:10,    difficulty:null },
-  { id:'power_surge',   metric:'level',  threshold:10,    difficulty:null },
-  { id:'ascended',      metric:'level',  threshold:25,    difficulty:null },
-  { id:'veteran',       metric:'runs',   threshold:10,    difficulty:null },
-  { id:'hardcore',      metric:'wave',   threshold:10,    difficulty:'hard' },
+  { id:'first_blood',   metric:'kills',  threshold:1,     difficulty:null,  tier:'bronze', chain:null },
+  { id:'swarm_breaker', metric:'kills',  threshold:100,   difficulty:null,  tier:'bronze', chain:'combat_kills' },
+  { id:'one_man_army',  metric:'kills',  threshold:500,   difficulty:null,  tier:'silver', chain:'combat_kills' },
+  { id:'annihilator',   metric:'kills',  threshold:1000,  difficulty:null,  tier:'gold',   chain:'combat_kills' },
+  { id:'high_scorer',   metric:'score',  threshold:10000, difficulty:null,  tier:'bronze', chain:'score_run' },
+  { id:'score_legend',  metric:'score',  threshold:50000, difficulty:null,  tier:'silver', chain:'score_run' },
+  { id:'neon_god',      metric:'score',  threshold:100000,difficulty:null,  tier:'gold',   chain:'score_run' },
+  { id:'wave_rider',    metric:'wave',   threshold:10,    difficulty:null,  tier:'bronze', chain:'wave_depth' },
+  { id:'wave_master',   metric:'wave',   threshold:20,    difficulty:null,  tier:'silver', chain:'wave_depth' },
+  { id:'abyss_walker',  metric:'wave',   threshold:30,    difficulty:null,  tier:'gold',   chain:'wave_depth' },
+  { id:'boss_slayer',   metric:'bosses', threshold:1,     difficulty:null,  tier:'bronze', chain:'boss_hunt' },
+  { id:'warden_hunter', metric:'bosses', threshold:10,    difficulty:null,  tier:'silver', chain:'boss_hunt' },
+  { id:'warden_legend', metric:'bosses', threshold:50,    difficulty:null,  tier:'gold',   chain:'boss_hunt' },
+  { id:'power_surge',   metric:'level',  threshold:10,    difficulty:null,  tier:'bronze', chain:null },
+  { id:'ascended',      metric:'level',  threshold:25,    difficulty:null,  tier:'silver', chain:null },
+  { id:'veteran',       metric:'runs',   threshold:10,    difficulty:null,  tier:'bronze', chain:null },
+  { id:'hardcore',      metric:'wave',   threshold:10,    difficulty:'hard',tier:'silver', chain:null },
 ];
+
+/* gold achievement id → cosmetic id. MUST match COSMETIC_MAP in js/achievements.js. A gold grant also
+ * drops the mapped cosmetic into cosmetics_inventory in the SAME request — server-validated, unforgeable. */
+const COSMETIC_MAP = {
+  annihilator:   'crimson_husk',
+  abyss_walker:  'void_warden',
+  neon_god:      'neon_god_trail',
+  warden_legend: 'warden_halo',
+};
+
+/* pure: cosmetic ids unlocked by a set of earned achievement ids (gold caps only) */
+function cosmeticsFor(ids) {
+  return ids.map(id => COSMETIC_MAP[id]).filter(Boolean);
+}
 
 /* pure: which achievement ids a stats bag satisfies (difficulty-gated defs require a matching run) */
 function evaluate(stats) {
@@ -102,7 +120,8 @@ module.exports = async function handler(req, res) {
     // 2) idempotency: a verified token returns its stored grant, never double-grants
     if (runRow && runRow.verified) {
       const owned = await sb('player_achievements?select=achievement_id&player_id=eq.' + encodeURIComponent(b.player_id));
-      res.status(200).json({ accepted:true, replayed:true, newAchievements:(owned||[]).map(r => r.achievement_id) });
+      const ids = (owned||[]).map(r => r.achievement_id);
+      res.status(200).json({ accepted:true, replayed:true, newAchievements:ids, newCosmetics:cosmeticsFor(ids) });
       return;
     }
 
@@ -110,15 +129,27 @@ module.exports = async function handler(req, res) {
     const v = validateRun(runRow, claim);
     if (!v.ok) { res.status(200).json({ accepted:false, reason:v.reason }); return; }
 
-    // 4) grant: compute earned ids from the VALIDATED numbers, insert ignoring duplicates
+    // 4) grant: compute earned ids from the VALIDATED numbers, insert ignoring duplicates.
+    //    is_unlocked=true / current_progress=threshold mark these rows as completed badges.
     const earned = evaluate(claim);
     if (earned.length) {
+      const byId = id => CATALOG.find(d => d.id === id) || {};
       const payload = earned.map(id => ({
         player_id: b.player_id, achievement_id: id, run_score: claim.score,
+        is_unlocked: true, current_progress: byId(id).threshold | 0,
       }));
       await sb('player_achievements', {
         method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
         body: JSON.stringify(payload),
+      });
+    }
+
+    // 4b) GOLD reward: drop each earned gold cap's mapped cosmetic into the inventory (idempotent)
+    const newCosmetics = cosmeticsFor(earned);
+    if (newCosmetics.length) {
+      await sb('cosmetics_inventory', {
+        method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+        body: JSON.stringify(newCosmetics.map(cid => ({ player_id: b.player_id, cosmetic_id: cid }))),
       });
     }
 
@@ -128,7 +159,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({ verified:true, final_score:claim.score }),
     });
 
-    res.status(200).json({ accepted:true, newAchievements:earned });
+    res.status(200).json({ accepted:true, newAchievements:earned, newCosmetics });
   } catch (e) {
     res.status(500).json({ accepted:false, reason:'server_error', detail:String(e && e.message || e) });
   }
@@ -139,3 +170,5 @@ module.exports.CATALOG = CATALOG;
 module.exports.evaluate = evaluate;
 module.exports.validateRun = validateRun;
 module.exports.RATE = RATE;
+module.exports.COSMETIC_MAP = COSMETIC_MAP;
+module.exports.cosmeticsFor = cosmeticsFor;
