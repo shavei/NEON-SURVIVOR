@@ -233,7 +233,10 @@ function sanitizeName(s){return String(s||"").replace(/[\u0000-\u001f]/g,"").rep
  * stays under the 28 KB silent-truncation threshold. sanitizeName (above) + bootMenu (below) stay here. */
 function bootMenu(){   // auth-gated when online/configured; otherwise legacy local name on first run
   if(typeof AchSync!=='undefined'&&AchSync.enabled()){
-    document.getElementById('start').classList.add('hidden');AchSync.boot();return;}
+    // cover the screen with #boot while the Supabase SDK loads async — otherwise the bare HUD
+    // shows through the gap between hiding #start and the auth modal/menu appearing. onAuth* clears it.
+    document.getElementById('start').classList.add('hidden');
+    document.getElementById('boot').classList.remove('hidden');AchSync.boot();return;}
   if(typeof getPlayer==='function'&&!getPlayer()){
     document.getElementById('start').classList.add('hidden');showAuth('local');}}
 
