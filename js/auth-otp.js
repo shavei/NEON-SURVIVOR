@@ -58,7 +58,7 @@ function startOtp() {
     _setShown(document.getElementById('authpass'), false);                 // password not needed on the OTP path
     const code = document.getElementById('authcode'); _setShown(code, true);
     if (code) { code.value = ''; try { code.focus(); } catch (e) {} }
-    const tag = document.getElementById('authtag'); if (tag) tag.textContent = 'Enter the 6-digit code we emailed to ' + _otpEmail + '.';
+    const tag = document.getElementById('authtag'); if (tag) tag.textContent = 'Enter the 6-digit access code sent via secure uplink to ' + _otpEmail + ' — or just tap the link in that email.';
     const ok = document.getElementById('unameok'); if (ok) ok.textContent = '✔ VERIFY CODE';
     if (otpbtn) otpbtn.textContent = '↻ Resend code';
     seterr('');
