@@ -30,18 +30,27 @@ const AchUI = {
     const tabs = this.CATS.map(([k, label]) =>
       `<button class="ach-tab${this.filter === k ? ' on' : ''}" data-cat="${k}">${label}</button>`).join('');
 
-    // only show achievements the player has actually unlocked (locked ones stay hidden until earned)
-    const visible = Ach.CATALOG.filter(d => owned.indexOf(d.id) >= 0 && (this.filter === 'all' || this.catOf(d) === this.filter));
+    // show unlocked achievements AND ones already in progress (progress > 0); hide untouched/locked.
+    // difficulty-gated defs have no per-difficulty progress tracked, so their cross-difficulty metric
+    // would read misleadingly (e.g. wave 14 vs a Hard-only goal) — treat them as 0% until unlocked.
+    const inCat = d => this.filter === 'all' || this.catOf(d) === this.filter;
+    const prog = d => (d.difficulty && owned.indexOf(d.id) < 0) ? 0 : Ach.progressFrac(d);
+    const visible = Ach.CATALOG.filter(d => inCat(d) && (owned.indexOf(d.id) >= 0 || prog(d) > 0));
     const cards = visible.length ? visible.map(d => {
+      const got = owned.indexOf(d.id) >= 0;
+      const frac = prog(d), pct = Math.round(frac * 100);
+      const near = !got && frac >= 0.8;                                  // near-complete → neon pulse
       const tier = d.tier || 'bronze';
-      return `<div class="ach-card tier-${tier} got" data-tier="${tier}">` +
+      const label = got ? 'UNLOCKED' : Ach.progressValue(d) + ' / ' + d.threshold;
+      const cls = ['ach-card', 'tier-' + tier, got ? 'got' : 'locked', near ? 'is-near' : ''].join(' ').trim();
+      return `<div class="${cls}" data-tier="${tier}">` +
                `<div class="ach-head"><span class="ach-ico">${d.ico}</span>` +
-                 `<span class="ach-tier">${tier}</span><span class="ach-mark">✓</span></div>` +
+                 `<span class="ach-tier">${tier}</span><span class="ach-mark">${got ? '✓' : (near ? '↯' : '🔒')}</span></div>` +
                `<div class="ach-body"><b>${d.title}</b><span>${d.desc}</span></div>` +
-               `<div class="ach-prog"><div class="ach-prog-fill" style="width:100%"></div></div>` +
-               `<div class="ach-prog-label">UNLOCKED</div>` +
+               `<div class="ach-prog"><div class="ach-prog-fill" style="width:${got ? 100 : pct}%"></div></div>` +
+               `<div class="ach-prog-label">${label}</div>` +
              `</div>`;
-    }).join('') : `<div class="ach-empty">${owned.length ? 'Nothing unlocked in this category yet.' : 'No achievements unlocked yet — go play a run!'}</div>`;
+    }).join('') : `<div class="ach-empty">${owned.length ? 'Nothing here yet in this category.' : 'No achievements unlocked yet — go play a run!'}</div>`;
 
     const showcase = this._showcaseHTML(cos);
     host.innerHTML = `<div class="ach-tabs">${tabs}</div>${showcase}<div class="ach-grid">${cards}</div>`;
