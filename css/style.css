@@ -259,13 +259,13 @@
     bottom:calc(max(12px,env(safe-area-inset-bottom)) + 52px);
     align-items:center;justify-content:center;width:44px;height:44px;border-radius:8px;pointer-events:auto;cursor:pointer;
     font-size:18px;color:var(--ink);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
+  body.mobile #sound{bottom:max(12px,env(safe-area-inset-bottom));right:12px}   /* same trigger as #mpause so the pair aligns on wide touch tablets too */
 
   @media(max-width:820px){
     #hud{padding:10px 12px;gap:8px}
     .stat b{font-size:18px}
     #bars{width:min(520px,92vw);bottom:max(18px,env(safe-area-inset-bottom))}
     #loadout{left:10px;bottom:96px;transform:scale(.85);transform-origin:left bottom}
-    #sound{bottom:max(12px,env(safe-area-inset-bottom));right:12px}
     .menupanels{flex-direction:column;gap:12px}    /* stack so panels never clip off-screen */
     .cards{flex-direction:column;align-items:center}/* level-up cards stack vertically */
     .upg{width:100%;max-width:300px}
