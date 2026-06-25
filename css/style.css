@@ -127,6 +127,14 @@
   .unamebox input{width:100%;font-family:var(--mono);font-size:18px;letter-spacing:.06em;text-align:center;color:var(--ink);
     background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:14px 16px;outline:none;transition:border-color .15s}
   .unamebox input:focus{border-color:var(--mint)}
+  /* access-code field: arcade-styled, set apart from the name/email inputs — wide-tracked tabular glyphs
+   * read as a "secure uplink" code; gold focus glow ties it to the menu's clay→gold action buttons. The
+   * reveal anim replays each time _setShown un-hides it (display:none→'' restarts CSS animations). */
+  #authcode{font-size:24px;letter-spacing:.5em;font-variant-numeric:tabular-nums;font-weight:700;
+    padding-left:calc(16px + .5em);text-transform:uppercase;animation:codeReveal .26s cubic-bezier(.2,.9,.3,1)}
+  #authcode:focus{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 8px 30px rgba(255,217,94,.22)}
+  #authcode::placeholder{letter-spacing:.06em;font-size:16px;text-transform:none;color:var(--muted)}
+  @keyframes codeReveal{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
   .unameerr{min-height:16px;margin-top:9px;font-family:var(--mono);font-size:12px;color:var(--pink)}
   .credit{position:fixed;bottom:16px;left:0;right:0;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);z-index:21;letter-spacing:.06em}
   .gostat{font-family:var(--mono);color:var(--mint);margin-top:8px;font-size:15px}
