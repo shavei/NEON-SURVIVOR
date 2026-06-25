@@ -69,6 +69,10 @@
   transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .42s;will-change:transform,opacity}
 #achtoast.show{opacity:1;transform:translateX(0)}
 #achtoast.glitch{animation:achGlitch .22s steps(2) 1}
+/* gold-cap unlocks get an extra prismatic sweep layered over the glitch flash */
+#achtoast.shimmer{background-image:linear-gradient(110deg,transparent 20%,rgba(255,231,154,.32) 45%,rgba(84,230,255,.28) 55%,transparent 80%);
+  background-size:280% 100%;animation:achGlitch .22s steps(2) 1,achShimmer 1.6s ease-out 1}
+@keyframes achShimmer{0%{background-position:140% 0}100%{background-position:-40% 0}}
 #achtoast .at-ico{font-size:24px;filter:drop-shadow(0 0 6px var(--ac,#ffd95e))}
 #achtoast .at-text b{display:block;font-family:var(--sans);font-weight:800;font-size:12px;letter-spacing:.04em;color:var(--ac,#ffd95e)}
 #achtoast .at-text span{display:block;font-family:var(--mono);font-size:12.5px;color:var(--ink);margin-top:2px}
@@ -79,5 +83,5 @@
 
 @media (prefers-reduced-motion:reduce){
   .ach-card.is-near{animation:none}
-  #achtoast.glitch{animation:none}
+  #achtoast.glitch,#achtoast.shimmer{animation:none}
   .ach-prog-fill{transition:none}}

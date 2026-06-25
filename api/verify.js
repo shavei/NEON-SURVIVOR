@@ -16,32 +16,60 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 /* ---- achievement catalog: MUST stay in lockstep with js/achievements.js.
  *      verify-achievements.cjs cross-checks the two are byte-identical. ---- */
 const CATALOG = [
-  { id:'first_blood',   metric:'kills',  threshold:1,     difficulty:null,  tier:'bronze', chain:null },
-  { id:'swarm_breaker', metric:'kills',  threshold:100,   difficulty:null,  tier:'bronze', chain:'combat_kills' },
-  { id:'one_man_army',  metric:'kills',  threshold:500,   difficulty:null,  tier:'silver', chain:'combat_kills' },
-  { id:'annihilator',   metric:'kills',  threshold:1000,  difficulty:null,  tier:'gold',   chain:'combat_kills' },
-  { id:'high_scorer',   metric:'score',  threshold:10000, difficulty:null,  tier:'bronze', chain:'score_run' },
-  { id:'score_legend',  metric:'score',  threshold:50000, difficulty:null,  tier:'silver', chain:'score_run' },
-  { id:'neon_god',      metric:'score',  threshold:100000,difficulty:null,  tier:'gold',   chain:'score_run' },
-  { id:'wave_rider',    metric:'wave',   threshold:10,    difficulty:null,  tier:'bronze', chain:'wave_depth' },
-  { id:'wave_master',   metric:'wave',   threshold:20,    difficulty:null,  tier:'silver', chain:'wave_depth' },
-  { id:'abyss_walker',  metric:'wave',   threshold:30,    difficulty:null,  tier:'gold',   chain:'wave_depth' },
-  { id:'boss_slayer',   metric:'bosses', threshold:1,     difficulty:null,  tier:'bronze', chain:'boss_hunt' },
-  { id:'warden_hunter', metric:'bosses', threshold:10,    difficulty:null,  tier:'silver', chain:'boss_hunt' },
-  { id:'warden_legend', metric:'bosses', threshold:50,    difficulty:null,  tier:'gold',   chain:'boss_hunt' },
-  { id:'power_surge',   metric:'level',  threshold:10,    difficulty:null,  tier:'bronze', chain:null },
-  { id:'ascended',      metric:'level',  threshold:25,    difficulty:null,  tier:'silver', chain:null },
-  { id:'veteran',       metric:'runs',   threshold:10,    difficulty:null,  tier:'bronze', chain:null },
-  { id:'hardcore',      metric:'wave',   threshold:10,    difficulty:'hard',tier:'silver', chain:null },
+  // progression (server-derived)
+  { id:'first_blood',   conds:[['kills',1]],      difficulty:null, tier:'bronze', chain:null },
+  { id:'swarm_breaker', conds:[['kills',100]],    difficulty:null, tier:'bronze', chain:'combat_kills' },
+  { id:'one_man_army',  conds:[['kills',500]],    difficulty:null, tier:'silver', chain:'combat_kills' },
+  { id:'annihilator',   conds:[['kills',1000]],   difficulty:null, tier:'gold',   chain:'combat_kills' },
+  { id:'high_scorer',   conds:[['score',10000]],  difficulty:null, tier:'bronze', chain:'score_run' },
+  { id:'score_legend',  conds:[['score',50000]],  difficulty:null, tier:'silver', chain:'score_run' },
+  { id:'neon_god',      conds:[['score',100000]], difficulty:null, tier:'gold',   chain:'score_run' },
+  { id:'wave_rider',    conds:[['wave',10]],      difficulty:null, tier:'bronze', chain:'wave_depth' },
+  { id:'wave_master',   conds:[['wave',20]],      difficulty:null, tier:'silver', chain:'wave_depth' },
+  { id:'abyss_walker',  conds:[['wave',30]],      difficulty:null, tier:'gold',   chain:'wave_depth' },
+  { id:'boss_slayer',   conds:[['bosses',1]],     difficulty:null, tier:'bronze', chain:'boss_hunt' },
+  { id:'warden_hunter', conds:[['bosses',10]],    difficulty:null, tier:'silver', chain:'boss_hunt' },
+  { id:'warden_legend', conds:[['bosses',50]],    difficulty:null, tier:'gold',   chain:'boss_hunt' },
+  { id:'power_surge',   conds:[['level',10]],     difficulty:null, tier:'bronze', chain:null },
+  { id:'ascended',      conds:[['level',25]],     difficulty:null, tier:'silver', chain:null },
+  { id:'veteran',       conds:[['runs',10]],      difficulty:null, tier:'bronze', chain:null },
+  { id:'hardcore',      conds:[['wave',10]],      difficulty:'hard', tier:'silver', chain:null },
+  // skill (intent-based, cosmetic-only)
+  { id:'ghost_grid',        conds:[['noHitWave',10]],                 difficulty:null, tier:'silver', chain:'flawless' },
+  { id:'untouchable',       conds:[['noHitWave',20]],                 difficulty:null, tier:'gold',   chain:'flawless' },
+  { id:'flawless_protocol', conds:[['flawlessBoss',1]],               difficulty:null, tier:'gold',   chain:null },
+  { id:'factory_settings',  conds:[['starterWave',15]],               difficulty:null, tier:'silver', chain:null },
+  { id:'overclocked',       conds:[['peakWeapons',3],['wave',15]],    difficulty:null, tier:'silver', chain:null },
+  { id:'second_wind',       conds:[['cameback',1]],                   difficulty:null, tier:'bronze', chain:null },
+  { id:'glass_cannon',      conds:[['glassWave',12]],                 difficulty:null, tier:'silver', chain:null },
+  // speed (server-derived)
+  { id:'power_spike',       conds:[['level',10],['secs','<=',90]],    difficulty:null, tier:'bronze', chain:null },
+  { id:'ascendant_rush',    conds:[['level',20],['secs','<=',300]],   difficulty:null, tier:'silver', chain:null },
+  { id:'blitz',             conds:[['wave',10],['secs','<=',240]],    difficulty:null, tier:'bronze', chain:null },
+  { id:'killer_instinct',   conds:[['bossKillSecs','<=',15]],         difficulty:null, tier:'silver', chain:null },
+  { id:'massacre_clock',    conds:[['kills',250],['secs','<=',180]],  difficulty:null, tier:'silver', chain:null },
+  // challenge / divergence
+  { id:'objector',          conds:[['soloWave',8]],                   difficulty:null, tier:'silver', chain:null },
+  { id:'pacifist_protocol', conds:[['kills','<=',24],['secs',300]],   difficulty:null, tier:'gold',   chain:null },
+  { id:'minimalist',        conds:[['peakWeapons','<=',1],['wave',12]],difficulty:null, tier:'silver', chain:null },
+  { id:'ascetic',           conds:[['asceticWave',10]],               difficulty:null, tier:'silver', chain:null },
+  // secret (hidden)
+  { id:'any_percent',  conds:[['secs','<=',5],['wave',1]],            difficulty:null, tier:'bronze', chain:null },
+  { id:'leet',         conds:[['kills','==',1337]],                   difficulty:null, tier:'silver', chain:null },
+  { id:'completionist',conds:[['unlockedPct',80]],                    difficulty:null, tier:'gold',   chain:null },
 ];
 
 /* gold achievement id → cosmetic id. MUST match COSMETIC_MAP in js/achievements.js. A gold grant also
  * drops the mapped cosmetic into cosmetics_inventory in the SAME request — server-validated, unforgeable. */
 const COSMETIC_MAP = {
-  annihilator:   'crimson_husk',
-  abyss_walker:  'void_warden',
-  neon_god:      'neon_god_trail',
-  warden_legend: 'warden_halo',
+  annihilator:       'crimson_husk',
+  abyss_walker:      'void_warden',
+  neon_god:          'neon_god_trail',
+  warden_legend:     'warden_halo',
+  untouchable:       'phase_trail',
+  flawless_protocol: 'wardens_bane',
+  pacifist_protocol: 'dove_halo',
+  completionist:     'prism_core',
 };
 
 /* pure: cosmetic ids unlocked by a set of earned achievement ids (gold caps only) */
@@ -49,13 +77,42 @@ function cosmeticsFor(ids) {
   return ids.map(id => COSMETIC_MAP[id]).filter(Boolean);
 }
 
+/* pure: a cond is [metric,value] (op '>=') or [metric,op,value], op ∈ '>='|'<='|'=='. ALL conds + the
+ * difficulty gate must hold. Byte-identical projection to Ach._meets in js/achievements.js. */
+function meets(stats, conds, difficulty) {
+  if (difficulty && difficulty !== stats.difficulty) return false;
+  for (let i = 0; i < conds.length; i++) {
+    const c = conds[i], m = c[0], op = c.length === 2 ? '>=' : c[1], v = c.length === 2 ? c[1] : c[2];
+    const x = stats[m];
+    if (typeof x !== 'number') return false;
+    if (op === '>=') { if (!(x >= v)) return false; }
+    else if (op === '<=') { if (!(x <= v)) return false; }
+    else if (op === '==') { if (x !== v) return false; }
+    else return false;
+  }
+  return true;
+}
+
 /* pure: which achievement ids a stats bag satisfies (difficulty-gated defs require a matching run) */
 function evaluate(stats) {
-  return CATALOG.filter(d => {
-    if (d.difficulty && d.difficulty !== stats.difficulty) return false;
-    const v = stats[d.metric];
-    return typeof v === 'number' && v >= d.threshold;
-  }).map(d => d.id);
+  return CATALOG.filter(d => meets(stats, d.conds, d.difficulty)).map(d => d.id);
+}
+
+/* fold the client-asserted intent fields (no-hit, flawless, etc.) into the VALIDATED claim, each clamped
+ * to a bound the trusted numbers allow. These grant cosmetic-only badges, so we never reject a run over
+ * them — a forged value just clamps to a non-qualifying one. `b` is the raw request body. */
+function sanitizeIntent(claim, b) {
+  const cl = (n, lo, hi) => Math.max(lo, Math.min(hi, n | 0));
+  const w = claim.wave, lv = claim.level, bo = claim.bosses;
+  claim.noHitWave   = cl(b.noHitWave,   0, w);                 // can't out-survive the wave you reached
+  claim.starterWave = cl(b.starterWave, 0, w);
+  claim.soloWave    = cl(b.soloWave,    0, w);
+  claim.asceticWave = cl(b.asceticWave, 0, w);
+  claim.glassWave   = cl(b.glassWave,   0, w);
+  claim.flawlessBoss = cl(b.flawlessBoss, 0, bo);              // can't flawless more bosses than you killed
+  claim.peakWeapons  = cl(b.peakWeapons, 0, Math.min(3, Math.max(0, lv - 1)));  // each weapon costs a level-up
+  claim.bossKillSecs = bo >= 1 ? cl(b.bossKillSecs, 0, Math.max(claim.secs, 0)) : 9999;  // no boss → no fast kill
+  claim.cameback     = (b.cameback && w >= 2) ? 1 : 0;         // a comeback means surviving into a new wave
 }
 
 /* per-difficulty plausibility ceilings (mirror DIFFS in js/core.js) — a real score lives under
@@ -110,6 +167,7 @@ module.exports = async function handler(req, res) {
     score: b.score | 0, wave: b.wave | 0, secs: b.secs | 0, kills: b.kills | 0,
     level: b.level | 0, bosses: b.bosses | 0, runs: b.runs | 0, difficulty: String(b.difficulty || ''),
   };
+  sanitizeIntent(claim, b);   // fold client-asserted intent fields in, each clamped to a plausible bound
 
   try {
     // 1) fetch the trusted run row (must belong to this player)
@@ -130,28 +188,42 @@ module.exports = async function handler(req, res) {
     if (!v.ok) { res.status(200).json({ accepted:false, reason:v.reason }); return; }
 
     // 4) grant: compute earned ids from the VALIDATED numbers, insert ignoring duplicates.
-    //    is_unlocked=true / current_progress=threshold mark these rows as completed badges.
-    const earned = evaluate(claim);
-    if (earned.length) {
-      const byId = id => CATALOG.find(d => d.id === id) || {};
-      const payload = earned.map(id => ({
-        player_id: b.player_id, achievement_id: id, run_score: claim.score,
-        is_unlocked: true, current_progress: byId(id).threshold | 0,
-      }));
+    //    is_unlocked=true / current_progress=driver-cond value mark these rows as completed badges.
+    const driverVal = d => { const c = (d.conds && d.conds[0]) || []; return (c.length === 2 ? c[1] : c[2]) | 0; };
+    const grant = async ids => {
+      if (!ids.length) return;
+      const byId = id => CATALOG.find(d => d.id === id) || { conds: [] };
       await sb('player_achievements', {
         method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(ids.map(id => ({
+          player_id: b.player_id, achievement_id: id, run_score: claim.score,
+          is_unlocked: true, current_progress: driverVal(byId(id)),
+        }))),
       });
-    }
-
-    // 4b) GOLD reward: drop each earned gold cap's mapped cosmetic into the inventory (idempotent)
-    const newCosmetics = cosmeticsFor(earned);
-    if (newCosmetics.length) {
-      await sb('cosmetics_inventory', {
+      const cos = cosmeticsFor(ids);
+      if (cos.length) await sb('cosmetics_inventory', {
         method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
-        body: JSON.stringify(newCosmetics.map(cid => ({ player_id: b.player_id, cosmetic_id: cid }))),
+        body: JSON.stringify(cos.map(cid => ({ player_id: b.player_id, cosmetic_id: cid }))),
       });
-    }
+      return cos;
+    };
+    const earned = evaluate(claim);
+    const newCosmetics = (await grant(earned)) || [];
+
+    // 4c) meta: "completionist" depends on how many OTHER achievements this player now owns. Recount from
+    //     the table (authoritative) and grant once the threshold cond is met — server-derived, unforgeable.
+    let metaEarned = [];
+    try {
+      const ownedRows = await sb('player_achievements?select=achievement_id&player_id=eq.' + encodeURIComponent(b.player_id));
+      const ownedIds = (ownedRows || []).map(r => r.achievement_id);
+      const others = CATALOG.filter(d => d.id !== 'completionist').length;
+      const ownedOthers = ownedIds.filter(id => id !== 'completionist').length;
+      claim.unlockedPct = others ? Math.floor(ownedOthers / others * 100) : 0;
+      metaEarned = evaluate(claim).filter(id => ownedIds.indexOf(id) < 0);   // = ['completionist'] when it crosses
+      const metaCos = (await grant(metaEarned)) || [];
+      metaCos.forEach(c => { if (newCosmetics.indexOf(c) < 0) newCosmetics.push(c); });
+    } catch (e) {}
+    earned.push(...metaEarned);
 
     // 5) close the run token (idempotency anchor) — service role only
     await sb('runs?run_token=eq.' + encodeURIComponent(b.run_token), {
@@ -168,6 +240,8 @@ module.exports = async function handler(req, res) {
 // exported for headless cross-checks in verify-achievements.cjs (handler is the Vercel default)
 module.exports.CATALOG = CATALOG;
 module.exports.evaluate = evaluate;
+module.exports.meets = meets;
+module.exports.sanitizeIntent = sanitizeIntent;
 module.exports.validateRun = validateRun;
 module.exports.RATE = RATE;
 module.exports.COSMETIC_MAP = COSMETIC_MAP;

@@ -107,6 +107,7 @@ function update(){
     if(p.inv<=0&&e.cdmg<=0){const combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;
       if(dp*dp<combR*combR){
         p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);Fx.flash();Fx.sfx('hurt');
+        if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff5fa2',14,5);e.x-=ux*12;e.y-=uy*12;
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
@@ -115,6 +116,7 @@ function update(){
     if(b.life<=0){ebullets.splice(i,1);continue;}
     if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,rr=b.r+p.r;
       if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');
+        if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff3b6b',10,5);ebullets.splice(i,1);
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
