@@ -1,15 +1,12 @@
 /* NEON SURVIVOR — config-sim.js
- * Deterministic SIMULATION config + seeded RNG — the tunables and randomness the authoritative
- * server and every client must agree on. Kept in its own file (loaded BEFORE core.js) so the Node
- * server can load just this + world.js + sim.js without pulling in audio/sprite/DOM code, and so
- * core.js stays well under the 28 KB silent-truncation threshold. Classic script (shared globals).
+ * Deterministic SIMULATION config + seeded RNG — difficulty/boss tunables and the seedable randomness.
+ * Kept in its own file (loaded BEFORE core.js) so core.js stays well under the 28 KB silent-truncation
+ * threshold. Classic script (shared globals).
  * Load order: config → config-sim → core → audio-engine → world → sim → render → ui-engine → … → main. */
 
-/* SEEDABLE GAMEPLAY randomness — the foundation for one shared deterministic world (see
- * docs/PLAN-multiplayer-sync.md). Unseeded it forwards to Math.random, so solo play and the
- * verify-equiv golden snapshot are byte-for-byte unchanged. seedRng(n) switches every gameplay
- * draw onto a deterministic mulberry32 stream, so peers sharing a seed compute the IDENTICAL
- * world: same spawns, same drops, same item rolls. seedRng(null) reverts to Math.random. */
+/* SEEDABLE GAMEPLAY randomness. Unseeded it forwards to Math.random, so solo play and the verify-equiv
+ * golden snapshot are byte-for-byte unchanged. seedRng(n) switches every gameplay draw onto a
+ * deterministic mulberry32 stream (same spawns/drops/rolls); seedRng(null) reverts to Math.random. */
 let _rngSeeded=false,_rngState=0;
 function seedRng(n){ if(n==null){_rngSeeded=false;return;} _rngSeeded=true; _rngState=n>>>0; }
 function srng(){
@@ -34,6 +31,3 @@ const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedB
   dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4,
   // spawn throttle while a Warden is alive: longer interval + smaller batches (focus the fight)
   spawnMul:2.2,spawnCountMul:0.5};
-// PvE co-op scaling — tune here, not in the spawn hot loop. perPlayer = damped-linear count factor per
-// extra player (count ×= 1+(P-1)*perPlayer); interval is softened by √P (both in sim.js spawn block).
-const COOP={perPlayer:0.7};

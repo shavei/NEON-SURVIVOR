@@ -9,8 +9,3 @@ const SUPA_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 /* Base origin for the serverless validator (/api/verify). Empty = same-origin (the Vercel deploy
  * that serves this page). The SERVICE_ROLE key lives ONLY in Vercel env vars, never here. */
 const SUPA_FUNCTIONS_URL='';
-/* Authoritative game server (server/game-server.js, deployed to Render). Empty = run the sim in-page
- * via MockServerTransport (single-player / elected-host). Set to the Render service's WSS origin to
- * route the world through the cloud authority via WebSocketTransport, e.g.
- * wss://neon-survivor-server.onrender.com */
-const GAME_SERVER_URL='wss://neon-survivor-5zq3.onrender.com';

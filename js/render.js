@@ -118,24 +118,6 @@ function draw(){
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
-  // 11b. Co-op teammates — remote player ships sharing the same server world. They arrive as real sim
-  // bodies in players[] (applySnapshot reconciles the authoritative roster), interpolated by px/py like
-  // the local ship. Each gets a stable colour from its id so squadmates read apart. Solo (players.length
-  // === 1) skips this entirely.
-  if(typeof players!=='undefined'&&players.length>1){
-    const _tsp=shipSprite(false,14),_pal=['#54e6ff','#ff5fa2','#ffd95e','#7c8cff','#54e6b5','#d97757'];
-    ctx.textAlign='center';ctx.font='700 11px Inter,sans-serif';
-    for(let i=0;i<players.length;i++){const a=players[i];if(a===player)continue;
-      let h=0;const id=String(a.id||'');for(let c=0;c<id.length;c++)h=(h*31+id.charCodeAt(c))>>>0;
-      const col=_pal[h%_pal.length],ax=ix(a),ay=iy(a);
-      const hx=a.x-a.px,hy=a.y-a.py;if(hx*hx+hy*hy>0.04)a._a=Math.atan2(hy,hx);
-      ctx.save();ctx.translate(ax,ay);if(a.dead)ctx.globalAlpha=.35;
-      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.shadowBlur=12;ctx.shadowColor=col;
-      ctx.save();ctx.rotate(frame*.02);ctx.setLineDash([7,9]);ctx.beginPath();ctx.arc(0,0,21,0,7);ctx.stroke();ctx.setLineDash([]);ctx.restore();
-      ctx.save();ctx.rotate(a._a||0);ctx.drawImage(_tsp,-_tsp.width/2,-_tsp.height/2);ctx.restore();ctx.shadowBlur=0;
-      ctx.fillStyle=col;ctx.fillText(a.dead?'DOWN':'PLAYER',0,-26);ctx.restore();}
-    ctx.globalAlpha=1;ctx.textAlign='left';}
-
   // 12. Deflector Energy Shield Matrices
   if(p.shield>0){const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,ss=dotSprite('#4ea8ff'),vr=12;   // cyan/blue — never confused with teal XP orbs
     for(let k=0;k<orbs;k++){const a=p.shieldAng+k/orbs*6.283;const ox=ipx+Math.cos(a)*rad,oy=ipy+Math.sin(a)*rad;

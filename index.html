@@ -52,7 +52,6 @@
   <div class="diffhint" id="diffhint">balanced — recommended for a first run</div>
   <div class="startactions">
     <button class="btn" id="startbtn">▶ PLAY</button>
-    <button class="btn btn2" id="lobbybtn">👥 MULTIPLAYER</button>
   </div>
   <div class="menupanels">
     <div class="mpanel"><div class="mptitle">⚡ Pickups — found on the map</div><div class="legend" id="pickupsLegend"></div></div>
@@ -66,19 +65,6 @@
       <div class="lb" id="global"></div></div>
     <div class="mpanel"><div class="mptitle">🏅 Achievements</div><div class="achlist" id="achlist"></div></div>
   </div>
-</div>
-
-<div class="overlay hidden" id="lobby">
-  <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">CO-OP LOBBY</div>
-  <p class="tag" style="margin-top:10px">Pick a room code and share it. Everyone who STARTs the same code drops into one live server-run world — fight together as enemy waves scale to your squad.</p>
-  <div class="unamebox">
-    <input id="roomcode" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ROOM CODE (e.g. NEON)" aria-label="room code">
-    <div class="unameerr" id="lobbyerr"></div>
-  </div>
-  <div class="lobbyroster" id="lobbyroster"></div>
-  <button class="btn" id="lobbyjoin">✓ USE CODE</button>
-  <button class="btn btn2" id="lobbystart">⚔ START CO-OP RUN</button>
-  <button class="menubtn" id="lobbyleave">↩ leave lobby</button>
 </div>
 
 <div class="overlay hidden" id="username">
@@ -136,14 +122,13 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-engine → world → sim → transport → render → ui-engine → net → achievements → achievement-sync → leaderboard-sync → leaderboard-engine → main. Multiplayer is the authoritative Node server (server/) over WebSocket; the old Supabase-realtime co-op (network/network-sync/multiplayer-combat/netdebug) was removed. -->
+<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-engine → world → sim → render → ui-engine → net → achievements → achievement-sync → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
 <script defer src="js/config.js"></script>
 <script defer src="js/config-sim.js"></script>
 <script defer src="js/core.js"></script>
 <script defer src="js/audio-engine.js"></script>
 <script defer src="js/world.js"></script>
 <script defer src="js/sim.js"></script>
-<script defer src="js/transport.js"></script>
 <script defer src="js/render.js"></script>
 <script defer src="js/ui-engine.js"></script>
 <script defer src="js/net.js"></script>
