@@ -3,7 +3,7 @@
  * Classic script (shared global scope). Load order: core → world → sim → render → main. */
 
 const cv=document.getElementById('game'),ctx=cv.getContext('2d');
-let W,H,DPR;
+let W,H,DPR,VIEW=1;   // VIEW: world→screen zoom (1=desktop 1:1, <1 zooms out on mobile). visible world span = W/VIEW × H/VIEW.
 let needsDraw=false;   // request a single static redraw (pause / level-up / resize)
 
 const rand=(a,b)=>a+Math.random()*(b-a);   // COSMETIC randomness (backdrop, particles) — never gates sim state

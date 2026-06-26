@@ -136,8 +136,9 @@ function reset(){
   if(typeof Nav!=='undefined')Nav.reset();         // drop any pending map from a run that ended mid-beat
   Fx.music('reset');   // clear boss track (real + synth) if last run died mid-fight
 
-  cam.x=clamp(player.x-W/2,0,Math.max(0,WORLD.w-W));
-  cam.y=clamp(player.y-H/2,0,Math.max(0,WORLD.h-H));
+  const VW=W/VIEW,VH=H/VIEW;   // visible world span under zoom (== W,H on desktop where VIEW=1)
+  cam.x=clamp(player.x-VW/2,0,Math.max(0,WORLD.w-VW));
+  cam.y=clamp(player.y-VH*(VIEW<1?0.36:0.5),0,Math.max(0,WORLD.h-VH));   // match sim.js vertical bias so frame 1 doesn't snap
   cam.px=cam.x;cam.py=cam.y;
 
   Fx.loadout();
@@ -148,7 +149,7 @@ function reset(){
 function spawnEnemy(fType,fx,fy){
   const elapsed=(now-t0)/1000;wave=1+Math.floor(elapsed/24);
   const A=spawnAnchor();   // solo → player (byte-identical); shared-world → centroid of all avatars
-  const ang=srand(0,6.283),d=Math.max(W,H)*.62+srand(0,160);
+  const ang=srand(0,6.283),d=Math.max(W,H)/VIEW*.62+srand(0,160);   // /VIEW keeps spawns off-screen when zoomed out (== *.62 on desktop)
   const x=fx!=null?fx:clamp(A.x+Math.cos(ang)*d,24,WORLD.w-24),y=fy!=null?fy:clamp(A.y+Math.sin(ang)*d,24,WORLD.h-24);
   const roll=srng();let type=fType||'grunt';
   if(!fType){if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';}
@@ -167,7 +168,7 @@ function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=Math.max(1,Math.round(elapsed/60));
   const bt=(tier-1)%BOSSES.length,B=BOSSES[bt];        // archetype rotates each wave: REVENANT → MAELSTROM → OVERSEER → …
   const A=spawnAnchor();
-  const ang=srand(0,6.283),d=Math.max(W,H)*.62;
+  const ang=srand(0,6.283),d=Math.max(W,H)/VIEW*.62;   // /VIEW keeps boss spawn off-screen when zoomed out
   const x=clamp(A.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(A.y+Math.sin(ang)*d,60,WORLD.h-60);
   let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*B.hpMul*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
   if(_test)hp=1;                                    // Test Mode: one-hit boss to study patterns fast
@@ -268,7 +269,7 @@ const ITEMS=[
   {id:'rage',ico:'🔥',col:'#d97757',label:'OVERDRIVE'},
 ];
 function spawnItem(){const t=ITEMS[Math.floor(srand(0,ITEMS.length))];
-  const ang=srand(0,6.283),d=srand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
+  const ang=srand(0,6.283),d=srand(Math.min(W,H)/VIEW*.35,Math.min(W,H)/VIEW*.35+520);   // /VIEW scales loot ring with zoom (== *.35 on desktop)
   const x=clamp(player.x+Math.cos(ang)*d,90,WORLD.w-90),y=clamp(player.y+Math.sin(ang)*d,90,WORLD.h-90);
   items.push({id:++_iid,x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
   Fx.toast(t.ico,t.label,t.col);}

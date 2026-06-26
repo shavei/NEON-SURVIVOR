@@ -25,11 +25,14 @@ function update(){
   if((p.y<=p.r&&p.vy<0)||(p.y>=WORLD.h-p.r&&p.vy>0))p.vy*=-.3;
 
   // Smooth Padding Box Camera Constraints (Optimized Space Navigation)
-  const mx2=W*0.30,my2=H*0.30,sxp=p.x-cam.x,syp=p.y-cam.y;
-  if(sxp<mx2)cam.x=p.x-mx2;else if(sxp>W-mx2)cam.x=p.x-(W-mx2);
-  if(syp<my2)cam.y=p.y-my2;else if(syp>H-my2)cam.y=p.y-(H-my2);
-  cam.x=clamp(cam.x,0,Math.max(0,WORLD.w-W));
-  cam.y=clamp(cam.y,0,Math.max(0,WORLD.h-H));
+  const VW=W/VIEW,VH=H/VIEW;   // visible world span under zoom (== W,H on desktop where VIEW=1)
+  const mx2=VW*0.30,sxp=p.x-cam.x,syp=p.y-cam.y;
+  // vertical deadzone biases the ship HIGH when zoomed (touch): small top pad, large bottom pad → screen-bottom thumb zone stays clear
+  const topPad=VH*(VIEW<1?0.22:0.30),botPad=VH*(VIEW<1?0.50:0.30);
+  if(sxp<mx2)cam.x=p.x-mx2;else if(sxp>VW-mx2)cam.x=p.x-(VW-mx2);
+  if(syp<topPad)cam.y=p.y-topPad;else if(syp>VH-botPad)cam.y=p.y-(VH-botPad);
+  cam.x=clamp(cam.x,0,Math.max(0,WORLD.w-VW));
+  cam.y=clamp(cam.y,0,Math.max(0,WORLD.h-VH));
 
   if(p.inv>0)p.inv--;
   if(p.lsCd>0)p.lsCd--;
