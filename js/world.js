@@ -379,7 +379,7 @@ function openLevelUp(){
     const owned=Up[u.id]||0;
     const evo=(typeof Synergy!=='undefined')?Synergy.previews(u.id):null;   // does this pick complete an evolution?
     const corner=evo?`<div class="evo">⚡ EVOLVES</div>`:u.weapon&&!owned?`<div class="new">NEW</div>`:owned?`<div class="lvl">Lv ${owned+1}</div>`:'';
-    const tip=evo?`<p style="color:#ffd95e;margin-top:6px;font-size:.82rem">→ ${evo.name}</p>`:'';
+    const tip=evo?`<p style="color:#ffd95e;margin-top:6px;font-size:.82rem">⚡ Evolves → <b>${evo.name}</b><br><span style="color:#9aa3b2;font-size:.74rem">${evo.desc}</span></p>`:'';
     el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${u.name}</h3><p>${u.desc}</p>${tip}`;
     el.onclick=()=>{applyUpgrade(u.id);document.getElementById('levelup').classList.remove('show');
       state='play';t0+=performance.now()-pauseStart;};
