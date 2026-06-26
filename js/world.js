@@ -132,6 +132,8 @@ function reset(){
   for(const k in Up)delete Up[k];           // clear upgrade tracker so PLAY AGAIN starts fresh
   score=0;wave=1;spawnTimer=0;itemTimer=900;shake=0;frame=0;kills=0;pendingLevels=0;t0=performance.now();
   nextBoss=60;bossOn=false;
+  player.evo={};                                   // clear evolved-weapon flags so PLAY AGAIN starts fresh
+  if(typeof Nav!=='undefined')Nav.reset();         // drop any pending map from a run that ended mid-beat
   Fx.music('reset');   // clear boss track (real + synth) if last run died mid-fight
 
   cam.x=clamp(player.x-W/2,0,Math.max(0,WORLD.w-W));
@@ -201,8 +203,10 @@ function fire(p){p=p||player;   // p defaults to the local avatar → solo calls
   const near=p.near;if(!near)return;
   const baseAng=Math.atan2(near.y-p.y,near.x-p.x);
   const n=p.multi,spread=.16,dmg=p.rageT>0?p.dmg*1.6:p.dmg;
+  const rail=p.evo&&p.evo.bullet==='railgun';   // RAILGUN: infinite-pierce, fatter, faster lance
   for(let i=0;i<n;i++){const a=baseAng+(i-(n-1)/2)*spread;
-    bullets.push({x:p.x,y:p.y,vx:Math.cos(a)*p.bulletSpd,vy:Math.sin(a)*p.bulletSpd,r:4,dmg,pierce:p.pierce,life:70});}
+    bullets.push({x:p.x,y:p.y,vx:Math.cos(a)*p.bulletSpd*(rail?1.5:1),vy:Math.sin(a)*p.bulletSpd*(rail?1.5:1),
+      r:rail?6:4,dmg:rail?dmg*1.2:dmg,pierce:rail?999:p.pierce,life:rail?90:70});}
   shake=Math.min(shake+1.2,7);
   if(now-lastShootSnd>60){Fx.sfx('shoot');lastShootSnd=now;}
 }
@@ -226,12 +230,14 @@ function killEnemy(e,col){
     const it=ITEMS[Math.floor(srand(0,ITEMS.length))];     // guaranteed reward drop
     items.push({id:++_iid,x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
     Fx.toast(it.ico,it.label+' (boss drop)',it.col);
+    if(typeof Nav!=='undefined')Nav.onBossDown(e.elite);   // boss fell → raise the branching map after the slow-mo beat
     return;
   }
   burst(e.x,e.y,e.col,e.type==='tank'?22:10,e.type==='tank'?5:4);
   floatText(e.x,e.y,'+'+e.sc,e.col);shake=Math.min(shake+(e.type==='tank'?6:1.5),10);Fx.sfx('death');
-  if(player.lifesteal>0&&player.lsCd<=0&&player.hp<player.maxhp){
-    player.hp=Math.min(player.maxhp,player.hp+player.lifesteal);player.lsCd=6;}   // capped to ~10 HP/s
+  const reaper=player.evo&&player.evo.lifesteal==='reaper';   // CRIMSON STORM: lifesteal procs on EVERY kill (no cooldown)
+  if(player.lifesteal>0&&(reaper||player.lsCd<=0)&&player.hp<player.maxhp){
+    player.hp=Math.min(player.maxhp,player.hp+player.lifesteal);if(!reaper)player.lsCd=6;}   // capped to ~10 HP/s (uncapped when evolved)
   for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-8,8),y:e.y+srand(-8,8),r:4,xp:1,col:'#54e6b5'});
 }
 
@@ -276,16 +282,20 @@ function fireMissiles(p){p=p||player;
   Fx.sfx('tone',380,520,.12,'triangle',.05);
 }
 function explodeMissile(m){
-  const rad=72,radSq=rad*rad;burst(m.x,m.y,'#ffd95e',20,5);shake=Math.min(shake+5,12);Fx.sfx('boom');
+  const cluster=player.evo&&player.evo.missile==='cluster';   // CLUSTER WARHEADS: wider blast + shrapnel ring
+  const rad=cluster?100:72,radSq=rad*rad;burst(m.x,m.y,'#ffd95e',cluster?30:20,cluster?7:5);shake=Math.min(shake+(cluster?7:5),12);Fx.sfx('boom');
   floatText(m.x,m.y,'💥','#ffd95e');
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];const dx=m.x-e.x,dy=m.y-e.y;
     if((dx*dx+dy*dy)<radSq)hitEnemy(e,m.dmg,'#ffd95e');}
+  if(cluster)for(let k=0;k<8;k++){const a=k/8*6.283;   // shrapnel bullets carry half the warhead's damage
+    bullets.push({x:m.x,y:m.y,vx:Math.cos(a)*6,vy:Math.sin(a)*6,r:4,dmg:m.dmg*.5,pierce:1,life:40});}
 }
 
 function castChain(p){p=p||player;
   let cur=nearestTo(p);if(!cur)return;
-  const jumps=2+p.chain,dmg=16+p.chain*6,reach=190,reachSq=reach*reach;
+  const tesla=p.evo&&p.evo.chain==='tesla';   // TESLA WEB: far more jumps + longer arc reach
+  const jumps=(2+p.chain)+(tesla?5:0),dmg=16+p.chain*6,reach=tesla?280:190,reachSq=reach*reach;
   CHAIN_SET.clear(); // Reused memory cache
   let fromX=p.x,fromY=p.y;
   for(let j=0;j<jumps;j++){if(!cur)break;CHAIN_SET.add(cur);
@@ -329,14 +339,17 @@ function applyUpgrade(id){const p=player;
   else if(id==='velocity'){p.bulletSpd*=1.3;p.dmg*=1.08;}else if(id==='lifesteal')p.lifesteal+=1;
   else if(id==='missile')p.missile++;else if(id==='shield')p.shield++;else if(id==='chain')p.chain++;
   Up[id]=(Up[id]||0)+1;Fx.loadout();
+  if(typeof Synergy!=='undefined')Synergy.check();   // a pick may complete a weapon evolution (transformToEvolved)
   if(typeof Ach!=='undefined'){const isW=id==='missile'||id==='shield'||id==='chain';   // intent: starter-only / synergy / glass-cannon
     Ach.onUpgrade(id,isW,wave,(p.missile>0)+(p.shield>0)+(p.chain>0));}
 }
 function renderLoadout(){
   const box=document.getElementById('loadout');box.innerHTML='';
+  const evo=player.evo||{};
   const w=[['missile','🚀','Missiles',player.missile],['shield','🛡️','Shield',player.shield],['chain','🌩️','Lightning',player.chain]];
   for(const[id,ic,nm,lv]of w)if(lv>0){const d=document.createElement('div');d.className='wpip';
-    d.innerHTML=`<i>${ic}</i> ${nm} <b>Lv${lv}</b>`;box.appendChild(d);}
+    const ev=evo[id]?` <b style="color:#ffd95e">⚡EVO</b>`:'';   // evolved weapons read distinct in the loadout
+    d.innerHTML=`<i>${ic}</i> ${nm} <b>Lv${lv}</b>${ev}`;box.appendChild(d);}
 }
 function openLevelUp(){
   state='levelup';needsDraw=true;
@@ -345,8 +358,10 @@ function openLevelUp(){
   const wrap=document.getElementById('cards');wrap.innerHTML='';
   pool.forEach(u=>{const el=document.createElement('div');el.className='upg';el.style.setProperty('--c',u.c);
     const owned=Up[u.id]||0;
-    const corner=u.weapon&&!owned?`<div class="new">NEW</div>`:owned?`<div class="lvl">Lv ${owned+1}</div>`:'';
-    el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${u.name}</h3><p>${u.desc}</p>`;
+    const evo=(typeof Synergy!=='undefined')?Synergy.previews(u.id):null;   // does this pick complete an evolution?
+    const corner=evo?`<div class="evo">⚡ EVOLVES</div>`:u.weapon&&!owned?`<div class="new">NEW</div>`:owned?`<div class="lvl">Lv ${owned+1}</div>`:'';
+    const tip=evo?`<p style="color:#ffd95e;margin-top:6px;font-size:.82rem">→ ${evo.name}</p>`:'';
+    el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${u.name}</h3><p>${u.desc}</p>${tip}`;
     el.onclick=()=>{applyUpgrade(u.id);document.getElementById('levelup').classList.remove('show');
       state='play';t0+=performance.now()-pauseStart;};
     wrap.appendChild(el);});

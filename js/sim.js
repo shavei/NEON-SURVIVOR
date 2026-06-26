@@ -43,12 +43,15 @@ function update(){
   if(p.chain>0){p.chainCool--;if(p.chainCool<=0){castChain();p.chainCool=Math.max(34,120-p.chain*12);}}
 
   // Shield Collision Matrix Optimization
-  if(p.shield>0){p.shieldAng+=.07;const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,sdmg=10+p.shield*4;
+  if(p.shield>0){p.shieldAng+=.07;
+    const aegis=p.evo&&p.evo.shield==='aegis';   // AEGIS DRIVE: more orbs, wider sweep, +damage, knockback
+    const orbs=Math.min(p.shield+1,aegis?8:6),rad=(48+p.shield*5)*(aegis?1.3:1),sdmg=(10+p.shield*4)*(aegis?1.5:1),hitPad=aegis?16:9;
     for(let k=0;k<orbs;k++){const a=p.shieldAng+k/orbs*6.283;const ox=p.x+Math.cos(a)*rad,oy=p.y+Math.sin(a)*rad;
       for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.scd>0)continue;   // live length: damageEnemy may splice
-        const dx=e.x-ox,dy=e.y-oy,distHit=e.r+9;
+        const dx=e.x-ox,dy=e.y-oy,distHit=e.r+hitPad;
         if((dx*dx+dy*dy)<(distHit*distHit)){
           hitEnemy(e,sdmg,'#54e6b5');e.scd=16;burst(ox,oy,'#54e6b5',5,3);
+          if(aegis&&!e.boss){const kx=e.x-p.x,ky=e.y-p.y,kd=Math.sqrt(kx*kx+ky*ky)||1;e.x+=kx/kd*14;e.y+=ky/kd*14;}   // shove out
           if(now-lastPingSnd>50){Fx.sfx('ping');lastPingSnd=now;}}}}}
 
   const elapsed=(now-t0)/1000;
@@ -135,5 +138,6 @@ function update(){
   for(let i=bolts.length-1;i>=0;i--){if(--bolts[i].life<=0)bolts.splice(i,1);}
   if(shake>0)shake*=.85;
   if(pendingLevels>0&&state==='play'){pendingLevels--;Fx.sfx('level');Fx.levelUp();}
+  if(typeof Nav!=='undefined')Nav.tick();   // boss-kill → raise the branching map once the slow-mo beat ends
   Fx.hud(elapsed);
 }
