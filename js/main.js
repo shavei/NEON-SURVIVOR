@@ -148,8 +148,8 @@ function gameOver(){state='over';Music.die();
   document.getElementById('over').classList.remove('hidden');}
 function syncPauseIcon(){const b=document.getElementById('mpause');if(b)b.textContent=state==='pause'?'▶':'⏸';}
 function togglePause(){
-  if(state==='play'){state='pause';needsDraw=true;Music.stop();pauseStart=performance.now();showPause();}
-  else if(state==='pause'){state='play';Music.start();t0+=performance.now()-pauseStart;
+  if(state==='play'){state='pause';needsDraw=true;Music.pause();pauseStart=performance.now();showPause();}
+  else if(state==='pause'){state='play';Music.resume();t0+=performance.now()-pauseStart;
     document.getElementById('pause').classList.add('hidden');}
   syncPauseIcon();}
 function showPause(){
