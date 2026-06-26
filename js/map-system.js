@@ -17,10 +17,12 @@ const Nav={
   /* polled at the end of update() — wait out the boss-death slow-mo, THEN raise the map */
   tick(){ if(this._pending&&state==='play'&&(typeof slowmo==='undefined'||slowmo<=0)){this._pending=false;this.open();} },
 
+  /* Three reward choices for clearing a boss. Two are safe, one is a risk/reward gamble — the desc
+     spells out exactly what each does so the trade-off is obvious at a glance. */
   NODES:[
-    {id:'shop',     ico:'🛒',col:'#ffd95e',name:'SUPPLY SHOP', desc:'claim a free upgrade of your choice'},
-    {id:'elite',    ico:'☠',col:'#ff3b6b',name:'ELITE STRIKE',desc:'a reinforced pack + a guaranteed cache'},
-    {id:'treasure', ico:'💎',col:'#54e6b5',name:'TREASURE',    desc:'two power-ups drop at your feet'},
+    {id:'shop',     ico:'🛒',col:'#ffd95e',name:'FREE UPGRADE', desc:'Safe · pick any one upgrade now — like an extra level-up.'},
+    {id:'treasure', ico:'💎',col:'#54e6b5',name:'LOOT DROP',    desc:'Safe · two power-ups (heal / nuke / magnet / overdrive) drop at your feet.'},
+    {id:'elite',    ico:'☠',col:'#ff3b6b',name:'ELITE FIGHT',  desc:'Risky · a tough elite pack spawns — kill it for a guaranteed power-up.'},
   ],
 
   open(){
@@ -47,14 +49,14 @@ const Nav={
     const p=(typeof player!=='undefined')?player:null;
     if(id==='shop'){
       if(typeof pendingLevels!=='undefined')pendingLevels++;            // next tick → openLevelUp() (its own clock-safe pause)
-      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#ffd95e',x:p&&p.x,y:p&&p.y,text:'SUPPLY',ico:'🛒'});
+      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#ffd95e',x:p&&p.x,y:p&&p.y,text:'FREE UPGRADE',ico:'🛒'});
     }else if(id==='elite'){
       this._spawnElites();
       this._drop(p?p.x:0,(p?p.y:0)-30);                                // guaranteed cache for taking the risk
-      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#ff3b6b',x:p&&p.x,y:p&&p.y,text:'ELITE STRIKE',ico:'☠'});
+      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#ff3b6b',x:p&&p.x,y:p&&p.y,text:'ELITE FIGHT',ico:'☠'});
     }else{                                                              // treasure
       if(p){this._drop(p.x-26,p.y);this._drop(p.x+26,p.y);}
-      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#54e6b5',x:p&&p.x,y:p&&p.y,text:'TREASURE',ico:'💎'});
+      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#54e6b5',x:p&&p.x,y:p&&p.y,text:'LOOT DROP',ico:'💎'});
     }
   },
 

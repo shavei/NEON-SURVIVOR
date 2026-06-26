@@ -204,6 +204,12 @@
   .pchip i{font-style:normal;font-size:14px}
   .pchip b{color:var(--gold)}
   .pbuild .none{color:var(--muted);font-family:var(--mono);font-size:13px}
+  .pevo{margin:14px auto 0;max-width:560px;display:flex;flex-direction:column;gap:9px;text-align:left}
+  .pevorow{font-family:var(--mono);font-size:12.5px;line-height:1.4}
+  .pevorow i{font-style:normal;font-size:15px}
+  .pevorow b{color:var(--gold)}
+  .pevorow span{color:var(--muted)}
+  .pevo .none{color:var(--muted);font-family:var(--mono);font-size:13px;text-align:center}
   /* compact menus so they fit any screen without scrolling */
   .keys{margin-top:14px}
   .diffsel{margin-top:16px}
