@@ -163,6 +163,12 @@ function showPause(){
   document.getElementById('pausebuild').innerHTML=owned.length
     ?owned.map(u=>`<div class="pchip"><i>${u.ico}</i>${u.name} <b>Lv${Up[u.id]}</b></div>`).join('')
     :`<div class="none">no upgrades yet — collect XP orbs to level up</div>`;
+  /* merged/evolved weapons: full name + what each does, so the pause screen is the live build reference */
+  const evo=p.evo||{};
+  const merged=(typeof SYNERGIES!=='undefined'?SYNERGIES:[]).filter(sy=>evo[sy.slot]);
+  document.getElementById('pauseevo').innerHTML=merged.length
+    ?merged.map(sy=>`<div class="pevorow"><i>${sy.ico}</i> <b>${sy.name}</b> — <span>${sy.desc}.</span></div>`).join('')
+    :`<div class="none">none yet — pair the right upgrades to merge a weapon (see 🔀 Weapon merges on the menu)</div>`;
   const cs=[
     ['🗡️ Damage',p.dmg.toFixed(1)],['⚡ Fire rate',(60/p.rate).toFixed(1)+'/s'],
     ['🔱 Projectiles',p.multi],['➶ Pierce',p.pierce],
@@ -202,7 +208,7 @@ function evoInfo(){
     const recipe=Object.keys(s.need).map(k=>`${nm(k)} ×${s.need[k]}`).join(' + ');
     return{ico:s.ico,name:s.name,desc:`Pair ${recipe} — ${s.desc}.`};});}
 function nodeInfo(){
-  return(typeof Nav!=='undefined'&&Nav.NODES?Nav.NODES:[]).map(n=>({ico:n.ico,name:n.name,desc:n.desc+'.'}));}
+  return(typeof Nav!=='undefined'&&Nav.NODES?Nav.NODES:[]).map(n=>({ico:n.ico,name:n.name,desc:n.desc}));}
 function legendHTML(list){return list.map(o=>
   `<div class="legrow"><span class="lico">${o.ico}</span><div class="ltext"><b>${o.name}</b><span>${o.desc}</span></div></div>`).join('');}
 function renderLegends(){

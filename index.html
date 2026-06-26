@@ -61,8 +61,8 @@
   <div class="menupanels">
     <div class="mpanel mpanel--ref"><div class="mptitle">⚡ Pickups — found on the map</div><div class="legend" id="pickupsLegend"></div></div>
     <div class="mpanel mpanel--ref"><div class="mptitle">🛠 Weapons — unlocked on level-up</div><div class="legend" id="weaponsLegend"></div></div>
-    <div class="mpanel mpanel--ref"><div class="mptitle">⚡ Evolutions — pair upgrades to power up</div><div class="legend" id="evoLegend"></div></div>
-    <div class="mpanel mpanel--ref"><div class="mptitle">🗺 Grid Map — pick a path after each boss</div><div class="legend" id="nodeLegend"></div></div>
+    <div class="mpanel mpanel--ref"><div class="mptitle">🔀 Weapon merges — pair upgrades to evolve</div><div class="legend" id="evoLegend"></div></div>
+    <div class="mpanel mpanel--ref"><div class="mptitle">🗺 Boss rewards — choose one of three</div><div class="legend" id="nodeLegend"></div></div>
     <div class="mpanel mpanel--lb"><div class="mptitle">🌐 Global best runs <button class="editname" id="editname" title="change name">✎ name</button></div>
       <div class="gtabs" id="gtabs">
         <button class="gtab on" data-d="easy">Easy</button>
@@ -115,8 +115,8 @@
 </div>
 
 <div id="map">
-  <div class="luhead">SECTOR CLEARED</div>
-  <div class="lusub">choose your next node</div>
+  <div class="luhead">BOSS DOWN — CHOOSE YOUR REWARD</div>
+  <div class="lusub">pick one of three · two are safe, one is a risky gamble</div>
   <div class="cards" id="mapcards"></div>
 </div>
 
@@ -125,6 +125,8 @@
   <div class="pstats" id="pausestats"></div>
   <div class="pttl">your build</div>
   <div class="pbuild" id="pausebuild"></div>
+  <div class="pttl">weapon merges — evolved upgrades</div>
+  <div class="pevo" id="pauseevo"></div>
   <div class="pttl">combat stats</div>
   <div class="pbuild" id="pausecombat"></div>
   <div class="keys" style="margin-top:30px">
