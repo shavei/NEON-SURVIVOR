@@ -16,10 +16,11 @@ function drawMinimap(){
   const on=orbs.length,ostep=on>120?Math.ceil(on/120):1;
   g.fillStyle='rgba(255,217,94,'+(.5+.5*Math.sin(frame*.15)).toFixed(2)+')';
   for(let i=0;i<on;i+=ostep){const o=orbs[i];g.fillRect(_mmCl(o.x*MMx,1)-1,_mmCl(o.y*MMy,1)-1,2,2);}
-  // 2) enemies — flat red (threat=red; never tint by type so fast/tank don't read as orbs); skip boss
-  g.fillStyle='#ff5f6e';
+  // 2) enemies — flat red (threat=red; never tint by type so fast/tank don't read as orbs); skip boss.
+  //    Elites get a bigger gold blip so the dangerous pack stands out from the swarm.
   for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.boss)continue;
-    g.fillRect(_mmCl(e.x*MMx,1)-1,_mmCl(e.y*MMy,1)-1,2,2);}
+    if(e.elite){g.fillStyle='#ffd95e';g.fillRect(_mmCl(e.x*MMx,2)-2,_mmCl(e.y*MMy,2)-2,4,4);}
+    else{g.fillStyle='#ff5f6e';g.fillRect(_mmCl(e.x*MMx,1)-1,_mmCl(e.y*MMy,1)-1,2,2);}}
   // 3) items/loot — purple rotated diamond (shape sets loot apart from any dot)
   g.fillStyle='#b56bff';
   for(let i=0;i<items.length;i++){const it=items[i];

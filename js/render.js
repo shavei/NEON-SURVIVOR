@@ -79,9 +79,18 @@ function draw(){
   // 9. Hostile Alien Vessels Swarms
   const eLen=enemies.length;
   for(let i=0;i<eLen;i++){const e=enemies[i];const m=EMETA[e.type],spr=e.boss?bossSprite(e.bt,e.hit>0):enemySprite(e.type,e.hit>0),ex=ix(e),ey=iy(e);
-    if(m.rot){ctx.save();ctx.translate(ex,ey);ctx.rotate(frame*m.rot);ctx.drawImage(spr,-spr.width/2,-spr.height/2);ctx.restore();}
+    const es=e.elite?1.3:1;                                              // elites render 30% larger than their base type
+    if(m.rot){ctx.save();ctx.translate(ex,ey);ctx.rotate(frame*m.rot);if(es!==1)ctx.scale(es,es);ctx.drawImage(spr,-spr.width/2,-spr.height/2);ctx.restore();}
+    else if(es!==1){ctx.save();ctx.translate(ex,ey);ctx.scale(es,es);ctx.drawImage(spr,-spr.width/2,-spr.height/2);ctx.restore();}
     else ctx.drawImage(spr,ex-spr.width/2,ey-spr.height/2);
-    if(e.type==='tank'){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;
+    if(e.elite&&!e.boss){                                               // ELITE badge: pulsing crimson aura + gold HP ring + gold crown
+      const pr=e.r+7+Math.sin(frame*.16)*2.5;
+      ctx.strokeStyle='rgba(255,59,107,.9)';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(ex,ey,pr,0,7);ctx.stroke();
+      ctx.strokeStyle='rgba(255,217,94,.9)';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(ex,ey,e.r+12,-1.57,-1.57+6.28*(e.hp/e.maxhp));ctx.stroke();
+      const cy=ey-e.r-16,cw=9;ctx.fillStyle='#ffd95e';ctx.beginPath();
+      ctx.moveTo(ex-cw,cy+6);ctx.lineTo(ex-cw,cy);ctx.lineTo(ex-cw/2,cy+4);ctx.lineTo(ex,cy-3);ctx.lineTo(ex+cw/2,cy+4);ctx.lineTo(ex+cw,cy);ctx.lineTo(ex+cw,cy+6);
+      ctx.closePath();ctx.fill();}
+    if(e.type==='tank'&&!e.elite){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(ex,ey,e.r+5,-1.57,-1.57+6.28*(e.hp/e.maxhp));ctx.stroke();}
     if(e.boss&&e.tele>0){const tl=1-e.tele/BOSS.teleT,a=e.atk;          // attack wind-up telegraph, colour/shape per attack id
       if(a===1){const aa=Math.atan2(player.y-ey,player.x-ex),L=120+tl*170;   // dash: directional lunge line (amber)

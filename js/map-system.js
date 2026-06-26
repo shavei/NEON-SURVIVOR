@@ -65,7 +65,7 @@ const Nav={
     if(typeof spawnEnemy!=='function'||typeof enemies==='undefined')return;
     const n=4; for(let i=0;i<n;i++)spawnEnemy();
     for(let i=enemies.length-1,c=0;i>=0&&c<n;i--,c++){const e=enemies[i];
-      e.hp*=1.6;e.maxhp*=1.6;e.sc=Math.round(e.sc*2);e.dmg*=1.15;e.elite=true;}
+      e.hp*=1.6;e.maxhp*=1.6;e.sc=Math.round(e.sc*2);e.dmg*=1.15;e.r=Math.round(e.r*1.25);e.elite=true;}   // bigger hitbox to match the 1.3× elite sprite
   },
 
   /* drop a random power-up on the field (same shape spawnItem/killEnemy use) */
