@@ -83,8 +83,7 @@ const Skins = {
     this._cloudSync();
     const defs = this.skinDefs(), eq = this.equipped();
     const ownedN = defs.filter(c => this.owns(c.id)).length;
-    const header = `<div class="skin-bar"><div class="skin-h">🎨 SKINS — equip a hull</div>` +
-                   `<div class="skin-n">Owned ${ownedN}/${defs.length}</div></div>`;
+    const header = `<div class="skin-bar"><div class="skin-n">Owned ${ownedN}/${defs.length}</div></div>`;
     // default-hull card first (always available → revert to the stock neon ship), then every catalogued skin
     const cards = [this._cardHTML({ id: '', title: 'Default Hull', ico: '🔺', from: null, _def: true }, eq)]
       .concat(defs.map(c => this._cardHTML(c, eq))).join('');

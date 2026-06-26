@@ -12,7 +12,7 @@
 /* host override: #achlist still carries the legacy .achlist class (display:flex; max-height:200px;
  * overflow:auto). The gallery is ONE scroll region — so neutralise the flex+cap here (id beats class)
  * and let #achlist itself scroll. Without this the nested .ach-grid scroller collapses to a sliver. */
-#achlist{display:block;max-height:300px;overflow-y:auto;padding-right:4px}
+#achlist{display:block;max-height:360px;overflow-y:auto;padding-right:4px}
 .ach-tabs{position:sticky;top:0;z-index:1;background:#0a0b14;padding:2px 0 8px;margin-bottom:4px;display:flex;gap:6px;flex-wrap:wrap}
 .ach-tab{flex:1 1 auto;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;cursor:pointer;pointer-events:auto;
   padding:5px 8px;border-radius:7px;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.12);transition:.15s}

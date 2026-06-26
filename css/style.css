@@ -76,9 +76,19 @@
   /* main-menu info panels */
   #start .title{font-size:clamp(1.7rem,5.5vw,3.4rem)}
   #start .tag{margin-top:10px;font-size:.92rem;line-height:1.4;max-width:56ch}
-  /* responsive grid: 4 panels across on desktop → 2×2 on mid widths → 1 col on mobile, no wrap-orphans */
-  .menupanels{display:grid;grid-template-columns:repeat(auto-fit,minmax(208px,1fr));gap:14px;margin-top:24px;
-    max-width:1120px;width:100%;align-items:start}
+  /* responsive grid: 1-col mobile → 2-col tablet → 3-col desktop (achievements spans 2) */
+  .menupanels{display:grid;grid-template-columns:1fr;gap:12px;margin-top:20px;
+    max-width:1200px;width:100%;align-items:start}
+  /* mobile: surface leaderboard + achievements first */
+  .mpanel--lb{order:-2}.mpanel--ach{order:-1}
+  @media(min-width:640px){
+    .menupanels{grid-template-columns:repeat(2,1fr);gap:14px}
+    .mpanel--lb,.mpanel--ach{order:0}
+  }
+  @media(min-width:1020px){
+    .menupanels{grid-template-columns:repeat(3,1fr);margin-top:24px}
+    .mpanel--ach{grid-column:span 2}
+  }
   .mpanel{min-width:0;border:1px solid rgba(255,255,255,.1);border-radius:14px;
     padding:15px 16px;background:rgba(255,255,255,.025);text-align:left}
   .mptitle{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--clay);margin-bottom:13px;font-weight:700}
@@ -104,7 +114,7 @@
     font-family:var(--mono);font-size:13px;color:var(--muted);text-decoration:underline;letter-spacing:.05em}
   .menubtn:hover{color:var(--ink)}
   /* achievements grid (main-menu panel) — locked rows dimmed, unlocked glow gold */
-  .achlist{display:flex;flex-direction:column;gap:9px;max-height:200px;overflow-y:auto;padding-right:4px}
+  .achlist{display:flex;flex-direction:column;gap:9px;max-height:240px;overflow-y:auto;padding-right:4px}
   .achrow{display:flex;align-items:center;gap:10px;opacity:.4;transition:opacity .2s}
   .achrow.got{opacity:1}
   .achrow .achico{font-size:18px;width:24px;text-align:center;flex-shrink:0}
@@ -266,7 +276,6 @@
     .stat b{font-size:18px}
     #bars{width:min(520px,92vw);bottom:max(18px,env(safe-area-inset-bottom))}
     #loadout{left:10px;bottom:96px;transform:scale(.85);transform-origin:left bottom}
-    .menupanels{flex-direction:column;gap:12px}    /* stack so panels never clip off-screen */
     .cards{flex-direction:column;align-items:center}/* level-up cards stack vertically */
     .upg{width:100%;max-width:300px}
     /* tall menus must never trap content off-screen: let every full-screen overlay scroll */
