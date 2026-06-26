@@ -193,11 +193,23 @@ const WEAPON_INFO=[
   {ico:'🛡️',name:'Orbiting Shield',desc:'Orbs spin around you, destroying anything they touch — strong defense.'},
   {ico:'🌩️',name:'Chain Lightning',desc:'A bolt that leaps between nearby enemies, hitting several at once.'},
 ];
+/* Evolutions + Grid Map are generated from the live registries (SYNERGIES, Nav.NODES) so the menu
+   reference never drifts from the actual game rules. Recipe = the upgrade pair that triggers each evo. */
+function evoInfo(){
+  if(typeof SYNERGIES==='undefined')return[];
+  const nm=id=>(typeof UPGRADES!=='undefined'&&(UPGRADES.find(u=>u.id===id)||{}).name)||id;
+  return SYNERGIES.map(s=>{
+    const recipe=Object.keys(s.need).map(k=>`${nm(k)} ×${s.need[k]}`).join(' + ');
+    return{ico:s.ico,name:s.name,desc:`Pair ${recipe} — ${s.desc}.`};});}
+function nodeInfo(){
+  return(typeof Nav!=='undefined'&&Nav.NODES?Nav.NODES:[]).map(n=>({ico:n.ico,name:n.name,desc:n.desc+'.'}));}
 function legendHTML(list){return list.map(o=>
   `<div class="legrow"><span class="lico">${o.ico}</span><div class="ltext"><b>${o.name}</b><span>${o.desc}</span></div></div>`).join('');}
 function renderLegends(){
   document.getElementById('pickupsLegend').innerHTML=legendHTML(PICKUP_INFO);
-  document.getElementById('weaponsLegend').innerHTML=legendHTML(WEAPON_INFO);}
+  document.getElementById('weaponsLegend').innerHTML=legendHTML(WEAPON_INFO);
+  const ev=document.getElementById('evoLegend');if(ev)ev.innerHTML=legendHTML(evoInfo());
+  const nd=document.getElementById('nodeLegend');if(nd)nd.innerHTML=legendHTML(nodeInfo());}
 function fmtTime(sec){const m=Math.floor(sec/60),s=sec%60;return m+':'+String(s).padStart(2,'0');}
 /* ===== global leaderboard (Supabase via net.js) — tabbed by difficulty, top 10 each ===== */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
