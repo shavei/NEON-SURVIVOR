@@ -170,7 +170,8 @@ function spawnBoss(){
   enemies.push({id:++_eid,x,y,r:46,hp,maxhp:hp,spd:BOSS.speedBase+tier*BOSS.speedTier,col:'#ff3b6b',
     dmg:BOSS.contactDmg*DIFF.dmg,xp:35,sc:400+tier*100,hit:0,scd:0,cdmg:0,dead:false,
     type:'boss',boss:true,bossT:BOSS.cdBase,tele:0,atk:0,dashT:0,dvx:0,dvy:0,name:'WARDEN '+tier});
-  bossOn=true;Fx.toast('💀','BOSS — WARDEN '+tier,'#ff3b6b');
+  bossOn=true;if(typeof Ach!=='undefined')Ach.onBossSpawn(elapsed);   // intent: snapshot damage + clock for flawless/fast-kill
+  Fx.toast('💀','BOSS — WARDEN '+tier,'#ff3b6b');
   Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss');
 }
 // cooldown till the next telegraph, tightening with tier
@@ -217,7 +218,7 @@ function killEnemy(e,col){
   score+=e.sc;kills++;
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Fx.music('exitBoss');   // next boss 50s after this one falls; music back to normal track
-    if(typeof Ach!=='undefined')Ach.onBossKill();              // achievements: count Wardens felled this run
+    if(typeof Ach!=='undefined')Ach.onBossKill((now-t0)/1000);   // achievements: count Wardens + flawless/fast-kill intent
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
     shake=Math.min(shake+18,24);Fx.sfx('boom');Fx.flash();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
     floatText(e.x,e.y-30,'BOSS DOWN  +'+e.sc,'#ffd95e');
@@ -251,6 +252,7 @@ function showToast(ico,label,col){const el=document.getElementById('toast');
   el.innerHTML=`<span class="tico">${ico}</span><span>${label}<br><small>appeared on the map</small></span>`;
   el.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
 function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
+  if(typeof Ach!=='undefined')Ach.onPickup(wave);   // intent: ascetic (zero-pickup) tracking
   if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Fx.sfx('tone',440,900,.25,'sine',.09);}
   else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
     shake=Math.min(shake+18,22);Fx.sfx('boom');burst(p.x,p.y,'#ffd95e',46,9);Fx.flash();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
@@ -327,6 +329,8 @@ function applyUpgrade(id){const p=player;
   else if(id==='velocity'){p.bulletSpd*=1.3;p.dmg*=1.08;}else if(id==='lifesteal')p.lifesteal+=1;
   else if(id==='missile')p.missile++;else if(id==='shield')p.shield++;else if(id==='chain')p.chain++;
   Up[id]=(Up[id]||0)+1;Fx.loadout();
+  if(typeof Ach!=='undefined'){const isW=id==='missile'||id==='shield'||id==='chain';   // intent: starter-only / synergy / glass-cannon
+    Ach.onUpgrade(id,isW,wave,(p.missile>0)+(p.shield>0)+(p.chain>0));}
 }
 function renderLoadout(){
   const box=document.getElementById('loadout');box.innerHTML='';
@@ -348,5 +352,6 @@ function openLevelUp(){
     wrap.appendChild(el);});
   document.getElementById('levelup').classList.add('show');pauseStart=performance.now();
 }
-function gainXP(n){const p=player;if(p.rushT>0)n*=2;p.xp+=n;
-  while(p.xp>=p.next){p.xp-=p.next;p.level++;p.next=Math.floor(p.next*1.32+3);pendingLevels++;}}
+function gainXP(n){const p=player;if(p.rushT>0)n*=2;p.xp+=n;const lv0=p.level;
+  while(p.xp>=p.next){p.xp-=p.next;p.level++;p.next=Math.floor(p.next*1.32+3);pendingLevels++;}
+  if(lv0===1&&p.level>1&&typeof Ach!=='undefined')Ach.onLevelUp(wave);}   // intent: objector (stay level 1) tracking
