@@ -141,11 +141,11 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-engine → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
+<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-orchestrator → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
 <script defer src="js/config.js"></script>
 <script defer src="js/config-sim.js"></script>
 <script defer src="js/core.js"></script>
-<script defer src="js/audio-engine.js"></script>
+<script defer src="js/audio-orchestrator.js"></script>
 <script defer src="js/world.js"></script>
 <script defer src="js/sim.js"></script>
 <script defer src="js/render.js"></script>

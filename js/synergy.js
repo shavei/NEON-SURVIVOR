@@ -41,6 +41,7 @@ const Synergy={
     player.evo[s.slot]=s.id;                                           // weapon fns branch on this flag
     if(typeof Reward!=='undefined')
       Reward.trigger('evolution',{col:s.col,x:player.x,y:player.y,text:s.name,toast:s.name+' — EVOLVED',ico:s.ico});
+    if(typeof Fx!=='undefined')Fx.music('stingSynergy');               // Tier-3 evolution → orchestral evolution chord
     if(typeof Fx!=='undefined')Fx.loadout&&Fx.loadout();              // refresh weapon pips (shows evolved name)
     if(typeof Ach!=='undefined'&&Ach.onSynergy)Ach.onSynergy(s.id);   // optional achievements hook (safe if absent)
   },

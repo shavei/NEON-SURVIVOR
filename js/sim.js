@@ -141,7 +141,7 @@ function update(){
   for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.y+=f.vy;f.life--;if(f.life<=0)floats.splice(i,1);}
   for(let i=bolts.length-1;i>=0;i--){if(--bolts[i].life<=0)bolts.splice(i,1);}
   if(shake>0)shake*=.85;
-  if(pendingLevels>0&&state==='play'){pendingLevels--;Fx.sfx('level');Fx.levelUp();}
+  if(pendingLevels>0&&state==='play'){pendingLevels--;Fx.sfx('level');Fx.music('stingLevelUp');Fx.levelUp();}
   if(typeof Nav!=='undefined')Nav.tick();   // boss-kill → raise the branching map once the slow-mo beat ends
   Fx.hud(elapsed);
 }
