@@ -142,13 +142,14 @@ function reset(){
 }
 
 /* ========== SPAWNING ========== */
-function spawnEnemy(){
+// fType/fx/fy: optional overrides (boss SUMMON warps specific drones in at a point); omitted → normal wave spawn.
+function spawnEnemy(fType,fx,fy){
   const elapsed=(now-t0)/1000;wave=1+Math.floor(elapsed/24);
   const A=spawnAnchor();   // solo → player (byte-identical); shared-world → centroid of all avatars
   const ang=srand(0,6.283),d=Math.max(W,H)*.62+srand(0,160);
-  const x=clamp(A.x+Math.cos(ang)*d,24,WORLD.w-24),y=clamp(A.y+Math.sin(ang)*d,24,WORLD.h-24);
-  const roll=srng();let type='grunt';
-  if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';
+  const x=fx!=null?fx:clamp(A.x+Math.cos(ang)*d,24,WORLD.w-24),y=fy!=null?fy:clamp(A.y+Math.sin(ang)*d,24,WORLD.h-24);
+  const roll=srng();let type=fType||'grunt';
+  if(!fType){if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';}
   const base={
     grunt:{r:12,hp:20,spd:1.15,col:'#7c8cff',dmg:8,xp:1,sc:5},
     fast:{r:9,hp:12,spd:2.25,col:'#ff9d2e',dmg:6,xp:1,sc:7},
@@ -162,37 +163,55 @@ function spawnEnemy(){
 }
 function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=Math.max(1,Math.round(elapsed/60));
+  const bt=(tier-1)%BOSSES.length,B=BOSSES[bt];        // archetype rotates each wave: REVENANT → MAELSTROM → OVERSEER → …
   const A=spawnAnchor();
   const ang=srand(0,6.283),d=Math.max(W,H)*.62;
   const x=clamp(A.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(A.y+Math.sin(ang)*d,60,WORLD.h-60);
-  let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
+  let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*B.hpMul*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
   if(_test)hp=1;                                    // Test Mode: one-hit boss to study patterns fast
-  enemies.push({id:++_eid,x,y,r:46,hp,maxhp:hp,spd:BOSS.speedBase+tier*BOSS.speedTier,col:'#ff3b6b',
+  enemies.push({id:++_eid,x,y,r:46,hp,maxhp:hp,spd:(BOSS.speedBase+tier*BOSS.speedTier)*B.spdMul,col:B.col,
     dmg:BOSS.contactDmg*DIFF.dmg,xp:35,sc:400+tier*100,hit:0,scd:0,cdmg:0,dead:false,
-    type:'boss',boss:true,bossT:BOSS.cdBase,tele:0,atk:0,dashT:0,dvx:0,dvy:0,name:'WARDEN '+tier});
+    type:'boss',boss:true,bt,seq:B.seq,si:0,bossT:BOSS.cdBase,tele:0,atk:B.seq[0],dashT:0,dvx:0,dvy:0,spin:0,spinA:0,name:B.name+' '+tier});
   bossOn=true;if(typeof Ach!=='undefined')Ach.onBossSpawn(elapsed);   // intent: snapshot damage + clock for flawless/fast-kill
-  Fx.toast('💀','BOSS — WARDEN '+tier,'#ff3b6b');
+  Fx.toast('💀','BOSS — '+B.name+' '+tier,B.col);
   Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss');
 }
 // cooldown till the next telegraph, tightening with tier
 function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-Math.floor((now-t0)/1000/60)*8);}
-// fired when the telegraph (e.tele) expires — dispatch by e.atk. burst/slam are instant (reset cadence here);
-// dash spans ticks → its cadence reset + atk-advance happen when the dash ends (sim.js movement loop).
+// advance to the next move in this boss's looping sequence + reset the cadence. Instant attacks call this
+// inline; multi-tick ones (dash/spiral) call it when their state expires in the sim.js movement loop.
+function bossNext(e){e.si=(e.si+1)%e.seq.length;e.atk=e.seq[e.si];e.bossT=bossCD();}
+// fired when the telegraph (e.tele) expires — dispatch by e.atk (id table in config-sim.js BOSS).
 function bossAttack(e){
   const tier=Math.max(1,Math.round((now-t0)/1000/60));
-  if(e.atk===0){                                   // 0) CIRCULAR BURST — aimed radial ring
+  if(e.atk===0){                                   // 0) BURST — aimed radial ring
     const n=10+Math.min(10,tier*2),base=Math.atan2(player.y-e.y,player.x-e.x);
     for(let k=0;k<n;k++){const a=base+k/n*6.283;
       ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3.3,vy:Math.sin(a)*3.3,r:7,dmg:e.dmg*BOSS.projDmg,life:220});}
-    Fx.sfx('zap');e.bossT=bossCD();e.atk=1;
-  }else if(e.atk===1){                             // 1) TARGETED DASH — lunge along a locked vector
+    Fx.sfx('zap');bossNext(e);
+  }else if(e.atk===1){                             // 1) DASH — lunge along a locked vector (ends in sim loop)
     const a=Math.atan2(player.y-e.y,player.x-e.x);
     e.dvx=Math.cos(a)*BOSS.dashSpd;e.dvy=Math.sin(a)*BOSS.dashSpd;e.dashT=BOSS.dashT;
-    Fx.sfx('boom');shake=Math.min(shake+7,16);       // cadence/atk advance on dash-end
-  }else{                                            // 2) AOE GROUND SLAM — outward shockwave ring to outrun
+    Fx.sfx('boom');shake=Math.min(shake+7,16);
+  }else if(e.atk===2){                             // 2) SLAM — outward shockwave ring to outrun
     const n=BOSS.slamN;for(let k=0;k<n;k++){const a=k/n*6.283;
       ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.slamSpd,vy:Math.sin(a)*BOSS.slamSpd,r:9,dmg:e.dmg*BOSS.projDmg,life:200});}
-    Fx.sfx('boom');shake=Math.min(shake+13,20);e.bossT=bossCD();e.atk=0;
+    Fx.sfx('boom');shake=Math.min(shake+13,20);bossNext(e);
+  }else if(e.atk===3){                             // 3) SPIRAL — root + spray a rotating two-arm storm (ends in sim loop)
+    e.spin=BOSS.spiralTicks;e.spinA=Math.atan2(player.y-e.y,player.x-e.x);Fx.sfx('zap');
+  }else if(e.atk===4){                             // 4) SPREAD — aimed shotgun cone of fast bolts
+    const base=Math.atan2(player.y-e.y,player.x-e.x),n=BOSS.spreadN;
+    for(let k=0;k<n;k++){const a=base+(k/(n-1)-.5)*BOSS.spreadArc;
+      ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.spreadSpd,vy:Math.sin(a)*BOSS.spreadSpd,r:7,dmg:e.dmg*BOSS.projDmg,life:200});}
+    Fx.sfx('zap');shake=Math.min(shake+5,14);bossNext(e);
+  }else if(e.atk===5){                             // 5) SUMMON — a ring of drones warps in around the boss
+    const n=BOSS.summonN;for(let k=0;k<n;k++){const a=k/n*6.283;
+      spawnEnemy(k%2?'fast':'grunt',e.x+Math.cos(a)*72,e.y+Math.sin(a)*72);}
+    Fx.sfx('boom');shake=Math.min(shake+8,16);bossNext(e);
+  }else{                                            // 6) BLINK — vanish + reappear at a fresh angle off the player
+    burst(e.x,e.y,e.col,18,5);const a=srand(0,6.283);
+    e.x=clamp(player.x+Math.cos(a)*BOSS.blinkDist,60,WORLD.w-60);e.y=clamp(player.y+Math.sin(a)*BOSS.blinkDist,60,WORLD.h-60);
+    e.px=e.x;e.py=e.y;burst(e.x,e.y,e.col,18,5);Fx.sfx('zap');bossNext(e);   // sync px/py → no lerp smear across the warp
   }
 }
 

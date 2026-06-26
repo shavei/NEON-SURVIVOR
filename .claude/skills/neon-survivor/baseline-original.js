@@ -1,3 +1,48 @@
+/* NEON SURVIVOR — config-sim.js
+ * Deterministic SIMULATION config + seeded RNG — difficulty/boss tunables and the seedable randomness.
+ * Kept in its own file (loaded BEFORE core.js) so core.js stays well under the 28 KB silent-truncation
+ * threshold. Classic script (shared globals).
+ * Load order: config → config-sim → core → audio-engine → world → sim → render → ui-engine → … → main. */
+
+/* SEEDABLE GAMEPLAY randomness. Unseeded it forwards to Math.random, so solo play and the verify-equiv
+ * golden snapshot are byte-for-byte unchanged. seedRng(n) switches every gameplay draw onto a
+ * deterministic mulberry32 stream (same spawns/drops/rolls); seedRng(null) reverts to Math.random. */
+let _rngSeeded=false,_rngState=0;
+function seedRng(n){ if(n==null){_rngSeeded=false;return;} _rngSeeded=true; _rngState=n>>>0; }
+function srng(){
+  if(!_rngSeeded) return Math.random();
+  let t=(_rngState=(_rngState+0x6D2B79F5)|0);
+  t=Math.imul(t^(t>>>15),1|t); t=(t+Math.imul(t^(t>>>7),61|t))^t;
+  return ((t^(t>>>14))>>>0)/4294967296;
+}
+const srand=(a,b)=>a+srng()*(b-a);         // gameplay analogue of rand() — routed through the seedable stream
+
+/* ========== DIFFICULTY ========== */
+const DIFFS={
+  easy:  {key:'easy', label:'Easy',   spawn:1.4,  hp:.78, dmg:.65, col:'#54e6b5'},
+  normal:{key:'normal',label:'Normal', spawn:1.0,  hp:1.0,  dmg:1.0,  col:'#ffd95e'},
+  hard:  {key:'hard', label:'Hard',   spawn:.68, hp:1.8,  dmg:2.0,  col:'#ff5fa2'},
+};
+let DIFF=DIFFS.normal;
+// Shared boss tunables — base HP/dmg/speed, attack cadence+telegraph, hitbox/i-frames + per-attack params.
+// Per-TYPE identity (name/colour/shape/scaling/move-set) lives in BOSSES below.
+const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedBase:.45,speedTier:.02,
+  cdBase:120,cdFloor:75,teleT:45,hitRMul:.85,invProj:30,invContact:12,
+  // attack params (atk id → 0 burst · 1 dash · 2 slam · 3 spiral · 4 spread · 5 summon · 6 blink)
+  dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4,                 // REVENANT: dash lunge + AOE shockwave ring
+  spiralTicks:48,spiralRot:.3,spiralSpd:3.2,spreadN:7,spreadArc:.95,spreadSpd:4.4,   // MAELSTROM: rotating storm + aimed cone
+  summonN:6,blinkDist:240,                                            // OVERSEER: drone warp-in count + blink range
+  // spawn throttle while a boss is alive: longer interval + smaller batches (focus the fight)
+  spawnMul:2.2,spawnCountMul:0.5};
+// Three distinct boss archetypes, cycled by tier ((tier-1)%3). Each has its own colour, polygon, HP/speed
+// scaling and a looping attack sequence (atk ids above) — REVENANT brawls, MAELSTROM zones, OVERSEER swarms.
+const BOSSES=[
+  {name:'REVENANT', col:'#ff3b6b', sides:8, hpMul:0.82, spdMul:1.5,  seq:[1,2,0,1,2]},   // relentless crimson brawler: dash/slam pressure
+  {name:'MAELSTROM',col:'#38e0ff', sides:6, hpMul:1.32, spdMul:0.58, seq:[3,4,3,4]},      // slow cyan artillery: bullet-storm zoner
+  {name:'OVERSEER', col:'#b14bff', sides:5, hpMul:1.05, spdMul:0.95, seq:[5,0,6,5]},       // violet swarm-lord: summons drones + blinks
+];
+
+;
 /* NEON SURVIVOR — core.js
  * Foundational globals, sprite cache, difficulty table, sound + music engines.
  * Classic script (shared global scope). Load order: core → world → sim → render → main. */
@@ -6,7 +51,10 @@ const cv=document.getElementById('game'),ctx=cv.getContext('2d');
 let W,H,DPR;
 let needsDraw=false;   // request a single static redraw (pause / level-up / resize)
 
-const rand=(a,b)=>a+Math.random()*(b-a);
+const rand=(a,b)=>a+Math.random()*(b-a);   // COSMETIC randomness (backdrop, particles) — never gates sim state
+// Seeded GAMEPLAY randomness (seedRng/srng/srand) + DIFFS/DIFF/BOSS/COOP now live in config-sim.js,
+// loaded before this file, so the headless server can take the deterministic config without audio/DOM.
+
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 
 /* ========== ALLOCATED MEMORY CACHES (Prevents Garbage Collection Stutters) ========== */
@@ -30,32 +78,37 @@ function enemySprite(type,white){const k='e'+type+(white?'w':'');if(_spr[k])retu
   else{g.beginPath();for(let i=0;i<m.sides;i++){const a=i/m.sides*6.283,x=Math.cos(a)*m.r,y=Math.sin(a)*m.r;i?g.lineTo(x,y):g.moveTo(x,y);}g.closePath();g.fill();
     if(m.ring&&!white){g.shadowBlur=0;g.lineWidth=2;g.strokeStyle=m.ring;g.stroke();}}   // contrasting outline so threats read apart from teal XP orbs
   return _spr[k]=c;}
-// player hull baked once per rage-state (gradient + shadow are expensive; the hull is static)
-function shipSprite(rage,r){const k='s'+(rage?1:0)+'_'+r;if(_spr[k])return _spr[k];
+// per-type boss sprite — each archetype gets its own colour + polygon (BOSSES[bt]) so the three read apart
+// at a glance. Baked once per (type,hit-flash); a dark core ring + white rim sells the heavy "boss" mass.
+function bossSprite(bt,white){const b=BOSSES[bt],k='boss'+bt+(white?'w':'');if(_spr[k])return _spr[k];
+  const r=46,pad=16,S=(r+pad)*2,c=document.createElement('canvas');c.width=c.height=S;
+  const g=c.getContext('2d');g.translate(S/2,S/2);g.shadowBlur=20;g.shadowColor=b.col;g.fillStyle=white?'#fff':b.col;
+  g.beginPath();for(let i=0;i<b.sides;i++){const a=i/b.sides*6.283-1.57,x=Math.cos(a)*r,y=Math.sin(a)*r;i?g.lineTo(x,y):g.moveTo(x,y);}g.closePath();g.fill();
+  g.shadowBlur=0;g.lineWidth=3;g.strokeStyle='rgba(255,255,255,.5)';g.stroke();
+  g.fillStyle='rgba(8,9,16,.55)';g.beginPath();g.arc(0,0,r*.46,0,7);g.fill();           // hollow core → menacing eye
+  g.strokeStyle=white?'#fff':b.col;g.lineWidth=2.5;g.stroke();
+  return _spr[k]=c;}
+// equipped-skin hull palettes (non-rage). Default = the stock orange hull; unknown ids fall back to it,
+// so cosmetics added later never break the avatar. rage is a temporary power state → always overrides to gold.
+const _SKIN_DEF={c0:'#37223f',c1:'#ff8a5e',shadow:'#d97757',stroke:'#ffd9c2'};
+const SKIN_PALETTE={
+  crimson_husk:{c0:'#3a0f16',c1:'#ff3b4e',shadow:'#ff3b6b',stroke:'#ffd2d8'},
+  void_warden :{c0:'#1d0f3a',c1:'#9a5cff',shadow:'#9a5cff',stroke:'#e6d2ff'},
+};
+// player hull baked once per (rage,r,skin) — gradient + shadow are expensive; the hull is static
+function shipSprite(rage,r,skin){const pal=(!rage&&skin&&SKIN_PALETTE[skin])||_SKIN_DEF;
+  const k='s'+(rage?1:0)+'_'+r+'_'+(rage||!SKIN_PALETTE[skin]?'def':skin);if(_spr[k])return _spr[k];
   const pad=22,S=(r+pad)*2;shipSprite._s=S;
   const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');
-  g.translate(S/2,S/2);g.shadowBlur=18;g.shadowColor=rage?'#ffd95e':'#d97757';
+  g.translate(S/2,S/2);g.shadowBlur=18;g.shadowColor=rage?'#ffd95e':pal.shadow;
   const grd=g.createLinearGradient(-r,0,r+4,0);
-  grd.addColorStop(0,rage?'#6b3410':'#37223f');grd.addColorStop(1,rage?'#ffd95e':'#ff8a5e');
+  grd.addColorStop(0,rage?'#6b3410':pal.c0);grd.addColorStop(1,rage?'#ffd95e':pal.c1);
   g.fillStyle=grd;g.beginPath();
   g.moveTo(r+5,0);g.lineTo(-r+3,r-1);g.lineTo(-r+8,0);g.lineTo(-r+3,-(r-1));g.closePath();g.fill();
-  g.strokeStyle=rage?'#fff7d6':'#ffd9c2';g.lineWidth=1.5;g.stroke();
+  g.strokeStyle=rage?'#fff7d6':pal.stroke;g.lineWidth=1.5;g.stroke();
   return _spr[k]=c;}
 
-/* ========== DIFFICULTY ========== */
-const DIFFS={
-  easy:  {key:'easy', label:'Easy',   spawn:1.4,  hp:.78, dmg:.65, col:'#54e6b5'},
-  normal:{key:'normal',label:'Normal', spawn:1.0,  hp:1.0,  dmg:1.0,  col:'#ffd95e'},
-  hard:  {key:'hard', label:'Hard',   spawn:.68, hp:1.8,  dmg:2.0,  col:'#ff5fa2'},
-};
-let DIFF=DIFFS.normal;
-// Boss tunables — one place to balance the WARDEN (HP/dmg/speed, attack cadence+telegraph, hitbox/i-frames).
-const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedBase:.45,speedTier:.02,
-  cdBase:120,cdFloor:75,teleT:45,hitRMul:.85,invProj:30,invContact:12,
-  // attack cycle (atk 0=burst, 1=dash, 2=slam): dash lunge + AOE shockwave ring tunables
-  dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4,
-  // spawn throttle while a Warden is alive: longer interval + smaller batches (focus the fight)
-  spawnMul:2.2,spawnCountMul:0.5};
+/* DIFFICULTY (DIFFS/DIFF), BOSS tunables and COOP scaling now live in config-sim.js (loaded first). */
 
 /* ========== SOUND ENGINE (Web Audio) ========== */
 const Sound={
@@ -86,6 +139,24 @@ const Sound={
   level(){[0,1,2].forEach((k,i)=>setTimeout(()=>this.tone([523,659,880][i],0,.16,'triangle',.07),i*70));},
 };
 let lastShootSnd=0,lastPingSnd=0;
+
+/* ========== PRESENTATION PORT (Fx) ==========
+ * The single seam between the SIMULATION (world.js/sim.js) and the CLIENT-only presentation layer
+ * (audio + DOM). The sim never names Sound/Music/showToast/flashHit/updateHUD/renderLoadout directly —
+ * it calls Fx.*, which forwards to whatever the host wired up. In the browser these resolve to the
+ * real engines; under the headless/authoritative-server build (no audio-engine/render/main loaded)
+ * every forward typeof-guards to a no-op, so the same world.js/sim.js run server-side untouched.
+ * Phase 4: the Node server may also replace Fx wholesale. A/V is cosmetic-only — excluded from the
+ * determinism/equiv hashes — so routing through this port changes zero gameplay state. */
+const Fx={
+  sfx(n,...a){ if(typeof Sound!=='undefined'&&Sound[n])Sound[n](...a); },           // one-shot SFX by name
+  music(n,...a){ if(typeof Music!=='undefined'&&Music[n])Music[n](...a); },         // music facade event by name
+  toast(...a){ if(typeof showToast==='function')showToast(...a); },                 // map toast (DOM)
+  flash(){ if(typeof flashHit==='function')flashHit(); },                           // red hit flash (DOM)
+  hud(...a){ if(typeof updateHUD==='function')updateHUD(...a); },                   // HUD repaint (DOM)
+  loadout(){ if(typeof renderLoadout==='function')renderLoadout(); },               // weapon pips (DOM)
+  levelUp(){ if(typeof openLevelUp==='function')openLevelUp(); },                   // level-up card modal (DOM + offer)
+};
 
 /* ========== SYNTHWAVE MUSIC ENGINE (procedural fallback) ==========
    Renamed Music -> SynthMusic. js/audio-engine.js now owns the public `Music` facade and
@@ -812,6 +883,8 @@ let player,enemies,bullets,orbs,particles,floats,missiles,bolts,items,ebullets;
 let nextBoss=60,bossOn=false,_test=false;   // _test: Test Mode (one-hit bosses, manual spawn — key B)
 let t0,now,score,wave,spawnTimer,itemTimer,shake,frame,kills,pauseStart=0,pendingLevels=0;
 let best=+(localStorage.getItem('neon_best')||0);
+let _eid=0;   // monotonically rising enemy id (stable handle for each spawned body)
+let _oid=0,_iid=0;   // monotonic XP-orb / item ids
 /* ----- FIXED-TIMESTEP SIM CLOCK -----
  * The sim advances in discrete 1/60 s ticks regardless of display refresh, so the game plays
  * identically on 60 / 144 / 240 Hz monitors (was frame-locked → ran 2.4× fast on 144 Hz).
@@ -912,35 +985,46 @@ function nearestTo(pt,exclude){
   return n;
 }
 
+/* The player is a full sim body of this exact shape. makeAvatar() keeps solo byte-identical (same
+ * fields/values the old reset literal produced). */
+function makeAvatar(x,y){
+  return {
+    x,y,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
+    rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
+    xp:0,level:1,next:8,regenRate:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,rushT:0,
+    missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:x,py:y};
+}
+/* spawn reference point — enemies/items appear at a ring around the player */
+function spawnAnchor(){return player;}
+
 function reset(){
   initStars(); // <--- Builds the space starfield
 
-  player={x:WORLD.w/2,y:WORLD.h/2,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
-    rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
-    xp:0,level:1,next:8,regen:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,
-    missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:WORLD.w/2,py:WORLD.h/2};
+  player=makeAvatar(WORLD.w/2,WORLD.h/2);
   acc=0;lastTs=0;alpha=0;slowmo=0;   // reset the sim clock for a clean run
 
   enemies=[];bullets=[];orbs=[];particles=[];floats=[];missiles=[];bolts=[];items=[];ebullets=[];
   for(const k in Up)delete Up[k];           // clear upgrade tracker so PLAY AGAIN starts fresh
   score=0;wave=1;spawnTimer=0;itemTimer=900;shake=0;frame=0;kills=0;pendingLevels=0;t0=performance.now();
   nextBoss=60;bossOn=false;
-  Music.reset();   // clear boss track (real + synth) if last run died mid-fight
+  Fx.music('reset');   // clear boss track (real + synth) if last run died mid-fight
 
   cam.x=clamp(player.x-W/2,0,Math.max(0,WORLD.w-W));
   cam.y=clamp(player.y-H/2,0,Math.max(0,WORLD.h-H));
   cam.px=cam.x;cam.py=cam.y;
 
-  renderLoadout();
+  Fx.loadout();
 }
 
 /* ========== SPAWNING ========== */
-function spawnEnemy(){
+// fType/fx/fy: optional overrides (boss SUMMON warps specific drones in at a point); omitted → normal wave spawn.
+function spawnEnemy(fType,fx,fy){
   const elapsed=(now-t0)/1000;wave=1+Math.floor(elapsed/24);
-  const ang=rand(0,6.283),d=Math.max(W,H)*.62+rand(0,160);
-  const x=clamp(player.x+Math.cos(ang)*d,24,WORLD.w-24),y=clamp(player.y+Math.sin(ang)*d,24,WORLD.h-24);
-  const roll=Math.random();let type='grunt';
-  if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';
+  const A=spawnAnchor();   // solo → player (byte-identical); shared-world → centroid of all avatars
+  const ang=srand(0,6.283),d=Math.max(W,H)*.62+srand(0,160);
+  const x=fx!=null?fx:clamp(A.x+Math.cos(ang)*d,24,WORLD.w-24),y=fy!=null?fy:clamp(A.y+Math.sin(ang)*d,24,WORLD.h-24);
+  const roll=srng();let type=fType||'grunt';
+  if(!fType){if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';}
   const base={
     grunt:{r:12,hp:20,spd:1.15,col:'#7c8cff',dmg:8,xp:1,sc:5},
     fast:{r:9,hp:12,spd:2.25,col:'#ff9d2e',dmg:6,xp:1,sc:7},
@@ -949,52 +1033,72 @@ function spawnEnemy(){
   const late=Math.max(0,elapsed-180);            // super-linear pressure past 3 min
   const hpScale=(1+elapsed/75+late*late*0.00012)*DIFF.hp;
   const dmg=base.dmg*(1+elapsed/130+late*late*0.00006)*DIFF.dmg;
-  enemies.push({x,y,r:base.r,hp:base.hp*hpScale,maxhp:base.hp*hpScale,
+  enemies.push({id:++_eid,x,y,r:base.r,hp:base.hp*hpScale,maxhp:base.hp*hpScale,
     spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type});
 }
 function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=Math.max(1,Math.round(elapsed/60));
-  const ang=rand(0,6.283),d=Math.max(W,H)*.62;
-  const x=clamp(player.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(player.y+Math.sin(ang)*d,60,WORLD.h-60);
-  let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
+  const bt=(tier-1)%BOSSES.length,B=BOSSES[bt];        // archetype rotates each wave: REVENANT → MAELSTROM → OVERSEER → …
+  const A=spawnAnchor();
+  const ang=srand(0,6.283),d=Math.max(W,H)*.62;
+  const x=clamp(A.x+Math.cos(ang)*d,60,WORLD.w-60),y=clamp(A.y+Math.sin(ang)*d,60,WORLD.h-60);
+  let hp=(BOSS.hpBase+tier*BOSS.hpTier)*DIFF.hp*B.hpMul*(1+Math.max(0,elapsed-180)*BOSS.hpRamp);
   if(_test)hp=1;                                    // Test Mode: one-hit boss to study patterns fast
-  enemies.push({x,y,r:46,hp,maxhp:hp,spd:BOSS.speedBase+tier*BOSS.speedTier,col:'#ff3b6b',
+  enemies.push({id:++_eid,x,y,r:46,hp,maxhp:hp,spd:(BOSS.speedBase+tier*BOSS.speedTier)*B.spdMul,col:B.col,
     dmg:BOSS.contactDmg*DIFF.dmg,xp:35,sc:400+tier*100,hit:0,scd:0,cdmg:0,dead:false,
-    type:'boss',boss:true,bossT:BOSS.cdBase,tele:0,atk:0,dashT:0,dvx:0,dvy:0,name:'WARDEN '+tier});
-  bossOn=true;showToast('💀','BOSS — WARDEN '+tier,'#ff3b6b');
-  Sound.boom();shake=Math.min(shake+10,16);Music.enterBoss();
+    type:'boss',boss:true,bt,seq:B.seq,si:0,bossT:BOSS.cdBase,tele:0,atk:B.seq[0],dashT:0,dvx:0,dvy:0,spin:0,spinA:0,name:B.name+' '+tier});
+  bossOn=true;if(typeof Ach!=='undefined')Ach.onBossSpawn(elapsed);   // intent: snapshot damage + clock for flawless/fast-kill
+  Fx.toast('💀','BOSS — '+B.name+' '+tier,B.col);
+  Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss');
 }
 // cooldown till the next telegraph, tightening with tier
 function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-Math.floor((now-t0)/1000/60)*8);}
-// fired when the telegraph (e.tele) expires — dispatch by e.atk. burst/slam are instant (reset cadence here);
-// dash spans ticks → its cadence reset + atk-advance happen when the dash ends (sim.js movement loop).
+// advance to the next move in this boss's looping sequence + reset the cadence. Instant attacks call this
+// inline; multi-tick ones (dash/spiral) call it when their state expires in the sim.js movement loop.
+function bossNext(e){e.si=(e.si+1)%e.seq.length;e.atk=e.seq[e.si];e.bossT=bossCD();}
+// fired when the telegraph (e.tele) expires — dispatch by e.atk (id table in config-sim.js BOSS).
 function bossAttack(e){
   const tier=Math.max(1,Math.round((now-t0)/1000/60));
-  if(e.atk===0){                                   // 0) CIRCULAR BURST — aimed radial ring
+  if(e.atk===0){                                   // 0) BURST — aimed radial ring
     const n=10+Math.min(10,tier*2),base=Math.atan2(player.y-e.y,player.x-e.x);
     for(let k=0;k<n;k++){const a=base+k/n*6.283;
       ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3.3,vy:Math.sin(a)*3.3,r:7,dmg:e.dmg*BOSS.projDmg,life:220});}
-    Sound.zap();e.bossT=bossCD();e.atk=1;
-  }else if(e.atk===1){                             // 1) TARGETED DASH — lunge along a locked vector
+    Fx.sfx('zap');bossNext(e);
+  }else if(e.atk===1){                             // 1) DASH — lunge along a locked vector (ends in sim loop)
     const a=Math.atan2(player.y-e.y,player.x-e.x);
     e.dvx=Math.cos(a)*BOSS.dashSpd;e.dvy=Math.sin(a)*BOSS.dashSpd;e.dashT=BOSS.dashT;
-    Sound.boom();shake=Math.min(shake+7,16);       // cadence/atk advance on dash-end
-  }else{                                            // 2) AOE GROUND SLAM — outward shockwave ring to outrun
+    Fx.sfx('boom');shake=Math.min(shake+7,16);
+  }else if(e.atk===2){                             // 2) SLAM — outward shockwave ring to outrun
     const n=BOSS.slamN;for(let k=0;k<n;k++){const a=k/n*6.283;
       ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.slamSpd,vy:Math.sin(a)*BOSS.slamSpd,r:9,dmg:e.dmg*BOSS.projDmg,life:200});}
-    Sound.boom();shake=Math.min(shake+13,20);e.bossT=bossCD();e.atk=0;
+    Fx.sfx('boom');shake=Math.min(shake+13,20);bossNext(e);
+  }else if(e.atk===3){                             // 3) SPIRAL — root + spray a rotating two-arm storm (ends in sim loop)
+    e.spin=BOSS.spiralTicks;e.spinA=Math.atan2(player.y-e.y,player.x-e.x);Fx.sfx('zap');
+  }else if(e.atk===4){                             // 4) SPREAD — aimed shotgun cone of fast bolts
+    const base=Math.atan2(player.y-e.y,player.x-e.x),n=BOSS.spreadN;
+    for(let k=0;k<n;k++){const a=base+(k/(n-1)-.5)*BOSS.spreadArc;
+      ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.spreadSpd,vy:Math.sin(a)*BOSS.spreadSpd,r:7,dmg:e.dmg*BOSS.projDmg,life:200});}
+    Fx.sfx('zap');shake=Math.min(shake+5,14);bossNext(e);
+  }else if(e.atk===5){                             // 5) SUMMON — a ring of drones warps in around the boss
+    const n=BOSS.summonN;for(let k=0;k<n;k++){const a=k/n*6.283;
+      spawnEnemy(k%2?'fast':'grunt',e.x+Math.cos(a)*72,e.y+Math.sin(a)*72);}
+    Fx.sfx('boom');shake=Math.min(shake+8,16);bossNext(e);
+  }else{                                            // 6) BLINK — vanish + reappear at a fresh angle off the player
+    burst(e.x,e.y,e.col,18,5);const a=srand(0,6.283);
+    e.x=clamp(player.x+Math.cos(a)*BOSS.blinkDist,60,WORLD.w-60);e.y=clamp(player.y+Math.sin(a)*BOSS.blinkDist,60,WORLD.h-60);
+    e.px=e.x;e.py=e.y;burst(e.x,e.y,e.col,18,5);Fx.sfx('zap');bossNext(e);   // sync px/py → no lerp smear across the warp
   }
 }
 
 /* ========== COMBAT ========== */
-function fire(){
-  const near=player.near;if(!near)return;
-  const baseAng=Math.atan2(near.y-player.y,near.x-player.x);
-  const n=player.multi,spread=.16,dmg=player.rageT>0?player.dmg*1.6:player.dmg;
+function fire(p){p=p||player;   // p defaults to the local avatar → solo calls are byte-identical
+  const near=p.near;if(!near)return;
+  const baseAng=Math.atan2(near.y-p.y,near.x-p.x);
+  const n=p.multi,spread=.16,dmg=p.rageT>0?p.dmg*1.6:p.dmg;
   for(let i=0;i<n;i++){const a=baseAng+(i-(n-1)/2)*spread;
-    bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*player.bulletSpd,vy:Math.sin(a)*player.bulletSpd,r:4,dmg,pierce:player.pierce,life:70});}
+    bullets.push({x:p.x,y:p.y,vx:Math.cos(a)*p.bulletSpd,vy:Math.sin(a)*p.bulletSpd,r:4,dmg,pierce:p.pierce,life:70});}
   shake=Math.min(shake+1.2,7);
-  if(now-lastShootSnd>60){Sound.shoot();lastShootSnd=now;}
+  if(now-lastShootSnd>60){Fx.sfx('shoot');lastShootSnd=now;}
 }
 function burst(x,y,col,n,sp){n=Math.min(n,340-particles.length);if(n<=0)return;
   for(let i=0;i<n;i++){const a=rand(0,7),s=rand(.5,sp);
@@ -1002,25 +1106,27 @@ function burst(x,y,col,n,sp){n=Math.min(n,340-particles.length);if(n<=0)return;
 function floatText(x,y,txt,col){floats.push({x,y,txt,col,life:50,vy:-.7});}
 
 function damageEnemy(e,dmg,col){e.hp-=dmg;e.hit=6;if(e.hp<=0)killEnemy(e,col);}
+function hitEnemy(e,dmg,col){damageEnemy(e,dmg,col);}
 function killEnemy(e,col){
   const i=enemies.indexOf(e);if(i<0)return;e.dead=true;enemies.splice(i,1);
   score+=e.sc;kills++;
   if(e.boss){
-    bossOn=false;nextBoss=(now-t0)/1000+50;Music.exitBoss();   // next boss 50s after this one falls; music back to normal track
+    bossOn=false;nextBoss=(now-t0)/1000+50;Fx.music('exitBoss');   // next boss 50s after this one falls; music back to normal track
+    if(typeof Ach!=='undefined')Ach.onBossKill((now-t0)/1000);   // achievements: count Wardens + flawless/fast-kill intent
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
-    shake=Math.min(shake+18,24);Sound.boom();flashHit();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
+    shake=Math.min(shake+18,24);Fx.sfx('boom');Fx.flash();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
     floatText(e.x,e.y-30,'BOSS DOWN  +'+e.sc,'#ffd95e');
-    for(let k=0;k<e.xp;k++)orbs.push({x:e.x+rand(-40,40),y:e.y+rand(-40,40),r:4,xp:1,col:'#54e6b5'});
-    const it=ITEMS[Math.floor(rand(0,ITEMS.length))];     // guaranteed reward drop
-    items.push({x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
-    showToast(it.ico,it.label+' (boss drop)',it.col);
+    for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-40,40),y:e.y+srand(-40,40),r:4,xp:1,col:'#54e6b5'});
+    const it=ITEMS[Math.floor(srand(0,ITEMS.length))];     // guaranteed reward drop
+    items.push({id:++_iid,x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
+    Fx.toast(it.ico,it.label+' (boss drop)',it.col);
     return;
   }
   burst(e.x,e.y,e.col,e.type==='tank'?22:10,e.type==='tank'?5:4);
-  floatText(e.x,e.y,'+'+e.sc,e.col);shake=Math.min(shake+(e.type==='tank'?6:1.5),10);Sound.death();
+  floatText(e.x,e.y,'+'+e.sc,e.col);shake=Math.min(shake+(e.type==='tank'?6:1.5),10);Fx.sfx('death');
   if(player.lifesteal>0&&player.lsCd<=0&&player.hp<player.maxhp){
     player.hp=Math.min(player.maxhp,player.hp+player.lifesteal);player.lsCd=6;}   // capped to ~10 HP/s
-  for(let k=0;k<e.xp;k++)orbs.push({x:e.x+rand(-8,8),y:e.y+rand(-8,8),r:4,xp:1,col:'#54e6b5'});
+  for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-8,8),y:e.y+srand(-8,8),r:4,xp:1,col:'#54e6b5'});
 }
 
 /* ========== PICKUPS ========== */
@@ -1030,52 +1136,55 @@ const ITEMS=[
   {id:'magnet',ico:'🧲',col:'#54e6b5',label:'XP RUSH'},
   {id:'rage',ico:'🔥',col:'#d97757',label:'OVERDRIVE'},
 ];
-function spawnItem(){const t=ITEMS[Math.floor(rand(0,ITEMS.length))];
-  const ang=rand(0,6.283),d=rand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
+function spawnItem(){const t=ITEMS[Math.floor(srand(0,ITEMS.length))];
+  const ang=srand(0,6.283),d=srand(Math.min(W,H)*.35,Math.min(W,H)*.35+520);
   const x=clamp(player.x+Math.cos(ang)*d,90,WORLD.w-90),y=clamp(player.y+Math.sin(ang)*d,90,WORLD.h-90);
-  items.push({x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
-  showToast(t.ico,t.label,t.col);}
+  items.push({id:++_iid,x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
+  Fx.toast(t.ico,t.label,t.col);}
 function showToast(ico,label,col){const el=document.getElementById('toast');
   el.style.setProperty('--tc',col);el.style.color=col;
   el.innerHTML=`<span class="tico">${ico}</span><span>${label}<br><small>appeared on the map</small></span>`;
   el.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
 function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
-  if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Sound.tone(440,900,.25,'sine',.09);}
-  else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)damageEnemy(enemies[i],150,'#ffd95e');
-    shake=Math.min(shake+18,22);Sound.boom();burst(p.x,p.y,'#ffd95e',46,9);flashHit();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
-  else if(it.type==='magnet'){for(let i=orbs.length-1;i>=0;i--)gainXP(orbs[i].xp);orbs.length=0;
-    Sound.pickup();floatText(p.x,p.y-22,'XP RUSH','#54e6b5');}
-  else if(it.type==='rage'){p.rageT=540;Sound.tone(180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
+  if(typeof Ach!=='undefined')Ach.onPickup(wave);   // intent: ascetic (zero-pickup) tracking
+  if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Fx.sfx('tone',440,900,.25,'sine',.09);}
+  else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
+    shake=Math.min(shake+18,22);Fx.sfx('boom');burst(p.x,p.y,'#ffd95e',46,9);Fx.flash();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
+  else if(it.type==='magnet'){p.rushT=600;   // 10s of 2x XP (gainXP doubles while rushT>0)
+    for(let i=0;i<orbs.length;i++)orbs[i].homing=true;   // one-time pulse: flag current orbs to tractor in regardless of range (magnet stat untouched)
+    if(typeof _perf!=='undefined'&&_perf.on)console.log('[XP RUSH] pulse flagged',orbs.length,'orbs · rushT=',p.rushT);
+    Fx.sfx('pickup');floatText(p.x,p.y-22,'XP RUSH x2','#54e6b5');}
+  else if(it.type==='rage'){p.rageT=540;Fx.sfx('tone',180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
 }
 
 /* ========== WEAPON ARCHETYPES ========== */
-function fireMissiles(){
-  const count=Math.min(player.missile,5);
+function fireMissiles(p){p=p||player;
+  const count=Math.min(p.missile,5);
   EXCLUDE_SET.clear(); // Reused memory cache
   for(let i=0;i<count;i++){
-    let tgt=nearestTo(player,EXCLUDE_SET);
+    let tgt=nearestTo(p,EXCLUDE_SET);
     if(tgt)EXCLUDE_SET.add(tgt);
-    const a=rand(0,7);
-    missiles.push({x:player.x,y:player.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
-      spd:5.2,turn:.18,r:5,dmg:22+player.missile*7,target:tgt,life:140});}
-  Sound.tone(380,520,.12,'triangle',.05);
+    const a=srand(0,7);
+    missiles.push({x:p.x,y:p.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
+      spd:5.2,turn:.18,r:5,dmg:22+p.missile*7,target:tgt,life:140});}
+  Fx.sfx('tone',380,520,.12,'triangle',.05);
 }
 function explodeMissile(m){
-  const rad=72,radSq=rad*rad;burst(m.x,m.y,'#ffd95e',20,5);shake=Math.min(shake+5,12);Sound.boom();
+  const rad=72,radSq=rad*rad;burst(m.x,m.y,'#ffd95e',20,5);shake=Math.min(shake+5,12);Fx.sfx('boom');
   floatText(m.x,m.y,'💥','#ffd95e');
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];const dx=m.x-e.x,dy=m.y-e.y;
-    if((dx*dx+dy*dy)<radSq)damageEnemy(e,m.dmg,'#ffd95e');}
+    if((dx*dx+dy*dy)<radSq)hitEnemy(e,m.dmg,'#ffd95e');}
 }
 
-function castChain(){
-  let cur=nearestTo(player);if(!cur)return;
-  const jumps=2+player.chain,dmg=16+player.chain*6,reach=190,reachSq=reach*reach;
+function castChain(p){p=p||player;
+  let cur=nearestTo(p);if(!cur)return;
+  const jumps=2+p.chain,dmg=16+p.chain*6,reach=190,reachSq=reach*reach;
   CHAIN_SET.clear(); // Reused memory cache
-  let fromX=player.x,fromY=player.y;
+  let fromX=p.x,fromY=p.y;
   for(let j=0;j<jumps;j++){if(!cur)break;CHAIN_SET.add(cur);
     bolts.push({a:{x:fromX,y:fromY},b:{x:cur.x,y:cur.y},life:9});
-    damageEnemy(cur,dmg,'#7c8cff');burst(cur.x,cur.y,'#9db0ff',6,3);
+    hitEnemy(cur,dmg,'#7c8cff');burst(cur.x,cur.y,'#9db0ff',6,3);
     fromX=cur.x;fromY=cur.y;
     let nx=null,ndSq=reachSq;
     for(const e of enemies){
@@ -1084,7 +1193,7 @@ function castChain(){
       if(dSq<ndSq){ndSq=dSq;nx=e;}
     }
     cur=nx;}
-  Sound.zap();shake=Math.min(shake+2,8);
+  Fx.sfx('zap');shake=Math.min(shake+2,8);
 }
 
 /* ========== LEVEL MANAGEMENT ========== */
@@ -1110,10 +1219,12 @@ function applyUpgrade(id){const p=player;
   else if(id==='spd')p.speed*=1.12;
   else if(id==='maxhp'){p.maxhp+=30;p.hp=Math.min(p.maxhp,p.hp+30);}
   else if(id==='magnet'){p.magnet*=1.6;p.magnetSq=p.magnet*p.magnet;}
-  else if(id==='regen')p.regen+=1;
+  else if(id==='regen')p.regenRate+=1;
   else if(id==='velocity'){p.bulletSpd*=1.3;p.dmg*=1.08;}else if(id==='lifesteal')p.lifesteal+=1;
   else if(id==='missile')p.missile++;else if(id==='shield')p.shield++;else if(id==='chain')p.chain++;
-  Up[id]=(Up[id]||0)+1;renderLoadout();
+  Up[id]=(Up[id]||0)+1;Fx.loadout();
+  if(typeof Ach!=='undefined'){const isW=id==='missile'||id==='shield'||id==='chain';   // intent: starter-only / synergy / glass-cannon
+    Ach.onUpgrade(id,isW,wave,(p.missile>0)+(p.shield>0)+(p.chain>0));}
 }
 function renderLoadout(){
   const box=document.getElementById('loadout');box.innerHTML='';
@@ -1124,7 +1235,7 @@ function renderLoadout(){
 function openLevelUp(){
   state='levelup';needsDraw=true;
   const avail=UPGRADES.filter(u=>!(u.id==='rate'&&player.rate<=6));   // retire maxed Rapid Fire
-  const pool=avail.sort(()=>Math.random()-.5).slice(0,3);
+  const pool=avail.sort(()=>srng()-.5).slice(0,3);   // seedable → all peers are offered the SAME 3 upgrades
   const wrap=document.getElementById('cards');wrap.innerHTML='';
   pool.forEach(u=>{const el=document.createElement('div');el.className='upg';el.style.setProperty('--c',u.c);
     const owned=Up[u.id]||0;
@@ -1135,8 +1246,9 @@ function openLevelUp(){
     wrap.appendChild(el);});
   document.getElementById('levelup').classList.add('show');pauseStart=performance.now();
 }
-function gainXP(n){const p=player;p.xp+=n;
-  while(p.xp>=p.next){p.xp-=p.next;p.level++;p.next=Math.floor(p.next*1.32+3);pendingLevels++;}}
+function gainXP(n){const p=player;if(p.rushT>0)n*=2;p.xp+=n;const lv0=p.level;
+  while(p.xp>=p.next){p.xp-=p.next;p.level++;p.next=Math.floor(p.next*1.32+3);pendingLevels++;}
+  if(lv0===1&&p.level>1&&typeof Ach!=='undefined')Ach.onLevelUp(wave);}   // intent: objector (stay level 1) tracking
 
 ;
 /* NEON SURVIVOR — sim.js
@@ -1175,9 +1287,10 @@ function update(){
   if(p.inv>0)p.inv--;
   if(p.lsCd>0)p.lsCd--;
   p.near=nearestTo(p);                       // cache nearest enemy once per frame (used by fire + draw)
-  if(p.regen>0&&p.hp<p.maxhp){p.regenAcc+=p.regen/60;if(p.regenAcc>=1){p.hp=Math.min(p.maxhp,p.hp+1);p.regenAcc-=1;}}
+  if(p.regenRate>0&&p.hp<p.maxhp){p.regenAcc+=p.regenRate/60;if(p.regenAcc>=1){p.hp=Math.min(p.maxhp,p.hp+1);p.regenAcc-=1;}}
 
   if(p.rageT>0)p.rageT--;
+  if(p.rushT>0)p.rushT--;
   p.cool--;if(p.cool<=0){fire();p.cool=p.rageT>0?p.rate*.5:p.rate;}
   if(p.missile>0){p.missileCool--;if(p.missileCool<=0){fireMissiles();p.missileCool=Math.max(40,150-p.missile*14);}}
   if(p.chain>0){p.chainCool--;if(p.chainCool<=0){castChain();p.chainCool=Math.max(34,120-p.chain*12);}}
@@ -1188,18 +1301,20 @@ function update(){
       for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.scd>0)continue;   // live length: damageEnemy may splice
         const dx=e.x-ox,dy=e.y-oy,distHit=e.r+9;
         if((dx*dx+dy*dy)<(distHit*distHit)){
-          damageEnemy(e,sdmg,'#54e6b5');e.scd=16;burst(ox,oy,'#54e6b5',5,3);
-          if(now-lastPingSnd>50){Sound.ping();lastPingSnd=now;}}}}}
+          hitEnemy(e,sdmg,'#54e6b5');e.scd=16;burst(ox,oy,'#54e6b5',5,3);
+          if(now-lastPingSnd>50){Fx.sfx('ping');lastPingSnd=now;}}}}}
 
   const elapsed=(now-t0)/1000;
+  // Enemy spawning — fixed difficulty curve: interval tightens over time, batch size grows with elapsed minutes.
   spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1);
   if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)));
     for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
-  if(!bossOn&&elapsed>=nextBoss)spawnBoss();        // boss waves (first at 60s, then 50s after each kill)
+  if(!bossOn&&elapsed>=nextBoss)spawnBoss();   // boss waves (first at 60s)
 
   // Cargo Pickups Matrix Optimization
-  itemTimer--;if(itemTimer<=0){spawnItem();itemTimer=Math.floor(rand(1500,2100));}
-  for(let i=items.length-1;i>=0;i--){const it=items[i];it.life--;
+  itemTimer--;if(itemTimer<=0){spawnItem();itemTimer=Math.floor(srand(1500,2100));}
+  for(let i=items.length-1;i>=0;i--){const it=items[i];
+    it.life--;
     if(it.life<=0){items.splice(i,1);continue;}
     const dx=it.x-p.x,dy=it.y-p.y,pRadius=p.r+20;
     if((dx*dx+dy*dy)<(pRadius*pRadius)){pickItem(it);items.splice(i,1);}}
@@ -1210,7 +1325,7 @@ function update(){
     // live length: damageEnemy() may splice an enemy mid-scan (pierce), so don't cache the bound
     for(let j=0;j<enemies.length;j++){const e=enemies[j];
       const dx=b.x-e.x,dy=b.y-e.y,combR=e.r+b.r;
-      if((dx*dx+dy*dy)<(combR*combR)){damageEnemy(e,b.dmg,e.col);burst(b.x,b.y,e.col,4,3);
+      if((dx*dx+dy*dy)<(combR*combR)){hitEnemy(e,b.dmg,e.col);burst(b.x,b.y,e.col,4,3);
         if(b.pierce>0)b.pierce--;else bullets.splice(i,1);break;}}}
 
   // Torpedoes / Seeker Missiles Matrix Optimization
@@ -1235,16 +1350,21 @@ function update(){
     // chase via a normalized vector — avoids atan2+cos+sin (3 transcendentals) per enemy per frame
     const dxp=p.x-e.x,dyp=p.y-e.y,dp=Math.sqrt(dxp*dxp+dyp*dyp)||1,ux=dxp/dp,uy=dyp/dp;
     if(e.boss&&e.dashT>0){e.x+=e.dvx;e.y+=e.dvy;                 // mid-dash: charge along locked vector, skip chase + cadence
-      if(--e.dashT<=0){e.bossT=bossCD();e.atk=2;}}               // dash done → next up: AOE slam
+      if(--e.dashT<=0)bossNext(e);}                              // dash done → advance sequence
+    else if(e.boss&&e.spin>0){                                   // MAELSTROM spiral: rooted, spraying a rotating two-arm storm
+      for(let s=0;s<2;s++){const a=e.spinA+s*3.1416;
+        ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.spiralSpd,vy:Math.sin(a)*BOSS.spiralSpd,r:7,dmg:e.dmg*BOSS.projDmg,life:200});}
+      e.spinA+=BOSS.spiralRot;if(--e.spin<=0)bossNext(e);}        // storm done → advance sequence
     else{e.x+=ux*e.spd;e.y+=uy*e.spd;
       if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
         particles.push({x:e.px,y:e.py,vx:-ux*.3,vy:-uy*.3,r:rand(1.4,2.6),life:rand(10,18),col:'#ff9d2e'});
       if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}      // telegraph expired → dispatch attack[e.atk]
-        else if(--e.bossT<=0){e.tele=BOSS.teleT;Sound.ping();}}}  // cadence elapsed → start wind-up telegraph
+        else if(--e.bossT<=0){e.tele=BOSS.teleT;Fx.sfx('ping');}}}   // cadence elapsed → start wind-up telegraph
     // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger)
     if(p.inv<=0&&e.cdmg<=0){const combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;
       if(dp*dp<combR*combR){
-        p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);flashHit();Sound.hurt();
+        p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);Fx.flash();Fx.sfx('hurt');
+        if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff5fa2',14,5);e.x-=ux*12;e.y-=uy*12;
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
@@ -1252,25 +1372,27 @@ function update(){
   for(let i=ebullets.length-1;i>=0;i--){const b=ebullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
     if(b.life<=0){ebullets.splice(i,1);continue;}
     if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,rr=b.r+p.r;
-      if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);flashHit();Sound.hurt();
+      if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');
+        if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff3b6b',10,5);ebullets.splice(i,1);
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
-  // Energy Core / XP Orbs Tractor Pull Matrix Optimization
+  // Energy Core / XP Orbs Tractor Pull Matrix Optimization — magnet each orb toward the player; collect → XP.
   for(let i=orbs.length-1;i>=0;i--){const o=orbs[i];
     const dx=o.x-p.x,dy=o.y-p.y;const dSq=dx*dx+dy*dy;
-    if(dSq<p.magnetSq){
-      const d=Math.sqrt(dSq)||1,pull=clamp((p.magnet-d)/p.magnet*6,.6,6);
+    if(o.homing||dSq<p.magnetSq){   // homing orbs (XP Rush pulse) ignore magnet range; range stat itself is never mutated
+      const d=Math.sqrt(dSq)||1,pull=o.homing?Math.max(d*.25,6):clamp((p.magnet-d)/p.magnet*6,.6,6);
       o.x-=dx/d*pull;o.y-=dy/d*pull;}   // pull toward player without atan2/cos/sin
     const collectR=p.r+6;
-    if(dSq<(collectR*collectR)){orbs.splice(i,1);gainXP(o.xp);burst(o.x,o.y,'#54e6b5',5,2.5);Sound.pickup();}}
+    if(dSq<(collectR*collectR)){orbs.splice(i,1);gainXP(o.xp);
+      burst(o.x,o.y,'#54e6b5',5,2.5);Fx.sfx('pickup');}}
 
   for(let i=particles.length-1;i>=0;i--){const q=particles[i];q.x+=q.vx;q.y+=q.vy;q.vx*=.92;q.vy*=.92;q.life--;if(q.life<=0)particles.splice(i,1);}
   for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.y+=f.vy;f.life--;if(f.life<=0)floats.splice(i,1);}
   for(let i=bolts.length-1;i>=0;i--){if(--bolts[i].life<=0)bolts.splice(i,1);}
   if(shake>0)shake*=.85;
-  if(pendingLevels>0&&state==='play'){pendingLevels--;Sound.level();openLevelUp();}
-  updateHUD(elapsed);
+  if(pendingLevels>0&&state==='play'){pendingLevels--;Fx.sfx('level');Fx.levelUp();}
+  Fx.hud(elapsed);
 }
 
 ;
@@ -1300,15 +1422,6 @@ function draw(){
     if(st.x<icx||st.x>icx+W||st.y<icy||st.y>icy+H)continue;
     ctx.globalAlpha=st.alpha;ctx.fillStyle=st.col;ctx.fillRect(st.x,st.y,st.r,st.r);}
   ctx.globalAlpha=1;
-
-  // 2. --- STRUCTURAL ARENA ALIGNMENT GRID LINES ---
-  ctx.strokeStyle='rgba(124,140,255,.04)'; ctx.lineWidth=1; const g=64;
-  const x0=Math.floor(icx/g)*g, y0=Math.floor(icy/g)*g;
-  ctx.beginPath();
-  for(let x=x0; x<icx+W+g; x+=g){ ctx.moveTo(x,icy); ctx.lineTo(x,icy+H); }
-  for(let y=y0; y<icy+H+g; y+=g){ ctx.moveTo(icx,y); ctx.lineTo(icx+W,y); }
-  ctx.stroke();
-  ctx.globalAlpha = 1.0;
 
   // 3. --- SECTOR BORDER SAFETY MATRIX ---
   ctx.strokeStyle='rgba(124,140,255,.35)';ctx.lineWidth=3;ctx.shadowBlur=18;ctx.shadowColor='#7c8cff';
@@ -1363,22 +1476,33 @@ function draw(){
 
   // 9. Hostile Alien Vessels Swarms
   const eLen=enemies.length;
-  for(let i=0;i<eLen;i++){const e=enemies[i];const m=EMETA[e.type],spr=enemySprite(e.type,e.hit>0),ex=ix(e),ey=iy(e);
+  for(let i=0;i<eLen;i++){const e=enemies[i];const m=EMETA[e.type],spr=e.boss?bossSprite(e.bt,e.hit>0):enemySprite(e.type,e.hit>0),ex=ix(e),ey=iy(e);
     if(m.rot){ctx.save();ctx.translate(ex,ey);ctx.rotate(frame*m.rot);ctx.drawImage(spr,-spr.width/2,-spr.height/2);ctx.restore();}
     else ctx.drawImage(spr,ex-spr.width/2,ey-spr.height/2);
     if(e.type==='tank'){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(ex,ey,e.r+5,-1.57,-1.57+6.28*(e.hp/e.maxhp));ctx.stroke();}
-    if(e.boss&&e.tele>0){const tl=1-e.tele/BOSS.teleT;                  // attack wind-up telegraph, color/shape per attack
-      if(e.atk===1){const aa=Math.atan2(player.y-ey,player.x-ex),L=120+tl*170;   // dash: directional lunge line (amber)
+    if(e.boss&&e.tele>0){const tl=1-e.tele/BOSS.teleT,a=e.atk;          // attack wind-up telegraph, colour/shape per attack id
+      if(a===1){const aa=Math.atan2(player.y-ey,player.x-ex),L=120+tl*170;   // dash: directional lunge line (amber)
         ctx.strokeStyle='rgba(255,157,46,'+(.25+.55*tl)+')';ctx.lineWidth=3+5*tl;
         ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(aa)*L,ey+Math.sin(aa)*L);ctx.stroke();}
-      else if(e.atk===2){const R=e.r+12+tl*(BOSS.slamR-e.r-12);        // slam: growing ground ring (cyan)
+      else if(a===2){const R=e.r+12+tl*(BOSS.slamR-e.r-12);            // slam: growing ground ring (cyan)
         ctx.strokeStyle='rgba(96,224,255,'+(.25+.5*tl)+')';ctx.lineWidth=3+5*tl;
         ctx.beginPath();ctx.arc(ex,ey,R,0,7);ctx.stroke();}
-      else{ctx.strokeStyle='rgba(255,59,107,'+(.3+.5*tl)+')';ctx.lineWidth=3+4*tl;   // burst: pulsing red ring
+      else if(a===3){ctx.strokeStyle='rgba(56,224,255,'+(.3+.5*tl)+')';ctx.lineWidth=3;   // spiral: two winding-up arms (cyan)
+        for(let s=0;s<2;s++){const a0=frame*.2+s*3.1416;ctx.beginPath();ctx.arc(ex,ey,e.r+14+tl*26,a0,a0+1.4);ctx.stroke();}}
+      else if(a===4){const aa=Math.atan2(player.y-ey,player.x-ex);     // spread: aimed cone wedge (cyan)
+        ctx.strokeStyle='rgba(56,224,255,'+(.25+.5*tl)+')';ctx.lineWidth=2+3*tl;
+        for(let s=-1;s<2;s+=2){const ca=aa+s*BOSS.spreadArc*.5;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(ca)*150,ey+Math.sin(ca)*150);ctx.stroke();}}
+      else if(a===5){ctx.strokeStyle='rgba(177,75,255,'+(.3+.5*tl)+')';ctx.lineWidth=2.5;   // summon: drone warp-in markers (violet)
+        for(let k=0;k<BOSS.summonN;k++){const ka=k/BOSS.summonN*6.283;ctx.beginPath();ctx.arc(ex+Math.cos(ka)*72,ey+Math.sin(ka)*72,5+tl*5,0,7);ctx.stroke();}}
+      else if(a===6){ctx.strokeStyle='rgba(177,75,255,'+(.3+.5*tl)+')';ctx.lineWidth=3;      // blink: collapsing ring (violet)
+        ctx.beginPath();ctx.arc(ex,ey,e.r+30-tl*26,0,7);ctx.stroke();}
+      else{ctx.strokeStyle='rgba(255,59,107,'+(.3+.5*tl)+')';ctx.lineWidth=3+4*tl;          // burst: pulsing red ring
         ctx.beginPath();ctx.arc(ex,ey,e.r+10+tl*22,0,7);ctx.stroke();}}
     if(e.boss&&e.dashT>0){ctx.strokeStyle='rgba(255,157,46,.5)';ctx.lineWidth=4;     // dash motion streak
-      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-e.dvx*6,ey-e.dvy*6);ctx.stroke();}}
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-e.dvx*6,ey-e.dvy*6);ctx.stroke();}
+    if(e.boss&&e.spin>0){ctx.strokeStyle='rgba(56,224,255,.6)';ctx.lineWidth=3;      // spiral emitter arms
+      for(let s=0;s<2;s++){const a=e.spinA+s*3.1416;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(a)*34,ey+Math.sin(a)*34);ctx.stroke();}}}
 
   // 10. Exhaust Sparks & Explosive Debris Particles
   const pLen=particles.length;
@@ -1393,21 +1517,18 @@ function draw(){
     while(da>Math.PI)da-=6.283;while(da<-Math.PI)da+=6.283;p.angle+=da*.2;
     ctx.strokeStyle='rgba(255,217,94,.22)';ctx.lineWidth=1.5;ctx.setLineDash([4,6]);
     ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(ix(near)-ipx,iy(near)-ipy);ctx.stroke();ctx.setLineDash([]);}
-  ctx.strokeStyle='rgba(84,230,181,.07)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,p.magnet,0,7);ctx.stroke();
   const sp=Math.hypot(p.vx,p.vy);
   if(sp>.4){const ta=Math.atan2(p.vy,p.vx)+Math.PI;ctx.save();ctx.rotate(ta);
     const fl=9+sp*3+Math.sin(frame*.7)*3;ctx.shadowBlur=16;ctx.shadowColor='#ffb04f';
     const fg=ctx.createLinearGradient(p.r-2,0,p.r-2+fl+6,0);fg.addColorStop(0,'rgba(255,225,120,.95)');fg.addColorStop(1,'rgba(255,90,60,0)');
     ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(p.r-3,5);ctx.lineTo(p.r-3+fl+6,0);ctx.lineTo(p.r-3,-5);ctx.closePath();ctx.fill();ctx.restore();ctx.shadowBlur=0;}
-  ctx.save();ctx.rotate(frame*.02);ctx.strokeStyle=rage?'rgba(255,217,94,.6)':'rgba(124,140,255,.5)';
-  ctx.lineWidth=2;ctx.setLineDash([7,9]);ctx.beginPath();ctx.arc(0,0,p.r+7,0,7);ctx.stroke();ctx.setLineDash([]);ctx.restore();
-  ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
+  ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r,typeof Skins!=='undefined'?Skins.equipped():null);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
   const pr=3+Math.sin(frame*.15)*1.2;ctx.shadowBlur=14;ctx.shadowColor=rage?'#ffd95e':'#7c8cff';
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // 12. Deflector Energy Shield Matrices
-  if(p.shield>0){const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,ss=dotSprite('#54e6b5'),vr=11;
+  if(p.shield>0){const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,ss=dotSprite('#4ea8ff'),vr=12;   // cyan/blue — never confused with teal XP orbs
     for(let k=0;k<orbs;k++){const a=p.shieldAng+k/orbs*6.283;const ox=ipx+Math.cos(a)*rad,oy=ipy+Math.sin(a)*rad;
       ctx.drawImage(ss,ox-vr,oy-vr,vr*2,vr*2);}}
 
@@ -1440,11 +1561,11 @@ function draw(){
   // Boss health bar (screen space, top)
   let _boss=null;for(let i=0;i<enemies.length;i++){if(enemies[i].boss){_boss=enemies[i];break;}}
   if(_boss){
-    const bwid=Math.min(560,W*0.7),bx=(W-bwid)/2,by=58,bh=15;
-    ctx.fillStyle='rgba(8,9,16,.82)';ctx.strokeStyle='#ff3b6b';ctx.lineWidth=2;
+    const bwid=Math.min(560,W*0.7),bx=(W-bwid)/2,by=58,bh=15,bcol=_boss.col||'#ff3b6b';
+    ctx.fillStyle='rgba(8,9,16,.82)';ctx.strokeStyle=bcol;ctx.lineWidth=2;
     roundRect(bx,by,bwid,bh,7);ctx.fill();ctx.stroke();
     const bf=clamp(_boss.hp/_boss.maxhp,0,1);
-    ctx.fillStyle='#ff3b6b';ctx.shadowBlur=12;ctx.shadowColor='#ff3b6b';
+    ctx.fillStyle=bcol;ctx.shadowBlur=12;ctx.shadowColor=bcol;
     roundRect(bx+2,by+2,(bwid-4)*bf,bh-4,5);ctx.fill();ctx.shadowBlur=0;
     ctx.fillStyle='#fff';ctx.font='700 11px Inter,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('☠ '+_boss.name+'  ·  '+Math.ceil(_boss.hp)+' / '+Math.ceil(_boss.maxhp),W/2,by+bh+9);
@@ -1524,7 +1645,7 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;  
   if(k==='f3'){e.preventDefault();togglePerf();}   // dev FPS benchmark overlay
   if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();});
-addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+addEventListener('keyup',e=>{if(e.key)keys[e.key.toLowerCase()]=false;});   // guard e.key (undefined on autofill/IME keyups)
 /* floating virtual joystick — only on mobile; anchors at first touch, sim.js reads touch.{x,y,cx,cy} unchanged */
 const JOYR=46;   // visual nub clamp radius (sim deadzone stays at 8px)
 cv.addEventListener('touchstart',e=>{if(!IS_MOBILE)return;const t=e.touches[0];
@@ -1586,7 +1707,7 @@ function _bossLine(){
 // stat line: exactly the player fields the 14 upgrades mutate — watch an upgrade land in real time
 function _statLine(){const p=player;
   return `DMG ${p.dmg.toFixed(1)} · RATE ${p.rate.toFixed(0)}f (${(60/p.rate).toFixed(1)}/s) · MULTI ${p.multi} · PIERCE ${p.pierce} · SPD ${p.speed.toFixed(2)} · `
-    +`HP ${Math.ceil(p.hp)}/${p.maxhp} · MAG ${Math.round(p.magnet)} · REGEN ${p.regen} · LS ${p.lifesteal} · MSL ${p.missile} · SHLD ${p.shield} · CHN ${p.chain} · Lv${p.level}`;}
+    +`HP ${Math.ceil(p.hp)}/${p.maxhp} · MAG ${Math.round(p.magnet)} · REGEN ${p.regenRate} · RUSH ${p.rushT} · LS ${p.lifesteal} · MSL ${p.missile} · SHLD ${p.shield} · CHN ${p.chain} · Lv${p.level}`;}
 function perfFrame(ts){
   if(!_perf.on)return;
   if(_perf.last){const d=ts-_perf.last;_perf.sum+=d;if(d>_perf.worst)_perf.worst=d;_perf.n++;}
@@ -1609,10 +1730,12 @@ function loop(ts){now=ts;
     if(slowmo>0){slowmo-=dt;dt*=.35;}                  // boss-death slow-motion (real-time, frame-rate independent)
     acc+=dt;
     let n=0;
-    while(acc>=STEP&&n<MAXSUBSTEP&&state==='play'){update();acc-=STEP;n++;}   // update() may flip state (gameOver/levelup) → stop simulating at once
+    while(acc>=STEP&&n<MAXSUBSTEP&&state==='play'){                          // update() may flip state (gameOver/levelup) → stop simulating at once
+      update();
+      acc-=STEP;n++;}
     if(n===MAXSUBSTEP)acc=0;                           // drop unrecoverable backlog
     _perf.ticks=n;
-    alpha=acc/STEP;                                    // fractional tick → render interpolation factor
+    alpha=acc/STEP;                                    // fractional sim tick → render interpolation factor
     draw();
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
@@ -1620,30 +1743,38 @@ function loop(ts){now=ts;
   }
   perfFrame(ts);
   requestAnimationFrame(loop);}
-function startGame(){Sound.init();Sound.resume();Music.start();reset();state='play';
+function startGame(){
+  Sound.init();Sound.resume();Music.start();reset();state='play';
+  if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
-  document.getElementById('sound').classList.add('show');}
+  document.getElementById('sound').classList.add('show');
+  const mp=document.getElementById('mpause');if(mp)mp.hidden=false;}   // reveal touch-pause for the run (CSS gates it to mobile)
+function playAgain(){startGame();}
 function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   if(score>best){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
-  const run={score,secs:Math.floor(elapsed),wave,difficulty:DIFF.key};
+  const run={score,secs:Math.floor(elapsed),wave,kills,level:player.level,difficulty:DIFF.key};
   if(typeof reportRun==='function')reportRun(run);                          // concurrent submit+fetch + dynamic feedback
   else if(typeof submitScore==='function')submitScore(run);                 // fallback: bare submit if engine absent
+  if(typeof Ach!=='undefined'){Ach.reportRun(run);Ach.renderPanel();}        // fold run into achievements (optimistic + server-validated)
+  if(typeof Skins!=='undefined')Skins.renderGallery();                        // refresh the Skins panel (new skins may have unlocked)
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
   document.getElementById('hibest').textContent=score>=best?'★ NEW BEST!':'best: '+best;
   document.getElementById('over').classList.remove('hidden');}
+function syncPauseIcon(){const b=document.getElementById('mpause');if(b)b.textContent=state==='pause'?'▶':'⏸';}
 function togglePause(){
   if(state==='play'){state='pause';needsDraw=true;Music.stop();pauseStart=performance.now();showPause();}
   else if(state==='pause'){state='play';Music.start();t0+=performance.now()-pauseStart;
-    document.getElementById('pause').classList.add('hidden');}}
+    document.getElementById('pause').classList.add('hidden');}
+  syncPauseIcon();}
 function showPause(){
   const p=player,elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
   const dps=elapsed>0?(score/elapsed).toFixed(1):'0';
   const stats=[['⏱ '+m+':'+String(s).padStart(2,'0'),'survived'],[score,'score'],[kills,'kills'],
     [wave,'wave'],['Lv '+p.level,'level'],[Math.ceil(p.hp)+'/'+p.maxhp,'health'],
-    [enemies.length,'on screen'],[dps,'score / s'],[(p.lifesteal||p.regen?'on':'—'),'sustain']];
+    [enemies.length,'on screen'],[dps,'score / s'],[(p.lifesteal||p.regenRate?'on':'—'),'sustain']];
   document.getElementById('pausestats').innerHTML=stats.map(([v,l])=>`<div class="pstat"><b>${v}</b><span>${l}</span></div>`).join('');
   const owned=UPGRADES.filter(u=>Up[u.id]);
   document.getElementById('pausebuild').innerHTML=owned.length
@@ -1654,7 +1785,7 @@ function showPause(){
     ['🔱 Projectiles',p.multi],['➶ Pierce',p.pierce],
     ['➹ Bullet spd',p.bulletSpd.toFixed(1)],['🥾 Move spd',p.speed.toFixed(2)],
     ['❤️ Max HP',p.maxhp],['🧲 Magnet',Math.round(p.magnet)],
-    ['✚ Regen',p.regen+'/s'],['🩸 Lifesteal',p.lifesteal+'/kill']];
+    ['✚ Regen',p.regenRate+'/s'],['🩸 Lifesteal',p.lifesteal+'/kill']];
   if(p.missile)cs.push(['🚀 Missiles','Lv '+p.missile]);
   if(p.shield)cs.push(['🛡️ Shield','Lv '+p.shield]);
   if(p.chain)cs.push(['🌩️ Lightning','Lv '+p.chain]);
@@ -1687,50 +1818,57 @@ function renderLegends(){
 function fmtTime(sec){const m=Math.floor(sec/60),s=sec%60;return m+':'+String(s).padStart(2,'0');}
 /* ===== global leaderboard (Supabase via net.js) — tabbed by difficulty, top 10 each ===== */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let _gdiff='normal',_gcache={};       // _gcache: diff → rows|null (per-menu-open cache)
+let _gdiff='normal';       // visible tab; rows come from the shared leaderboardCache (leaderboard-sync.js)
 function renderGlobalRows(rows){
   const el=document.getElementById('global');if(!el)return;
   if(rows===null){el.innerHTML='<div class="empty">Global board offline.<br>Scores still save on this device.</div>';return;}
   if(!rows.length){el.innerHTML='<div class="empty">No runs yet.<br>Be the first!</div>';return;}
   el.innerHTML=rows.map((r,i)=>
     `<div class="lbrow"><span class="rank">${i+1}</span><span class="sc">${r.score}</span><span class="meta">${esc(r.username||'—')} · ${fmtTime(r.secs)}</span></div>`).join('');}
+function renderGlobalSkeleton(){const el=document.getElementById('global');if(!el)return;   // shimmer placeholder
+  el.innerHTML=Array.from({length:6},(_,i)=>`<div class="lbrow skel"><span class="rank">${i+1}</span><span class="sc"></span><span class="meta"></span></div>`).join('');}
+/* paint from the prefetched cache → instant when 'ready'; skeleton + background fetch otherwise */
 function renderGlobal(diff){_gdiff=diff;
-  if(_gcache[diff]!==undefined){renderGlobalRows(_gcache[diff]);return;}
-  const el=document.getElementById('global');if(el)el.innerHTML='<div class="empty">Loading…</div>';
-  if(typeof fetchTop!=='function'){renderGlobalRows(null);return;}
-  // only cache successful results — never cache null, so an early (pre-SDK) or failed fetch retries next time
-  fetchTop(diff).then(rows=>{if(rows!==null)_gcache[diff]=rows;if(_gdiff===diff)renderGlobalRows(rows);});}
-function onSupabaseReady(){_gcache={};renderGlobal(_gdiff);}   // net.js calls this once the SDK connects → refresh the visible tab
+  if(typeof LBSync==='undefined'){   // sync module absent (shouldn't happen) → legacy direct fetch
+    if(typeof fetchTop!=='function'){renderGlobalRows(null);return;}
+    renderGlobalSkeleton();fetchTop(diff).then(rows=>{if(_gdiff===diff)renderGlobalRows(rows);});return;}
+  const e=LBSync.get(diff);
+  if(e&&e.state==='ready'){renderGlobalRows(e.rows);return;}
+  if(e&&e.state==='error'){renderGlobalRows(null);return;}   // known-offline → message (retry via syncAll on menu open/SDK connect)
+  renderGlobalSkeleton();LBSync.ensure(diff);}                                    // loading/absent → resolves via onLeaderboardUpdate
+/* leaderboard-sync.js calls this when any difficulty's rows land → repaint only if it's the visible tab */
+function onLeaderboardUpdate(diff){if(diff===_gdiff)renderGlobal(diff);}
+function onSupabaseReady(){if(typeof LBSync!=='undefined')LBSync.syncAll(true);renderGlobal(_gdiff);   // SDK connected → re-warm every board
+  if(typeof AchSync!=='undefined'&&AchSync.enabled())AchSync.resolveSession();}   // …and resolve the auth session (restore identity + pull achievements)
 document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.remove('on'));b.classList.add('on');
   renderGlobal(b.dataset.d);});
 function syncGlobalTab(diff){document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.toggle('on',z.dataset.d===diff));}
 
-/* ===== first-run username onboarding (gates the menu; identity persists via net.js) ===== */
+/* ===== identity onboarding (gates the menu) — Supabase Auth when online, local name when not =====
+ * The "GRID ACCESS" modal: password is the primary login, a 6-digit OTP is the alternate login, and
+ * signup sets a password + confirms via an emailed code. 'editname'/'local' cover the local name. */
 function sanitizeName(s){return String(s||"").replace(/[\u0000-\u001f]/g,"").replace(/\s+/g," ").trim().slice(0,16);}
-function showUsername(edit){const m=document.getElementById('username');if(!m)return;
-  const inp=document.getElementById('uname'),err=document.getElementById('unameerr');
-  if(err)err.textContent='';
-  if(inp){const p=(typeof getPlayer==='function')&&getPlayer();inp.value=edit&&p?p.name:'';}
-  m.classList.remove('hidden');if(inp)try{inp.focus();}catch(e){}}
-function confirmUsername(){
-  const inp=document.getElementById('uname'),err=document.getElementById('unameerr');
-  const n=sanitizeName(inp&&inp.value);
-  if(n.length<3){if(err)err.textContent='Please use at least 3 characters.';return;}
-  if(typeof savePlayer==='function')savePlayer(n);
-  document.getElementById('username').classList.add('hidden');
-  document.getElementById('start').classList.remove('hidden');}
-function bootMenu(){   // first run → name modal before the menu; returning players go straight in
+/* The Grid Access modal UI (showAuth / confirmUsername) and the AchSync→UI hooks (onAuthResolved /
+ * onAuthRequired / onAuthOffline) live in js/auth-uplink.js — which self-wires its own buttons — kept
+ * out of main.js so this file stays under the 28 KB truncation line. sanitizeName + bootMenu stay here. */
+function bootMenu(){   // auth-gated when online/configured; otherwise legacy local name on first run
+  if(typeof AchSync!=='undefined'&&AchSync.enabled()){
+    // cover the screen with #boot while the Supabase SDK loads async — otherwise the bare HUD
+    // shows through the gap between hiding #start and the auth modal/menu appearing. onAuth* clears it.
+    document.getElementById('start').classList.add('hidden');
+    document.getElementById('boot').classList.remove('hidden');AchSync.boot();return;}
   if(typeof getPlayer==='function'&&!getPlayer()){
-    document.getElementById('start').classList.add('hidden');showUsername(false);}}
+    document.getElementById('start').classList.add('hidden');showAuth('local');}}
 
 function showMenu(){
   document.getElementById('over').classList.add('hidden');
   document.getElementById('pause').classList.add('hidden');
   document.getElementById('sound').classList.remove('show');
+  const mp=document.getElementById('mpause');if(mp)mp.hidden=true;   // re-stow touch-pause when leaving the run
   document.getElementById('start').classList.remove('hidden');
   _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
-  syncGlobalTab(_gdiff);_gcache={};renderGlobal(_gdiff);}   // clear cache → fresh fetch each menu open
+  syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);}   // re-warm stale boards; instant if fresh
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';Music.stop();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
@@ -1738,17 +1876,20 @@ function quitToMenu(){            // abandon the current run — all progress lo
   showMenu();}
 
 document.getElementById('startbtn').onclick=startGame;
-document.getElementById('againbtn').onclick=startGame;
+document.getElementById('againbtn').onclick=playAgain;
 document.getElementById('resumebtn').onclick=()=>{if(state==='pause')togglePause();};
 document.getElementById('quitbtn').onclick=()=>document.getElementById('quitconfirm').classList.add('show');
 document.getElementById('quitno').onclick=()=>document.getElementById('quitconfirm').classList.remove('show');
 document.getElementById('quityes').onclick=quitToMenu;
 document.getElementById('tomenu').onclick=showMenu;
-const _unameok=document.getElementById('unameok');if(_unameok)_unameok.onclick=confirmUsername;
-const _unameInput=document.getElementById('uname');if(_unameInput)_unameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmUsername();});
-const _editname=document.getElementById('editname');if(_editname)_editname.onclick=()=>showUsername(true);
+/* Grid Access modal buttons (unameok / authotp / authtoggle / editname + input Enter keys) self-wire in
+ * js/auth-uplink.js — see that file's _isBrowser block. Kept there so all auth UI lives in one place. */
 renderLegends();
-renderGlobal(_gdiff);   // prime the global board (resolves to offline/empty when unconfigured)
+if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
+if(typeof Skins!=='undefined')Skins.renderGallery();   // paint the separate Skins panel from the local mirror
+
+if(typeof LBSync!=='undefined')LBSync.syncAll();   // kick concurrent prefetch of all difficulty boards at startup
+renderGlobal(_gdiff);   // prime the visible tab (skeleton until rows land; offline/empty when unconfigured)
 bootMenu();             // first-run players get the username modal before the menu
 generateNebula();   // build the deep-space background tile once at startup
 requestAnimationFrame(loop);

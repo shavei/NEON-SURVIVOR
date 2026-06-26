@@ -78,22 +78,33 @@ function draw(){
 
   // 9. Hostile Alien Vessels Swarms
   const eLen=enemies.length;
-  for(let i=0;i<eLen;i++){const e=enemies[i];const m=EMETA[e.type],spr=enemySprite(e.type,e.hit>0),ex=ix(e),ey=iy(e);
+  for(let i=0;i<eLen;i++){const e=enemies[i];const m=EMETA[e.type],spr=e.boss?bossSprite(e.bt,e.hit>0):enemySprite(e.type,e.hit>0),ex=ix(e),ey=iy(e);
     if(m.rot){ctx.save();ctx.translate(ex,ey);ctx.rotate(frame*m.rot);ctx.drawImage(spr,-spr.width/2,-spr.height/2);ctx.restore();}
     else ctx.drawImage(spr,ex-spr.width/2,ey-spr.height/2);
     if(e.type==='tank'){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(ex,ey,e.r+5,-1.57,-1.57+6.28*(e.hp/e.maxhp));ctx.stroke();}
-    if(e.boss&&e.tele>0){const tl=1-e.tele/BOSS.teleT;                  // attack wind-up telegraph, color/shape per attack
-      if(e.atk===1){const aa=Math.atan2(player.y-ey,player.x-ex),L=120+tl*170;   // dash: directional lunge line (amber)
+    if(e.boss&&e.tele>0){const tl=1-e.tele/BOSS.teleT,a=e.atk;          // attack wind-up telegraph, colour/shape per attack id
+      if(a===1){const aa=Math.atan2(player.y-ey,player.x-ex),L=120+tl*170;   // dash: directional lunge line (amber)
         ctx.strokeStyle='rgba(255,157,46,'+(.25+.55*tl)+')';ctx.lineWidth=3+5*tl;
         ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(aa)*L,ey+Math.sin(aa)*L);ctx.stroke();}
-      else if(e.atk===2){const R=e.r+12+tl*(BOSS.slamR-e.r-12);        // slam: growing ground ring (cyan)
+      else if(a===2){const R=e.r+12+tl*(BOSS.slamR-e.r-12);            // slam: growing ground ring (cyan)
         ctx.strokeStyle='rgba(96,224,255,'+(.25+.5*tl)+')';ctx.lineWidth=3+5*tl;
         ctx.beginPath();ctx.arc(ex,ey,R,0,7);ctx.stroke();}
-      else{ctx.strokeStyle='rgba(255,59,107,'+(.3+.5*tl)+')';ctx.lineWidth=3+4*tl;   // burst: pulsing red ring
+      else if(a===3){ctx.strokeStyle='rgba(56,224,255,'+(.3+.5*tl)+')';ctx.lineWidth=3;   // spiral: two winding-up arms (cyan)
+        for(let s=0;s<2;s++){const a0=frame*.2+s*3.1416;ctx.beginPath();ctx.arc(ex,ey,e.r+14+tl*26,a0,a0+1.4);ctx.stroke();}}
+      else if(a===4){const aa=Math.atan2(player.y-ey,player.x-ex);     // spread: aimed cone wedge (cyan)
+        ctx.strokeStyle='rgba(56,224,255,'+(.25+.5*tl)+')';ctx.lineWidth=2+3*tl;
+        for(let s=-1;s<2;s+=2){const ca=aa+s*BOSS.spreadArc*.5;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(ca)*150,ey+Math.sin(ca)*150);ctx.stroke();}}
+      else if(a===5){ctx.strokeStyle='rgba(177,75,255,'+(.3+.5*tl)+')';ctx.lineWidth=2.5;   // summon: drone warp-in markers (violet)
+        for(let k=0;k<BOSS.summonN;k++){const ka=k/BOSS.summonN*6.283;ctx.beginPath();ctx.arc(ex+Math.cos(ka)*72,ey+Math.sin(ka)*72,5+tl*5,0,7);ctx.stroke();}}
+      else if(a===6){ctx.strokeStyle='rgba(177,75,255,'+(.3+.5*tl)+')';ctx.lineWidth=3;      // blink: collapsing ring (violet)
+        ctx.beginPath();ctx.arc(ex,ey,e.r+30-tl*26,0,7);ctx.stroke();}
+      else{ctx.strokeStyle='rgba(255,59,107,'+(.3+.5*tl)+')';ctx.lineWidth=3+4*tl;          // burst: pulsing red ring
         ctx.beginPath();ctx.arc(ex,ey,e.r+10+tl*22,0,7);ctx.stroke();}}
     if(e.boss&&e.dashT>0){ctx.strokeStyle='rgba(255,157,46,.5)';ctx.lineWidth=4;     // dash motion streak
-      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-e.dvx*6,ey-e.dvy*6);ctx.stroke();}}
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-e.dvx*6,ey-e.dvy*6);ctx.stroke();}
+    if(e.boss&&e.spin>0){ctx.strokeStyle='rgba(56,224,255,.6)';ctx.lineWidth=3;      // spiral emitter arms
+      for(let s=0;s<2;s++){const a=e.spinA+s*3.1416;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(a)*34,ey+Math.sin(a)*34);ctx.stroke();}}}
 
   // 10. Exhaust Sparks & Explosive Debris Particles
   const pLen=particles.length;
@@ -152,11 +163,11 @@ function draw(){
   // Boss health bar (screen space, top)
   let _boss=null;for(let i=0;i<enemies.length;i++){if(enemies[i].boss){_boss=enemies[i];break;}}
   if(_boss){
-    const bwid=Math.min(560,W*0.7),bx=(W-bwid)/2,by=58,bh=15;
-    ctx.fillStyle='rgba(8,9,16,.82)';ctx.strokeStyle='#ff3b6b';ctx.lineWidth=2;
+    const bwid=Math.min(560,W*0.7),bx=(W-bwid)/2,by=58,bh=15,bcol=_boss.col||'#ff3b6b';
+    ctx.fillStyle='rgba(8,9,16,.82)';ctx.strokeStyle=bcol;ctx.lineWidth=2;
     roundRect(bx,by,bwid,bh,7);ctx.fill();ctx.stroke();
     const bf=clamp(_boss.hp/_boss.maxhp,0,1);
-    ctx.fillStyle='#ff3b6b';ctx.shadowBlur=12;ctx.shadowColor='#ff3b6b';
+    ctx.fillStyle=bcol;ctx.shadowBlur=12;ctx.shadowColor=bcol;
     roundRect(bx+2,by+2,(bwid-4)*bf,bh-4,5);ctx.fill();ctx.shadowBlur=0;
     ctx.fillStyle='#fff';ctx.font='700 11px Inter,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('☠ '+_boss.name+'  ·  '+Math.ceil(_boss.hp)+' / '+Math.ceil(_boss.maxhp),W/2,by+bh+9);

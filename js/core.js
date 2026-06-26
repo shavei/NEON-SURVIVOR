@@ -33,6 +33,16 @@ function enemySprite(type,white){const k='e'+type+(white?'w':'');if(_spr[k])retu
   else{g.beginPath();for(let i=0;i<m.sides;i++){const a=i/m.sides*6.283,x=Math.cos(a)*m.r,y=Math.sin(a)*m.r;i?g.lineTo(x,y):g.moveTo(x,y);}g.closePath();g.fill();
     if(m.ring&&!white){g.shadowBlur=0;g.lineWidth=2;g.strokeStyle=m.ring;g.stroke();}}   // contrasting outline so threats read apart from teal XP orbs
   return _spr[k]=c;}
+// per-type boss sprite — each archetype gets its own colour + polygon (BOSSES[bt]) so the three read apart
+// at a glance. Baked once per (type,hit-flash); a dark core ring + white rim sells the heavy "boss" mass.
+function bossSprite(bt,white){const b=BOSSES[bt],k='boss'+bt+(white?'w':'');if(_spr[k])return _spr[k];
+  const r=46,pad=16,S=(r+pad)*2,c=document.createElement('canvas');c.width=c.height=S;
+  const g=c.getContext('2d');g.translate(S/2,S/2);g.shadowBlur=20;g.shadowColor=b.col;g.fillStyle=white?'#fff':b.col;
+  g.beginPath();for(let i=0;i<b.sides;i++){const a=i/b.sides*6.283-1.57,x=Math.cos(a)*r,y=Math.sin(a)*r;i?g.lineTo(x,y):g.moveTo(x,y);}g.closePath();g.fill();
+  g.shadowBlur=0;g.lineWidth=3;g.strokeStyle='rgba(255,255,255,.5)';g.stroke();
+  g.fillStyle='rgba(8,9,16,.55)';g.beginPath();g.arc(0,0,r*.46,0,7);g.fill();           // hollow core → menacing eye
+  g.strokeStyle=white?'#fff':b.col;g.lineWidth=2.5;g.stroke();
+  return _spr[k]=c;}
 // equipped-skin hull palettes (non-rage). Default = the stock orange hull; unknown ids fall back to it,
 // so cosmetics added later never break the avatar. rage is a temporary power state → always overrides to gold.
 const _SKIN_DEF={c0:'#37223f',c1:'#ff8a5e',shadow:'#d97757',stroke:'#ffd9c2'};
