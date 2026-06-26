@@ -155,9 +155,9 @@
   .gofeedback.missed{color:var(--pink)}
   .gofeedback.offline{color:var(--muted)}
 
-  #levelup{position:fixed;inset:0;z-index:25;display:none;flex-direction:column;align-items:center;justify-content:center;
+  #levelup,#map{position:fixed;inset:0;z-index:25;display:none;flex-direction:column;align-items:center;justify-content:center;
     background:radial-gradient(circle at 50% 40%,rgba(12,14,28,.82),rgba(5,6,12,.96));backdrop-filter:blur(6px);padding:24px}
-  #levelup.show{display:flex;animation:fade .25s}
+  #levelup.show,#map.show{display:flex;animation:fade .25s}
   @keyframes fade{from{opacity:0}}
   .luhead{font-size:clamp(1.6rem,5vw,2.6rem);font-weight:900;letter-spacing:-.03em;margin-bottom:6px}
   .lusub{color:var(--muted);font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:30px}
@@ -176,7 +176,16 @@
   .upg p{color:var(--muted);font-size:.92rem;line-height:1.45}
   .upg .lvl{position:absolute;top:18px;right:20px;font-family:var(--mono);font-size:11px;color:var(--muted)}
   .upg .new{position:absolute;top:16px;right:18px;font-family:var(--mono);font-size:10px;font-weight:700;color:#1a0f0a;background:var(--c);padding:3px 7px;border-radius:6px;letter-spacing:.1em}
+  /* synergy telegraph — flags a card that completes an evolution (the mastery hook) */
+  .upg .evo{position:absolute;top:16px;right:18px;font-family:var(--mono);font-size:10px;font-weight:700;color:#1a0f0a;background:#ffd95e;
+    padding:3px 7px;border-radius:6px;letter-spacing:.08em;box-shadow:0 0 14px #ffd95e;animation:evoglow 1s ease-in-out infinite}
+  @keyframes evoglow{0%,100%{box-shadow:0 0 8px #ffd95e}50%{box-shadow:0 0 20px #ffd95e}}
 
+  /* neon pulse overlay — full-screen color flash for reward triggers (evolutions, node rewards) */
+  #pulse{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:0;mix-blend-mode:screen;
+    background:radial-gradient(circle at 50% 50%,var(--pc,#54e6b5) 0%,transparent 70%)}
+  #pulse.go{animation:neonpulse .55s cubic-bezier(.2,.7,.3,1)}
+  @keyframes neonpulse{0%{opacity:0;transform:scale(1.04)}25%{opacity:.55}100%{opacity:0;transform:scale(1)}}
   #flash{position:fixed;inset:0;z-index:8;pointer-events:none;background:var(--pink);opacity:0;mix-blend-mode:screen}
   #sound{position:fixed;bottom:16px;right:18px;z-index:22;pointer-events:auto;cursor:pointer;
     font-family:var(--mono);font-size:12px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
@@ -279,7 +288,7 @@
     .cards{flex-direction:column;align-items:center}/* level-up cards stack vertically */
     .upg{width:100%;max-width:300px}
     /* tall menus must never trap content off-screen: let every full-screen overlay scroll */
-    .overlay,#levelup{justify-content:flex-start;overflow-y:auto;
+    .overlay,#levelup,#map{justify-content:flex-start;overflow-y:auto;
       padding-top:max(20px,env(safe-area-inset-top));padding-bottom:max(24px,env(safe-area-inset-bottom))}
   }
   @media(max-width:820px) and (orientation:landscape){

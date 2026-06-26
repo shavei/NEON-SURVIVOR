@@ -122,7 +122,7 @@ function loop(ts){now=ts;
     draw();
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
-    if((state==='levelup'||state==='pause')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position
+    if((state==='levelup'||state==='pause'||state==='map')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position
   }
   perfFrame(ts);
   requestAnimationFrame(loop);}
