@@ -66,16 +66,7 @@ const AchUI = {
       host.querySelectorAll('.ach-tab').forEach(b => b.onclick = () => { this.filter = b.dataset.cat; this.renderGallery(); });
   },
 
-  /* unlocked-cosmetics strip (gold-tier rewards) — empty until the first gold cap falls */
-  _showcaseHTML(cos) {
-    if (typeof COSMETICS === 'undefined' || !COSMETICS.length) return '';
-    const chips = COSMETICS.map(c => {
-      const owned = cos.indexOf(c.id) >= 0;
-      return `<div class="cos-chip${owned ? ' got' : ''}" title="${owned ? c.title + ' — unlocked' : 'Locked: ' + c.title}">` +
-             `<span class="cos-ico">${owned ? c.ico : '🔒'}</span><span>${owned ? c.title : '???'}</span></div>`;
-    }).join('');
-    return `<div class="ach-showcase"><div class="cos-title">🎨 COSMETICS — gold-tier rewards</div><div class="cos-row">${chips}</div></div>`;
-  },
+  _showcaseHTML() { return ''; },
 
   /* ----- non-pausing toasts (own #achtoast, FIFO so multi-unlocks stagger; pure CSS = no rAF stall) ----- */
   _q: [], _busy: false,

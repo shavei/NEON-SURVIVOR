@@ -3,7 +3,7 @@
  * Reuses the root palette (--ink/--muted/--gold/--mono) from style.css and matches the achievement-gallery look. */
 
 /* #skinlist shares the .achlist host override (block + own scroll region) from achievements.css */
-#skinlist{display:block;max-height:300px;overflow-y:auto;padding-right:4px}
+#skinlist{display:block;max-height:360px;overflow-y:auto;padding-right:4px}
 
 .skin-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .skin-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted)}
