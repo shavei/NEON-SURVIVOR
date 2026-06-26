@@ -39,5 +39,6 @@ Never push until **all three apply**:
 - Movement is **per-tick (1/60 s)**, not per-second — `+= v`, never `* dt`.
 - Anything that moves needs `px/py` snapshot + `ix()/iy()` lerp in `draw()`.
 - Collision loops use live `enemies.length` (killEnemy splices mid-scan).
-- Tune boss/difficulty in the `BOSS`/`DIFFS` config objects, not hot loops.
+- Tune boss/difficulty in the `BOSS`/`BOSSES`/`DIFFS` config objects, not hot loops.
+- 3 boss archetypes in `BOSSES` (config-sim.js), cycled by tier `(tier-1)%3`: **REVENANT** (crimson brawler — dash/slam), **MAELSTROM** (cyan zoner — rotating bullet-storm + aimed spread), **OVERSEER** (violet swarm-lord — summons drones + blink). Each boss has a looping `seq` of attack ids (0 burst·1 dash·2 slam·3 spiral·4 spread·5 summon·6 blink); `bossNext()` advances the sequence. Per-type sprite via `bossSprite(bt)`.
 - Edit by unique anchor string; keep the terse one-liner style.

@@ -24,9 +24,9 @@ const ACH_CATALOG = [
   { id:'wave_rider',    conds:[['wave',10]],      cat:'survival', difficulty:null, ico:'🌊', title:'Wave Rider',       desc:'Reach wave 10.',                       tier:'bronze', chain:'wave_depth' },
   { id:'wave_master',   conds:[['wave',20]],      cat:'survival', difficulty:null, ico:'🌀', title:'Wave Master',      desc:'Reach wave 20.',                       tier:'silver', chain:'wave_depth' },
   { id:'abyss_walker',  conds:[['wave',30]],      cat:'survival', difficulty:null, ico:'🕳️', title:'Abyss Walker',     desc:'Reach wave 30.',                       tier:'gold',   chain:'wave_depth' },
-  { id:'boss_slayer',   conds:[['bosses',1]],     cat:'boss',     difficulty:null, ico:'💀', title:'Boss Slayer',      desc:'Defeat your first Warden.',            tier:'bronze', chain:'boss_hunt' },
-  { id:'warden_hunter', conds:[['bosses',10]],    cat:'boss',     difficulty:null, ico:'☠️', title:'Warden Hunter',    desc:'Defeat 10 Wardens (lifetime).',        tier:'silver', chain:'boss_hunt' },
-  { id:'warden_legend', conds:[['bosses',50]],    cat:'boss',     difficulty:null, ico:'😇', title:'Warden Legend',    desc:'Defeat 50 Wardens (lifetime).',        tier:'gold',   chain:'boss_hunt' },
+  { id:'boss_slayer',   conds:[['bosses',1]],     cat:'boss',     difficulty:null, ico:'💀', title:'Boss Slayer',      desc:'Defeat your first boss.',              tier:'bronze', chain:'boss_hunt' },
+  { id:'warden_hunter', conds:[['bosses',10]],    cat:'boss',     difficulty:null, ico:'☠️', title:'Boss Hunter',      desc:'Defeat 10 bosses (lifetime).',         tier:'silver', chain:'boss_hunt' },
+  { id:'warden_legend', conds:[['bosses',50]],    cat:'boss',     difficulty:null, ico:'😇', title:'Apex Predator',    desc:'Defeat 50 bosses (lifetime).',         tier:'gold',   chain:'boss_hunt' },
   { id:'power_surge',   conds:[['level',10]],     cat:'survival', difficulty:null, ico:'⚡', title:'Power Surge',      desc:'Reach level 10 in a single run.',      tier:'bronze', chain:null },
   { id:'ascended',      conds:[['level',25]],     cat:'survival', difficulty:null, ico:'✨', title:'Ascended',         desc:'Reach level 25 in a single run.',      tier:'silver', chain:null },
   { id:'veteran',       conds:[['runs',10]],      cat:'survival', difficulty:null, ico:'🎖️', title:'Veteran',          desc:'Finish 10 runs (lifetime).',           tier:'bronze', chain:null },
@@ -35,7 +35,7 @@ const ACH_CATALOG = [
   // ---- skill (intent-based, cosmetic-only trust) ----
   { id:'ghost_grid',        conds:[['noHitWave',10]],                 cat:'skill',     difficulty:null, ico:'👻', title:'Ghost in the Grid', desc:'Reach wave 10 without taking a single hit.',        tier:'silver', chain:'flawless' },
   { id:'untouchable',       conds:[['noHitWave',20]],                 cat:'skill',     difficulty:null, ico:'🛸', title:'Untouchable',       desc:'Reach wave 20 without taking a single hit.',        tier:'gold',   chain:'flawless' },
-  { id:'flawless_protocol', conds:[['flawlessBoss',1]],               cat:'skill',     difficulty:null, ico:'🦾', title:'Flawless Protocol', desc:'Destroy a Warden without taking a hit in the fight.', tier:'gold',  chain:null },
+  { id:'flawless_protocol', conds:[['flawlessBoss',1]],               cat:'skill',     difficulty:null, ico:'🦾', title:'Flawless Protocol', desc:'Destroy a boss without taking a hit in the fight.', tier:'gold',  chain:null },
   { id:'factory_settings',  conds:[['starterWave',15]],               cat:'skill',     difficulty:null, ico:'🔧', title:'Factory Settings',  desc:'Reach wave 15 using only the starting gun.',        tier:'silver', chain:null },
   { id:'overclocked',       conds:[['peakWeapons',3],['wave',15]],    cat:'skill',     difficulty:null, ico:'🎛️', title:'Overclocked',       desc:'Wield all three weapons at once and reach wave 15.', tier:'silver', chain:null },
   { id:'second_wind',       conds:[['cameback',1]],                   cat:'skill',     difficulty:null, ico:'🫀', title:'Second Wind',       desc:'Survive into a new wave after dropping below 10% HP.', tier:'bronze',chain:null },
@@ -45,7 +45,7 @@ const ACH_CATALOG = [
   { id:'power_spike',       conds:[['level',10],['secs','<=',90]],    cat:'speed',     difficulty:null, ico:'📈', title:'Power Spike',       desc:'Reach level 10 within 90 seconds.',                 tier:'bronze', chain:null },
   { id:'ascendant_rush',    conds:[['level',20],['secs','<=',300]],   cat:'speed',     difficulty:null, ico:'🚄', title:'Ascendant Rush',    desc:'Reach level 20 within 5 minutes.',                  tier:'silver', chain:null },
   { id:'blitz',             conds:[['wave',10],['secs','<=',240]],    cat:'speed',     difficulty:null, ico:'⏱️', title:'Blitz',             desc:'Reach wave 10 within 4 minutes.',                   tier:'bronze', chain:null },
-  { id:'killer_instinct',   conds:[['bossKillSecs','<=',15]],         cat:'speed',     difficulty:null, ico:'🎯', title:'Killer Instinct',   desc:'Destroy a Warden within 15s of its spawn.',         tier:'silver', chain:null },
+  { id:'killer_instinct',   conds:[['bossKillSecs','<=',15]],         cat:'speed',     difficulty:null, ico:'🎯', title:'Killer Instinct',   desc:'Destroy a boss within 15s of its spawn.',           tier:'silver', chain:null },
   { id:'massacre_clock',    conds:[['kills',250],['secs','<=',180]],  cat:'speed',     difficulty:null, ico:'⏲️', title:'Massacre Clock',    desc:'Get 250 kills in the first 3 minutes.',             tier:'silver', chain:null },
 
   // ---- challenge / strategy divergence ----

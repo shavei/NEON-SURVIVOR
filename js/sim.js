@@ -100,7 +100,11 @@ function update(){
     // chase via a normalized vector — avoids atan2+cos+sin (3 transcendentals) per enemy per frame
     const dxp=p.x-e.x,dyp=p.y-e.y,dp=Math.sqrt(dxp*dxp+dyp*dyp)||1,ux=dxp/dp,uy=dyp/dp;
     if(e.boss&&e.dashT>0){e.x+=e.dvx;e.y+=e.dvy;                 // mid-dash: charge along locked vector, skip chase + cadence
-      if(--e.dashT<=0){e.bossT=bossCD();e.atk=2;}}               // dash done → next up: AOE slam
+      if(--e.dashT<=0)bossNext(e);}                              // dash done → advance sequence
+    else if(e.boss&&e.spin>0){                                   // MAELSTROM spiral: rooted, spraying a rotating two-arm storm
+      for(let s=0;s<2;s++){const a=e.spinA+s*3.1416;
+        ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.spiralSpd,vy:Math.sin(a)*BOSS.spiralSpd,r:7,dmg:e.dmg*BOSS.projDmg,life:200});}
+      e.spinA+=BOSS.spiralRot;if(--e.spin<=0)bossNext(e);}        // storm done → advance sequence
     else{e.x+=ux*e.spd;e.y+=uy*e.spd;
       if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
         particles.push({x:e.px,y:e.py,vx:-ux*.3,vy:-uy*.3,r:rand(1.4,2.6),life:rand(10,18),col:'#ff9d2e'});
