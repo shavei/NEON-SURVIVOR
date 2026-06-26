@@ -1,4 +1,4 @@
-/* NEON SURVIVOR — skins-ui.js : the Skins sub-tab of the Showcase panel + equip persistence.
+/* NEON SURVIVOR — skins-ui.js : the standalone Skins menu panel (#skinlist) + equip persistence.
  * Classic global `Skins`. Loads AFTER achievements-ui.js (reads COSMETICS + the Ach mirror) and net.js
  * (uses SB/getPlayer), BEFORE main.js. Headless/offline-safe: every DOM/localStorage/SB touch is guarded,
  * so verify.cjs loads it clean and offline play never throws.
@@ -107,26 +107,13 @@ const Skins = {
              foot + `</div>`;
   },
 
-  /* ----- mount: inject the Showcase sub-tab toggle + #skinlist beside #achlist (no index.html markup edit,
-   *       so this stays clear of the achievements panel other work may touch). AchUI only rewrites
-   *       #achlist's innerHTML, so the injected toggle + #skinlist survive its re-renders. ----- */
+  /* ----- mount: Skins is its own menu panel (#skinlist in index.html), fully separate from the
+   *       Achievements panel (#achlist). Just paint the gallery into it once on load; equip() and the
+   *       post-run renderGallery() hook keep it fresh. Headless-safe: bails if #skinlist is absent. ----- */
   _init() {
     if (typeof document === 'undefined') return;
-    const host = document.getElementById('achlist'); if (!host || document.getElementById('skinlist')) return;
-    const panel = host.parentNode; if (!panel || typeof document.createElement !== 'function') return;
-    const title = panel.querySelector && panel.querySelector('.mptitle'); if (title) title.textContent = '🏆 Showcase';
-    const bar = document.createElement('div'); bar.className = 'show-tabs';
-    bar.innerHTML = '<button class="show-tab on" data-show="ach">🏅 Achievements</button>' +
-                    '<button class="show-tab" data-show="skin">🎨 Skins</button>';
-    const skinHost = document.createElement('div'); skinHost.className = 'achlist'; skinHost.id = 'skinlist'; skinHost.style.display = 'none';
-    panel.insertBefore(bar, host); panel.insertBefore(skinHost, host.nextSibling);
-    bar.querySelectorAll('.show-tab').forEach(b => b.onclick = () => {
-      const sk = b.dataset.show === 'skin';
-      bar.querySelectorAll('.show-tab').forEach(x => x.classList.toggle('on', x === b));
-      host.style.display = sk ? 'none' : 'block';
-      skinHost.style.display = sk ? 'block' : 'none';
-      if (sk) Skins.renderGallery();
-    });
+    if (!document.getElementById('skinlist')) return;
+    this.renderGallery();
   },
 };
 

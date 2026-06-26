@@ -1,13 +1,6 @@
-/* NEON SURVIVOR — skins.css : the Skins sub-tab of the Showcase panel.
+/* NEON SURVIVOR — skins.css : the standalone Skins menu panel (#skinlist), separate from Achievements.
  * Loaded as a separate <link> after css/achievements.css so the core stylesheets stay modular.
  * Reuses the root palette (--ink/--muted/--gold/--mono) from style.css and matches the achievement-gallery look. */
-
-/* sub-tab toggle injected above #achlist (Achievements | Skins) — mirrors .ach-tabs */
-.show-tabs{display:flex;gap:6px;margin-bottom:8px}
-.show-tab{flex:1 1 auto;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;cursor:pointer;pointer-events:auto;
-  padding:6px 8px;border-radius:7px;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.12);transition:.15s}
-.show-tab:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
-.show-tab.on{color:#0b0c12;background:var(--gold);border-color:var(--gold)}
 
 /* #skinlist shares the .achlist host override (block + own scroll region) from achievements.css */
 #skinlist{display:block;max-height:300px;overflow-y:auto;padding-right:4px}

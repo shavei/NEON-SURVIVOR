@@ -141,6 +141,7 @@ function gameOver(){state='over';Music.die();
   if(typeof reportRun==='function')reportRun(run);                          // concurrent submit+fetch + dynamic feedback
   else if(typeof submitScore==='function')submitScore(run);                 // fallback: bare submit if engine absent
   if(typeof Ach!=='undefined'){Ach.reportRun(run);Ach.renderPanel();}        // fold run into achievements (optimistic + server-validated)
+  if(typeof Skins!=='undefined')Skins.renderGallery();                        // refresh the Skins panel (new skins may have unlocked)
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
   document.getElementById('hibest').textContent=score>=best?'★ NEW BEST!':'best: '+best;
@@ -268,6 +269,7 @@ document.getElementById('tomenu').onclick=showMenu;
  * js/auth-uplink.js — see that file's _isBrowser block. Kept there so all auth UI lives in one place. */
 renderLegends();
 if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
+if(typeof Skins!=='undefined')Skins.renderGallery();   // paint the separate Skins panel from the local mirror
 
 if(typeof LBSync!=='undefined')LBSync.syncAll();   // kick concurrent prefetch of all difficulty boards at startup
 renderGlobal(_gdiff);   // prime the visible tab (skeleton until rows land; offline/empty when unconfigured)
