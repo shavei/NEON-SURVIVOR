@@ -14,14 +14,17 @@ function draw(){
   ctx.translate(sx, sy); // Screen shake layer stays isolated
 
   // 1. --- DEEP-SPACE BACKDROP (one stretched image → solid, no tiling seams) ---
-  if (NEBULA_CANVAS) ctx.drawImage(NEBULA_CANVAS, 0, 0, W, H);
+  if (NEBULA_CANVAS) ctx.drawImage(NEBULA_CANVAS, 0, 0, W, H);   // screen-space, drawn BEFORE zoom so it always fills
 
+  // ZOOM: scale the world layer (mobile zoom-out). Backdrop above stays full-screen; HUD after restore stays 1:1.
+  ctx.scale(VIEW, VIEW);
+  const VW=W/VIEW, VH=H/VIEW;   // visible world span under zoom (== W,H when VIEW=1)
   // Shift camera vector down for active physics layers (vessels, projectiles, effects)
   ctx.translate(-icx, -icy);
 
   // 1b. --- PARALLAX STARFIELD (world-space, culled to viewport) ---
   for(let i=0;i<STAR_FIELD.length;i++){const st=STAR_FIELD[i];
-    if(st.x<icx||st.x>icx+W||st.y<icy||st.y>icy+H)continue;
+    if(st.x<icx||st.x>icx+VW||st.y<icy||st.y>icy+VH)continue;
     ctx.globalAlpha=st.alpha;ctx.fillStyle=st.col;ctx.fillRect(st.x,st.y,st.r,st.r);}
   ctx.globalAlpha=1;
 
@@ -155,7 +158,7 @@ function draw(){
   // 14. Off-Screen Cargo/Item Target HUD Nav-Arrows
   const mg=46;
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='13px sans-serif';
-  for(let i=0;i<itemLen;i++){const it=items[i];const sxp=it.x-icx,syp=it.y-icy;
+  for(let i=0;i<itemLen;i++){const it=items[i];const sxp=(it.x-icx)*VIEW,syp=(it.y-icy)*VIEW;   // world→screen px (zoom-aware)
     if(sxp>=mg&&sxp<=W-mg&&syp>=mg&&syp<=H-mg)continue;
     const ex=clamp(sxp,mg,W-mg),ey=clamp(syp,mg,H-mg);
     const ang=Math.atan2(syp-H/2,sxp-W/2);

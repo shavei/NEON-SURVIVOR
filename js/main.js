@@ -15,6 +15,7 @@ function applyDeviceMode(){                                              // coar
 _mqCoarse.addEventListener('change',applyDeviceMode);                    // live re-toggle on pointer-type change
 
 function resize(){W=innerWidth;H=innerHeight;applyDeviceMode();
+  VIEW=(_mqCoarse.matches&&_hasTouch)?0.78:1;                            // zoom out ~28%/axis on real TOUCH devices (finger-play); mouse/narrow-desktop stays 1:1
   DPR=Math.min(IS_MOBILE?1.5:2,devicePixelRatio||1);                    // cap fill-rate on mobile GPUs (1.5 vs retina 2)
   cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);needsDraw=true;}
 resize();addEventListener('resize',resize);
