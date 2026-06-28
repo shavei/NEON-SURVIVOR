@@ -270,9 +270,10 @@ function showMenu(){
   const mp=document.getElementById('mpause');if(mp)mp.hidden=true;   // re-stow touch-pause when leaving the run
   document.getElementById('start').classList.remove('hidden');
   _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
-  syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);}   // re-warm stale boards; instant if fresh
+  syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);   // re-warm stale boards; instant if fresh
+  if(typeof Music!=='undefined')Music.menu();}   // chill menu theme (audio must already be unlocked by a prior gesture)
 function quitToMenu(){            // abandon the current run — all progress lost
-  state='start';Music.stop();
+  state='start';   // showMenu() swaps to the chill menu theme
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   document.getElementById('quitconfirm').classList.remove('show');
   showMenu();}
@@ -293,5 +294,7 @@ if(typeof Skins!=='undefined')Skins.renderGallery();   // paint the separate Ski
 if(typeof LBSync!=='undefined')LBSync.syncAll();   // kick concurrent prefetch of all difficulty boards at startup
 renderGlobal(_gdiff);   // prime the visible tab (skeleton until rows land; offline/empty when unconfigured)
 bootMenu();             // first-run players get the username modal before the menu
+// browsers block autoplay until a gesture: on the first interaction, unlock audio + start the menu theme
+addEventListener('pointerdown',function _au(){ if(typeof Sound!=='undefined'){Sound.init();Sound.resume();} if(typeof Music!=='undefined'&&typeof state!=='undefined'&&state==='start')Music.menu(); },{once:true});
 generateNebula();   // build the deep-space background tile once at startup
 requestAnimationFrame(loop);

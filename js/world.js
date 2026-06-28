@@ -177,7 +177,7 @@ function spawnBoss(){
     type:'boss',boss:true,bt,seq:B.seq,si:0,bossT:BOSS.cdBase,tele:0,atk:B.seq[0],dashT:0,dvx:0,dvy:0,spin:0,spinA:0,name:B.name+' '+tier});
   bossOn=true;if(typeof Ach!=='undefined')Ach.onBossSpawn(elapsed);   // intent: snapshot damage + clock for flawless/fast-kill
   Fx.toast('💀','BOSS — '+B.name+' '+tier,B.col);
-  Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss');
+  Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss',bt);   // bt selects this archetype's epic theme
 }
 // cooldown till the next telegraph, tightening with tier
 function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-Math.floor((now-t0)/1000/60)*8);}
