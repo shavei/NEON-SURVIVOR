@@ -1,6 +1,6 @@
 /* NEON SURVIVOR — auth-uplink.js : the "GRID ACCESS" modal — one overlay, one stage machine, for the
  * whole identity flow. Classic global. Loads AFTER achievement-sync.js (drives AchSync's thin auth
- * wrappers + _adopt/pull) and BEFORE main.js (main only calls showAuth('local')/('editname') + bootMenu).
+ * wrappers + _adopt/pull) and BEFORE main.js (main only calls showAuth('local') + bootMenu).
  * Headless/offline-safe: every SB/DOM/storage touch is guarded, so verify*.cjs load it clean.
  *
  * Identity, the way the player experiences it:
@@ -13,7 +13,8 @@
  * Every successful path funnels through AchSync._adopt(user[,callsign]) → savePlayer(name,user.id) → pull,
  * so the SAME durable user_id keys leaderboards + achievements on every device, however you signed in. */
 
-/* stage: 'login' | 'signup' | 'signup-code' | 'otp-code' | 'editname' | 'local' | 'callsign' */
+/* stage: 'login' | 'signup' | 'signup-code' | 'otp-code' | 'local' | 'callsign'
+ * (callsigns are UNIQUE & set-once — see supabase/schema.sql — so there is no rename/'editname' stage) */
 let _stage = 'login';
 let _authEmail = '';          // address a code went to (kept so verify/resend don't re-read a changed field)
 let _pendingCallsign = '';    // callsign chosen on SIGNUP, applied when the signup code verifies
@@ -26,6 +27,26 @@ function _authReady() { try { return typeof AchSync !== 'undefined' && AchSync.e
 /* Login Debug Trace: opt-in (localStorage.neon_auth_debug=1) log of each state transition, so the
  * Email Sent → Code Verified → Profile Linked flow can be confirmed end-to-end without guessing. */
 function _trace(stage, detail) { try { if (typeof localStorage !== 'undefined' && localStorage.getItem('neon_auth_debug')) console.log('[UPLINK] ' + stage + (detail ? '  → ' + detail : '')); } catch (e) {} }
+
+/* callsign input border feedback: '' neutral · 'ok' green pulse (available) · 'taken' red pulse (claimed) */
+function _unameState(s) { const u = _el('uname'); if (!u || !u.classList) return; u.classList.remove('ok', 'taken'); if (s) u.classList.add(s); }
+/* debounced live availability check (250 ms). Only the cloud callsign stages query; a stale response
+ * (user kept typing) is dropped by token; an inconclusive/offline check leaves the border neutral. */
+let _ckTimer = 0, _ckToken = 0;
+function _checkCallsign() {
+  if (_stage !== 'signup' && _stage !== 'callsign') return;
+  try { clearTimeout(_ckTimer); } catch (e) {}
+  const raw = (_el('uname') || {}).value || '';
+  const n = (typeof sanitizeName === 'function') ? sanitizeName(raw) : raw.trim();
+  if (n.length < 3 || !_authReady() || typeof AchSync === 'undefined') { _unameState(''); return; }
+  const token = ++_ckToken;
+  _ckTimer = setTimeout(function () {
+    AchSync.callsignAvailable(n).then(function (r) {
+      if (token !== _ckToken) return;                              // a newer keystroke superseded this check
+      _unameState((r && r.ok) ? (r.available ? 'ok' : 'taken') : '');
+    });
+  }, 250);
+}
 
 /* ----- the stage renderer: one overlay, fields/labels swapped per stage ----- */
 function _render(stage) {
@@ -40,7 +61,6 @@ function _render(stage) {
     'signup':      ['CREATE ACCOUNT', 'Set a password, then confirm with the 6-digit code we email you.', '✔ CREATE ACCOUNT', null, 'Have an account? Sign in', { email: 1, pass: 1, uname: 1 }, 'authemail'],
     'signup-code': ['CONFIRM EMAIL', 'Enter the 6-digit code sent to ' + _authEmail + ' to finish creating your account.', '✔ CONFIRM & ENTER', '↻ Resend code', '← Back', { code: 1 }, 'authcode'],
     'otp-code':    ['GRID ACCESS', 'Enter the 6-digit access code sent via secure uplink to ' + _authEmail + '.', '✔ VERIFY CODE', '↻ Resend code', '← Use password', { code: 1 }, 'authcode'],
-    'editname':    ['EDIT NAME', 'How you show up on the global leaderboard. 3–16 characters.', '✔ SAVE', null, null, { uname: 1 }, 'uname'],
     'local':       ['PICK A CALLSIGN', 'How you show up on the global leaderboard. 3–16 characters.', '✔ CONFIRM', null, null, { uname: 1 }, 'uname'],
     'callsign':    ['CHOOSE CALLSIGN', 'Pick a callsign for the leaderboard. 3–16 characters.', '✔ ENTER THE GRID', null, null, { uname: 1 }, 'uname'],
   }[stage] || C_DEFAULT();
@@ -52,7 +72,7 @@ function _render(stage) {
   const otp = _el('authotp'); _setShown(otp, !!C[3]); if (otp && C[3]) { otp.textContent = C[3]; otp.disabled = false; }
   const toggle = _el('authtoggle'); _setShown(toggle, !!C[4]); if (toggle && C[4]) toggle.textContent = C[4];
   if (code && vis.code) code.value = '';                          // a fresh code stage always starts empty
-  if (uname && vis.uname) { const p = (typeof getPlayer === 'function') && getPlayer(); uname.value = (stage === 'editname' && p) ? p.name : ''; }
+  if (uname && vis.uname) { uname.value = ''; _unameState(''); }  // callsign is always typed fresh; clear any prior pulse
   m.classList.remove('hidden'); const s = _el('start'); if (s) s.classList.add('hidden');
   const f = _el(C[6]); if (f) try { f.focus(); } catch (e) {}
 }
@@ -76,12 +96,25 @@ function _finishAuth(r) {
 
 /* ----- the single OK handler — dispatches on _stage ----- */
 function confirmUsername() {
-  // local name stages (offline first-run, rename, post-OTP callsign): no cloud round-trip
-  if (_stage === 'editname' || _stage === 'local' || _stage === 'callsign') {
+  // callsign stages. 'local' = offline first-run (legacy uuid, no cloud, no uniqueness). 'callsign' =
+  // a signed-in user claiming their (unique, set-once) callsign — a cloud write that can come back TAKEN.
+  if (_stage === 'local' || _stage === 'callsign') {
     const n = (typeof sanitizeName === 'function') ? sanitizeName(_el('uname').value) : (_el('uname').value || '').trim();
     if (n.length < 3) { _seterr('Please use at least 3 characters.'); return; }
-    if ((_stage === 'editname' || _stage === 'callsign') && _authReady()) AchSync.updateName(n);
-    else if (typeof savePlayer === 'function') savePlayer(n);
+    if (_stage === 'callsign' && _authReady()) {
+      const id = ((typeof getPlayer === 'function' && getPlayer()) || {}).id;
+      const ok = _el('unameok'); if (ok) ok.disabled = true; _seterr('Claiming callsign…');
+      AchSync._setProfile(id, n).then(function (r) {
+        if (ok) ok.disabled = false;
+        if (r && r.taken) { _unameState('taken'); _seterr('CALLSIGN ALREADY CLAIMED'); return; }
+        if (!r || !r.ok) { _seterr('Couldn’t save the callsign — try again.'); return; }
+        if (typeof savePlayer === 'function') savePlayer(n, id);
+        _close(); if (typeof LBSync !== 'undefined') LBSync.syncAll();
+        _trace('profile-linked', 'callsign="' + n + '"');
+      }, function () { if (ok) ok.disabled = false; _seterr('Network error.'); });
+      return;
+    }
+    if (typeof savePlayer === 'function') savePlayer(n);
     _close(); if (typeof LBSync !== 'undefined') LBSync.syncAll();
     _trace('profile-linked', 'callsign="' + n + '"');
     return;
@@ -93,6 +126,8 @@ function confirmUsername() {
     _seterr('Verifying…'); const ok = _el('unameok'); if (ok) ok.disabled = true;
     const type = _stage === 'signup-code' ? 'signup' : 'email';
     AchSync.verifyCode(_authEmail, c, type, _stage === 'signup-code' ? _pendingCallsign : '').then(function (r) {
+      // session is live but the chosen callsign was claimed first → drop into the callsign stage to retry
+      if (r && r.taken) { _render('callsign'); _unameState('taken'); _seterr('CALLSIGN ALREADY CLAIMED'); return; }
       if (r && r.ok) _trace('code-verified', 'uid=' + (r.id || '').slice(0, 8) + ' (' + type + ')');
       _finishAuth(r);
     }, function () { _finishAuth({ ok: false, error: 'Network error.' }); });
@@ -113,7 +148,10 @@ function confirmUsername() {
       if (!r || !r.ok) { if (ok) ok.disabled = false; _seterr((r && r.error) || 'Sign-up failed.'); return; }
       _trace('signup-requested', email);
       if (r.hasSession) {                                        // email-confirm OFF → already signed in
-        AchSync._adopt(r.user, _pendingCallsign).then(_finishAuth, function () { _finishAuth({ ok: false, error: 'Network error.' }); });
+        AchSync._adopt(r.user, _pendingCallsign).then(function (a) {
+          if (a && a.taken) { _render('callsign'); _unameState('taken'); _seterr('CALLSIGN ALREADY CLAIMED'); return; }
+          _finishAuth(a);
+        }, function () { _finishAuth({ ok: false, error: 'Network error.' }); });
       } else { _seterr(''); _render('signup-code'); }            // the usual path: collect the emailed code
     }, function () { if (ok) ok.disabled = false; _seterr('Network error.'); });
     return;
@@ -172,8 +210,8 @@ if (typeof _isBrowser !== 'undefined' && _isBrowser) {
   const ok = _el('unameok'); if (ok) ok.onclick = confirmUsername;
   const otp = _el('authotp'); if (otp) otp.onclick = function () { if (_stage === 'login') _startOtpLogin(); else _resend(); };
   const toggle = _el('authtoggle'); if (toggle) toggle.onclick = _authToggle;
-  const edit = _el('editname'); if (edit) edit.onclick = function () { showAuth('editname'); };
   ['uname', 'authemail', 'authpass', 'authcode'].forEach(function (id) {
     const inp = _el(id); if (inp && inp.addEventListener) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') confirmUsername(); });
   });
+  const un = _el('uname'); if (un && un.addEventListener) un.addEventListener('input', _checkCallsign);   // live callsign availability
 }

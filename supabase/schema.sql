@@ -161,13 +161,34 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+-- UNIQUE CALLSIGN — one callsign per player, case-insensitive ("Neo" blocks "neo"). Partial index
+-- skips NULL/blank rows so a row can briefly exist before its name is set. The DB index is the real
+-- boundary; the live availability check (RPC below) is advisory UX only.
+create unique index if not exists profiles_username_unique
+  on public.profiles (lower(username))
+  where username is not null and username <> '';
+
 drop policy if exists "profiles readable"      on public.profiles;
 drop policy if exists "owner writes profile"    on public.profiles;
 drop policy if exists "owner updates profile"   on public.profiles;
--- world-readable (show anyone's name); each user may write/update only their OWN row (auth.uid() = id).
+drop policy if exists "owner sets callsign once" on public.profiles;
+-- world-readable (show anyone's name); each user may INSERT only their OWN row (auth.uid() = id).
 create policy "profiles readable"    on public.profiles for select using (true);
 create policy "owner writes profile" on public.profiles for insert with check (auth.uid() = id);
-create policy "owner updates profile" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
+-- SET-ONCE: a player may UPDATE their row ONLY while the callsign is still empty. Once set, the
+-- username column is frozen — there is no path for the client to rename (EDIT NAME is retired).
+create policy "owner sets callsign once" on public.profiles for update
+  using (auth.uid() = id and (username is null or username = ''))
+  with check (auth.uid() = id);
+
+-- AVAILABILITY RPC — returns ONLY a boolean, callable before a session exists (signup flow), so the
+-- table itself need not be queried for the live check. SECURITY DEFINER reads past RLS; the pinned
+-- search_path keeps it injection-safe.
+create or replace function public.callsign_available(name text)
+  returns boolean language sql security definer set search_path = public as $$
+  select not exists (select 1 from profiles where lower(username) = lower(name));
+$$;
+grant execute on function public.callsign_available(text) to anon, authenticated;
 
 -- NOTE (P3): once legacy player_achievements rows are re-keyed to auth ids by /api/claim.js, add an FK
 -- for integrity:  alter table public.player_achievements add constraint player_achievements_player_fk
