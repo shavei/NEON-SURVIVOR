@@ -15,12 +15,12 @@
 const Orchestra = {
   // ---- real-recording manifest: filenames fetch-music.sh writes into audio/orchestral/ (PD/CC0 only) ----
   JUKE: {
-    menu:  'audio/orchestral/menu.ogg',      // Debussy — Clair de Lune (calm)
-    play:  'audio/orchestral/gameplay.ogg',  // Mozart — Symphony No.40 i (urgent)
-    boss0: 'audio/orchestral/boss-revenant.ogg',   // Mozart — Requiem: Dies Irae
-    boss1: 'audio/orchestral/boss-maelstrom.ogg',  // Bach — Toccata & Fugue in D minor
+    menu:  'audio/orchestral/menu.ogg',            // Debussy — Clair de Lune (not yet supplied → procedural)
+    play:  'audio/orchestral/gameplay.mp3',        // Mozart — Symphony No.40 i (urgent)
+    boss0: 'audio/orchestral/boss-revenant.mp3',   // Mozart — Requiem: Dies Irae
+    boss1: 'audio/orchestral/boss-maelstrom.mp3',  // Bach — Toccata & Fugue in D minor
     boss2: 'audio/orchestral/boss-overseer.ogg',   // Mussorgsky — Night on Bald Mountain
-    over:  'audio/orchestral/gameover.ogg',  // Chopin — Marche funèbre (somber)
+    over:  'audio/orchestral/gameover.ogg',         // Chopin — Marche funèbre (somber)
   },
 
   // ---- procedural fallback bed: tracks = data. Aeolian beds; prog = chord tones, bass = root (MIDI) ----
