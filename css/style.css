@@ -129,14 +129,15 @@
     padding:7px 10px;border-radius:8px;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.12);transition:.15s}
   .gtab:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
   .gtab.on{color:#0b0c12;background:var(--gold);border-color:var(--gold)}
-  .editname{float:right;cursor:pointer;pointer-events:auto;background:none;border:1px solid rgba(255,255,255,.16);
-    color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:3px 8px;border-radius:7px;transition:.15s}
-  .editname:hover{color:var(--ink);border-color:rgba(255,255,255,.4)}
   /* username onboarding modal */
   .unamebox{margin-top:22px;width:min(92vw,360px);display:flex;flex-direction:column;align-items:center;gap:10px}
   .unamebox input{width:100%;font-family:var(--mono);font-size:18px;letter-spacing:.06em;text-align:center;color:var(--ink);
     background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:14px 16px;outline:none;transition:border-color .15s}
   .unamebox input:focus{border-color:var(--mint)}
+  /* live callsign availability: green = free, red pulse = already claimed (set by auth-uplink _unameState) */
+  .unamebox input.ok{border-color:var(--mint);box-shadow:0 0 0 1px var(--mint)}
+  .unamebox input.taken{border-color:var(--pink);box-shadow:0 0 0 1px var(--pink);animation:pulseBad .4s}
+  @keyframes pulseBad{0%,100%{box-shadow:0 0 0 1px var(--pink)}50%{box-shadow:0 0 0 4px rgba(255,95,162,.35)}}
   /* access-code field: arcade-styled, set apart from the name/email inputs — wide-tracked tabular glyphs
    * read as a "secure uplink" code; gold focus glow ties it to the menu's clay→gold action buttons. The
    * reveal anim replays each time _setShown un-hides it (display:none→'' restarts CSS animations). */

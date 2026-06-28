@@ -111,25 +111,38 @@ const AchSync = {
 
   signOut() { if (this.ready()) { try { return SB.auth.signOut(); } catch (e) {} } return Promise.resolve(); },
 
-  /* update the leaderboard display name for the signed-in user (profile + local mirror) */
-  updateName(name) {
-    const id = ((typeof getPlayer === 'function' && getPlayer()) || {}).id;
-    if (typeof savePlayer === 'function') savePlayer(name, id);
-    if (this.ready() && id) this._setProfile(id, name);
+  /* live availability check (debounced caller in auth-uplink.js). RPC returns ONLY a boolean; resolves
+   * {ok, available, error} and never rejects. Offline/headless → {ok:false} so the UI shows no class. */
+  callsignAvailable(name) {
+    if (!this.ready()) return Promise.resolve({ ok: false });
+    try {
+      return SB.rpc('callsign_available', { name: String(name || '') }).then(
+        function (res) { return (res && res.error) ? { ok: false, error: res.error.message } : { ok: true, available: !!res.data }; },
+        function () { return { ok: false }; });
+    } catch (e) { return Promise.resolve({ ok: false }); }
   },
 
   /* ---- internals ---- */
 
-  /* bind the auth user_id into neon_player (so every caller keys to it), then hydrate from the cloud */
+  /* bind the auth user_id into neon_player (so every caller keys to it), then hydrate from the cloud.
+   * `username` is present ONLY when a callsign is being claimed for the first time (signup) → we WRITE
+   * the profile and a 23505 (taken) here aborts adoption with {ok:false,taken:true}. A returning login
+   * passes no username → we READ the stored name and NEVER re-write it (the set-once policy would reject
+   * an update anyway). */
   _adopt(user, username) {
     const self = this;
-    const finish = function (name) {
+    const hydrate = function (name) {
       if (typeof savePlayer === 'function') savePlayer(name, user.id);   // canonical id = auth user_id
-      self._setProfile(user.id, name);   // ensure a profiles row exists for this user (idempotent, fire-and-forget)
       return self.pull(user.id).then(function () { return { ok: true, id: user.id, name: name }; });
     };
-    if (username) return finish(String(username).slice(0, 16));
-    return this._profileName(user).then(finish);
+    if (username) {
+      const name = String(username).slice(0, 16);
+      return this._setProfile(user.id, name).then(function (r) {
+        if (r && r.taken) return { ok: false, taken: true, error: 'CALLSIGN ALREADY CLAIMED' };
+        return hydrate(name);
+      });
+    }
+    return this._profileName(user).then(hydrate);
   },
 
   /* prefer the stored profile name; fall back to the email local-part for first-time/legacy users */
@@ -142,10 +155,15 @@ const AchSync = {
     } catch (e) { return Promise.resolve(fallback); }
   },
 
+  /* write the player's claimed callsign. Resolves {ok} on success, {taken:true} when the unique index
+   * rejects a duplicate (Postgres 23505), {ok:false} on any other failure. Offline/headless → {ok:false}. */
   _setProfile(id, username) {
-    if (!this.ready()) return Promise.resolve();
-    try { return SB.from('profiles').upsert({ id: id, username: String(username || '').slice(0, 16) }).then(function () {}, function () {}); }
-    catch (e) { return Promise.resolve(); }
+    if (!this.ready()) return Promise.resolve({ ok: false });
+    try {
+      return SB.from('profiles').upsert({ id: id, username: String(username || '').slice(0, 16) }).then(
+        function (res) { return (res && res.error) ? { ok: false, taken: res.error.code === '23505', error: res.error.message } : { ok: true }; },
+        function () { return { ok: false }; });
+    } catch (e) { return Promise.resolve({ ok: false }); }
   },
 
   /* INITIAL FETCH: read the server-granted unlocks for this id and reconcile into the local mirror so
