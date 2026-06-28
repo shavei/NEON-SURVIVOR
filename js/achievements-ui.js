@@ -90,6 +90,9 @@ const AchUI = {
     const tier = (d.tier || 'bronze').toUpperCase(), accent = { BRONZE:'#d9875a', SILVER:'#cfd6e6', GOLD:'#ffd95e' }[tier] || '#ffd95e';
     this._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>ACHIEVEMENT UNLOCKED</b>` +
                `<span>${d.title} · ${tier}</span></div>`, accent, tier === 'GOLD');
+    // grant hook: the instant is_unlocked flips true, fan out the reward (toast + user_inventory insert).
+    // The local mirror is already written by Ach._grantRewards; this is the cloud-facing side effect.
+    if (typeof RewardEngine !== 'undefined' && RewardEngine.onUnlock) RewardEngine.onUnlock(id);
   },
   cosmeticToast(cid) {
     if (typeof COSMETICS === 'undefined') return;
@@ -157,7 +160,7 @@ const AchDebug = {
       peakWeapons:0, bossKillSecs:9999, cameback:0, unlockedPct:0 };
     const full = Object.assign(base, stats || {});
     const s = Ach._load(), earned = Ach.evaluate(full), fresh = earned.filter(id => s.unlocked.indexOf(id) < 0);
-    if (fresh.length) { s.unlocked = s.unlocked.concat(fresh); Ach._grantCosmetics(s, fresh); Ach._notify(fresh); Ach._save(s); }
+    if (fresh.length) { s.unlocked = s.unlocked.concat(fresh); Ach._grantCosmetics(s, fresh); Ach._grantRewards(s, fresh); Ach._notify(fresh); Ach._save(s); }
     if (typeof Ach.renderPanel === 'function') Ach.renderPanel();
     return { earned, fresh };
   },

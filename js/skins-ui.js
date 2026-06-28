@@ -18,7 +18,8 @@ const Skins = {
   _cloudOff: false,    // profiles.equipped_skin_id column / table absent → stop poking the cloud
 
   /* ----- data (all read-only from the achievements side) ----- */
-  skinDefs() { return (typeof COSMETICS !== 'undefined' ? COSMETICS : []).filter(c => c.kind === 'skin'); },
+  skinDefs() { const base = (typeof COSMETICS !== 'undefined' ? COSMETICS : []).filter(c => c.kind === 'skin');
+               return (typeof RewardEngine !== 'undefined' && RewardEngine.skinDefs) ? RewardEngine.skinDefs(base) : base; },
   _def(id) { return this.skinDefs().find(c => c.id === id); },
   _owned() {
     try { return (typeof Ach !== 'undefined' ? (Ach._load().cosmetics || []) : []); } catch (e) { return []; }

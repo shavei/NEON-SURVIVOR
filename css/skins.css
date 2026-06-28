@@ -2,8 +2,31 @@
  * Loaded as a separate <link> after css/achievements.css so the core stylesheets stay modular.
  * Reuses the root palette (--ink/--muted/--gold/--mono) from style.css and matches the achievement-gallery look. */
 
-/* #skinlist shares the .achlist host override (block + own scroll region) from achievements.css */
-#skinlist{display:block;max-height:360px;overflow-y:auto;padding-right:4px}
+/* #skinlist / #tracklist share the .achlist host override (block + own scroll region) from achievements.css */
+#skinlist,#tracklist{display:block;max-height:360px;overflow-y:auto;padding-right:4px}
+
+/* ===== showcase tab toggle (Skins | Soundtrack) ===== */
+.showcase-tabs{display:flex;gap:6px;margin-bottom:10px}
+.showcase-tab{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;cursor:pointer;
+  padding:5px 12px;border-radius:7px;color:var(--muted);background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.14);transition:.15s}
+.showcase-tab:hover{color:var(--ink);border-color:var(--gold)}
+.showcase-tab.on{color:#0b0c12;background:var(--gold);border-color:var(--gold)}
+.sc-pane.sc-off{display:none!important}   /* id rule sets display:block — !important wins the toggle */
+
+/* ===== soundtrack tab: CSS-Grid of orchestral tracks (reuses .skin-card-head/-body + skinNeonPulse) ===== */
+.track-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.track-card{--skin-accent:#b98cff;position:relative;display:flex;flex-direction:column;gap:8px;padding:11px 12px;border-radius:12px;
+  background:rgba(12,10,22,.6);border:1px solid var(--skin-accent);transition:opacity .2s,box-shadow .25s,border-color .25s}
+.track-card.owned{opacity:1;box-shadow:0 0 10px -2px var(--skin-accent)}
+.track-card.locked{opacity:.5;border-color:rgba(255,255,255,.18);border-style:dashed}
+.track-card.equipped{opacity:1;animation:skinNeonPulse 1.6s ease-in-out infinite}
+.track-btns{display:flex;gap:6px}
+.track-btn{flex:1;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.04em;cursor:pointer;pointer-events:auto;
+  padding:6px 0;border-radius:7px;color:var(--skin-accent);background:rgba(255,255,255,.04);border:1px solid var(--skin-accent);transition:.15s}
+.track-btn:hover{color:#0b0c12;background:var(--skin-accent);box-shadow:0 0 12px -2px var(--skin-accent)}
+.track-badge{flex:1;font-family:var(--mono);font-size:9.5px;font-weight:800;letter-spacing:.06em;text-align:center;
+  padding:6px 0;border-radius:7px;color:#0b0c12;background:var(--skin-accent)}
 
 .skin-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .skin-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted)}

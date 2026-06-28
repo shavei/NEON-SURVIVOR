@@ -23,7 +23,7 @@ g.setInterval = () => 1; g.clearInterval = () => {}; g.setTimeout = () => 1; g.c
 g.performance = { now: () => 0 }; g.devicePixelRatio = 1; g.innerWidth = 800; g.innerHeight = 600;
 g.AudioContext = function () { return any; }; g.webkitAudioContext = g.AudioContext; g.matchMedia = () => ({ matches: false, addEventListener() {} });
 
-try { eval(script + ';globalThis.Ach=Ach;globalThis.COSMETIC_MAP=COSMETIC_MAP;globalThis.COSMETICS=COSMETICS;'); }
+try { eval(script + ';globalThis.Ach=Ach;globalThis.COSMETIC_MAP=COSMETIC_MAP;globalThis.COSMETICS=COSMETICS;globalThis.REWARD_MAP=REWARD_MAP;'); }
 catch (e) { console.error('LOAD ERROR:', e.message); process.exit(1); }
 const server = require(path.join(ROOT, 'api/verify.js'));
 const Ach = g.Ach;
@@ -125,5 +125,36 @@ ok(norm(server.cosmeticsFor(['annihilator', 'first_blood'])) === 'crimson_husk',
 const golds = {}; Ach.CATALOG.forEach(d => { if (d.chain && d.tier === 'gold') golds[d.chain] = (golds[d.chain] || 0) + 1; });
 Object.keys(golds).forEach(ch => ok(golds[ch] === 1, 'chain ' + ch + ' has one gold cap'));
 
-console.log(fail ? ('\nACHIEVEMENTS — ' + fail + ' FAILED') : '\nACHIEVEMENTS — ALL PASS (' + Ach.CATALOG.length + ' defs · ' + COS.length + ' cosmetics)');
+// 7) REWARD_MAP: every achievement drops a unique reward; client/server lockstep; gold ids stay consistent
+//    with COSMETIC_MAP/COSMETICS so the legacy gold path and the new superset never diverge.
+const RM = g.REWARD_MAP, sRM = server.REWARD_MAP;
+ok(!!RM && !!sRM, 'REWARD_MAP present (client + server)');
+if (RM && sRM) {
+  // 7a) every catalog id has a reward, kinds valid, reward ids unique
+  const rseen = {};
+  Ach.CATALOG.forEach(d => {
+    const r = RM[d.id];
+    ok(!!r, 'reward exists for achievement: ' + d.id);
+    if (r) {
+      ok(['skin', 'trail', 'music'].includes(r.kind), 'valid reward kind for ' + d.id);
+      ok(!rseen[r.id], 'unique reward id ' + r.id + ' (' + d.id + ')'); rseen[r.id] = 1;
+      if (r.kind === 'music') ok(['menu', 'play', 'boss0', 'boss1', 'boss2', 'over'].includes(r.src), 'valid music src for ' + d.id);
+    }
+  });
+  // 7b) no orphan reward keys (every REWARD_MAP key is a real achievement)
+  Object.keys(RM).forEach(id => ok(!!byId[id], 'reward key maps to a real achievement: ' + id));
+  // 7c) client === server on the grant-relevant {kind,id,src} projection (UI meta title/ico ignored)
+  const normReward = m => JSON.stringify(Object.keys(m).sort().map(k => ({ a: k, kind: m[k].kind, id: m[k].id, src: m[k].src || null })));
+  ok(normReward(RM) === normReward(sRM), 'client and server REWARD_MAP identical');
+  // 7d) the 8 gold cosmetics stay consistent across COSMETIC_MAP ↔ REWARD_MAP ↔ COSMETICS
+  Object.keys(C).forEach(id => {
+    ok(RM[id] && RM[id].id === C[id], 'gold reward id matches COSMETIC_MAP for ' + id);
+    const cdef = COS.find(c => c.id === C[id]);
+    ok(RM[id] && cdef && RM[id].kind === cdef.kind, 'gold reward kind matches COSMETICS for ' + id);
+  });
+  // 7e) server rewardsFor returns owner-keyable rows for any earned id set
+  ok(JSON.stringify(server.rewardsFor(['wave_master'])) === JSON.stringify([{ reward_id: 'maelstrom_waltz', kind: 'music' }]), 'rewardsFor returns {reward_id,kind} rows');
+}
+
+console.log(fail ? ('\nACHIEVEMENTS — ' + fail + ' FAILED') : '\nACHIEVEMENTS — ALL PASS (' + Ach.CATALOG.length + ' defs · ' + COS.length + ' cosmetics · ' + Object.keys(RM || {}).length + ' rewards)');
 process.exit(fail ? 1 : 0);
