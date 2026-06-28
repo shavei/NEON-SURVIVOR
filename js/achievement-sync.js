@@ -165,6 +165,7 @@ const AchSync = {
         Ach._save(s);
         if (typeof Ach.renderPanel === 'function') Ach.renderPanel();
         self.pullCosmetics(id);                                       // …and reconcile the gold-tier rewards
+        if (typeof RewardEngine !== 'undefined' && RewardEngine.pullInventory) RewardEngine.pullInventory(id);   // …and the full reward inventory (skins/trails/tracks)
       }, function () {});
     } catch (e) { return Promise.resolve(); }
   },

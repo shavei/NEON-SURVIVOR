@@ -77,6 +77,54 @@ function cosmeticsFor(ids) {
   return ids.map(id => COSMETIC_MAP[id]).filter(Boolean);
 }
 
+/* every achievement id → its unique reward (skin/trail/music). The superset of COSMETIC_MAP: the 8 gold
+ * ids reuse their cosmetic id byte-for-byte; the rest add the non-gold + music rewards. Drives the unified
+ * user_inventory table. MUST stay in lockstep with REWARD_MAP in js/reward-granting-engine.js —
+ * verify-achievements.cjs cross-checks the {kind,id,src} projection. */
+const REWARD_MAP = {
+  first_blood:       { kind:'trail', id:'first_blood_spark' },
+  swarm_breaker:     { kind:'trail', id:'swarm_pulse' },
+  one_man_army:      { kind:'skin',  id:'legionnaire' },
+  annihilator:       { kind:'skin',  id:'crimson_husk' },
+  high_scorer:       { kind:'trail', id:'scorch_trail' },
+  score_legend:      { kind:'skin',  id:'regent' },
+  neon_god:          { kind:'trail', id:'neon_god_trail' },
+  wave_rider:        { kind:'music', id:'tide_overture',       src:'play'  },
+  wave_master:       { kind:'music', id:'maelstrom_waltz',     src:'boss1' },
+  abyss_walker:      { kind:'skin',  id:'void_warden' },
+  power_surge:       { kind:'trail', id:'surge_arc' },
+  ascended:          { kind:'trail', id:'ascension_wake' },
+  veteran:           { kind:'music', id:'veterans_march',      src:'over'  },
+  hardcore:          { kind:'skin',  id:'cinder_frame' },
+  boss_slayer:       { kind:'trail', id:'slayer_mark' },
+  warden_hunter:     { kind:'music', id:'requiem_hunt',        src:'boss0' },
+  warden_legend:     { kind:'trail', id:'warden_halo' },
+  ghost_grid:        { kind:'trail', id:'ghost_streak' },
+  untouchable:       { kind:'trail', id:'phase_trail' },
+  flawless_protocol: { kind:'skin',  id:'wardens_bane' },
+  factory_settings:  { kind:'trail', id:'factory_line' },
+  overclocked:       { kind:'music', id:'overclock_toccata',   src:'boss1' },
+  second_wind:       { kind:'trail', id:'second_wind_gust' },
+  glass_cannon:      { kind:'skin',  id:'prism_shard' },
+  power_spike:       { kind:'trail', id:'spike_trail' },
+  ascendant_rush:    { kind:'music', id:'ascendant_theme',     src:'play'  },
+  blitz:             { kind:'trail', id:'blitz_streak' },
+  killer_instinct:   { kind:'skin',  id:'predator' },
+  massacre_clock:    { kind:'music', id:'clockwork_dies_irae', src:'boss0' },
+  objector:          { kind:'trail', id:'objector_halo' },
+  pacifist_protocol: { kind:'trail', id:'dove_halo' },
+  minimalist:        { kind:'skin',  id:'monoline' },
+  ascetic:           { kind:'music', id:'ascetic_nocturne',    src:'menu'  },
+  any_percent:       { kind:'trail', id:'any_percent_blip' },
+  leet:              { kind:'skin',  id:'leet_chrome' },
+  completionist:     { kind:'skin',  id:'prism_core' },
+};
+
+/* pure: inventory rows ({reward_id,kind}) unlocked by a set of earned achievement ids (all tiers) */
+function rewardsFor(ids) {
+  return ids.map(id => REWARD_MAP[id]).filter(Boolean).map(r => ({ reward_id: r.id, kind: r.kind }));
+}
+
 /* pure: a cond is [metric,value] (op '>=') or [metric,op,value], op ∈ '>='|'<='|'=='. ALL conds + the
  * difficulty gate must hold. Byte-identical projection to Ach._meets in js/achievements.js. */
 function meets(stats, conds, difficulty) {
@@ -205,6 +253,13 @@ module.exports = async function handler(req, res) {
         method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
         body: JSON.stringify(cos.map(cid => ({ player_id: b.player_id, cosmetic_id: cid }))),
       });
+      // unified reward inventory (skins/trails/tracks, all tiers). Best-effort: a missing user_inventory
+      // table must NOT fail the authoritative player_achievements grant above, so swallow its error.
+      const rewards = rewardsFor(ids);
+      if (rewards.length) { try { await sb('user_inventory', {
+        method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+        body: JSON.stringify(rewards.map(r => ({ player_id: b.player_id, reward_id: r.reward_id, kind: r.kind }))),
+      }); } catch (e) {} }
       return cos;
     };
     const earned = evaluate(claim);
@@ -246,3 +301,5 @@ module.exports.validateRun = validateRun;
 module.exports.RATE = RATE;
 module.exports.COSMETIC_MAP = COSMETIC_MAP;
 module.exports.cosmeticsFor = cosmeticsFor;
+module.exports.REWARD_MAP = REWARD_MAP;
+module.exports.rewardsFor = rewardsFor;

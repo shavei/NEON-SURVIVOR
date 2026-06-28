@@ -77,6 +77,7 @@ const Orchestra = {
   _warm() { ['menu', 'play', 'over'].forEach(k => this._track(k)); },   // preload the common tracks
   _playReal(key) {                               // crossfade to a real track; false ⇒ unavailable (use procedural)
     if (!this._g || !this._jukeOK()) return false;
+    key = this._resolve(key);                    // a player-equipped Soundtrack track overrides the gameplay theme
     const rec = this._track(key); if (!rec || rec.bad) return false;
     const ac = Sound.ac;
     for (const k in this._jk) { const r = this._jk[k]; if (!r.gain) continue; const on = k === key;
@@ -87,6 +88,29 @@ const Orchestra = {
     this._real = key; this._realActive = true; return true;
   },
   _stopReal() { for (const k in this._jk) { const r = this._jk[k]; if (r.gain) try { r.gain.gain.value = 0; } catch (e) {} try { r.a.pause(); } catch (e) {} } this._real = null; this._realActive = false; },
+
+  // a player-equipped Soundtrack reward (RewardEngine) re-points the gameplay 'play' theme at its JUKE key.
+  // Boss / menu / gameover keep their own tracks. No reward / unknown src ⇒ the requested key, unchanged.
+  _resolve(key) {
+    if (key !== 'play' || typeof RewardEngine === 'undefined' || !RewardEngine.equippedMusic) return key;
+    const eq = RewardEngine.equippedMusic();
+    const m = eq && RewardEngine.musicDefs && RewardEngine.musicDefs().find(d => d.id === eq);
+    return (m && m.src && this.JUKE[m.src]) ? m.src : key;
+  },
+
+  // one-shot ~8 s track audition for the Soundtrack tab's ▶ Preview — a standalone <audio>, deliberately
+  // OUTSIDE the state-machine graph so it can't disturb the live mix. Single instance; headless no-ops.
+  previewTrack(key) {
+    if (typeof Audio === 'undefined') return;
+    const url = this.JUKE[key]; if (!url) return;
+    try {
+      this.stopPreview();
+      const a = new Audio(); a.src = url; a.volume = 0.6; this._prev = a;
+      const p = a.play(); if (p && p.catch) p.catch(() => {});
+      this._prevT = setTimeout(() => this.stopPreview(), 9000);
+    } catch (e) {}
+  },
+  stopPreview() { try { if (this._prevT) { clearTimeout(this._prevT); this._prevT = null; } if (this._prev) { this._prev.pause(); this._prev = null; } } catch (e) {} },
 
   // ---------- AUDIO GRAPH: section gains + sting bus + juke gains → lowpass filter → bus → Sound.master ----------
   _build() {
@@ -232,6 +256,8 @@ const Music = {
   exitBoss()    { Orchestra.exitBoss(); },
   stingLevelUp(){ Orchestra.stingLevelUp(); },
   stingSynergy(){ Orchestra.stingSynergy(); },
+  preview(key)  { Orchestra.previewTrack(key); },   // Soundtrack tab ▶ Preview
+  stopPreview() { Orchestra.stopPreview(); },
   audioTrace()  { return Orchestra.audioTrace(); },
   get bossMode() { return Orchestra.bossMode; },
   set bossMode(v) { Orchestra.bossMode = v; if (!v && !Orchestra._g) Orchestra.active = 'ambient'; },

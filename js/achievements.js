@@ -104,8 +104,8 @@ const Ach = {
   /* mirror shape: { unlocked:[ids], cosmetics:[ids], life:{kills,bosses,runs,bestKills,bestScore,bestWave,bestLevel} }.
    * bestKills/best* feed the gallery progress bars (per-metric best-known value); life.kills/bosses/runs are cumulative. */
   _load() {
-    try { const r = localStorage.getItem(this._key()) || localStorage.getItem('neon_ach'); if (r) { const s = JSON.parse(r); if (!s.cosmetics) s.cosmetics = []; if (s.life && s.life.bestKills == null) s.life.bestKills = 0; if (s.life && !s.life.best) s.life.best = {}; return s; } } catch (e) {}
-    return { unlocked: [], cosmetics: [], life: { kills:0, bosses:0, runs:0, bestKills:0, bestScore:0, bestWave:0, bestLevel:0, best:{} } };
+    try { const r = localStorage.getItem(this._key()) || localStorage.getItem('neon_ach'); if (r) { const s = JSON.parse(r); if (!s.cosmetics) s.cosmetics = []; if (!s.tracks) s.tracks = []; if (s.life && s.life.bestKills == null) s.life.bestKills = 0; if (s.life && !s.life.best) s.life.best = {}; return s; } } catch (e) {}
+    return { unlocked: [], cosmetics: [], tracks: [], life: { kills:0, bosses:0, runs:0, bestKills:0, bestScore:0, bestWave:0, bestLevel:0, best:{} } };
   },
   _save(s) { try { localStorage.setItem(this._key(), JSON.stringify(s)); } catch (e) {} },
 
@@ -196,14 +196,14 @@ const Ach = {
       .forEach(m => { life.best[m] = Math.max(life.best[m] || 0, stats[m] || 0); });
 
     let earned = this.evaluate(stats), fresh = earned.filter(id => s.unlocked.indexOf(id) < 0);
-    if (fresh.length) { s.unlocked = s.unlocked.concat(fresh); this._grantCosmetics(s, fresh); this._notify(fresh); }
+    if (fresh.length) { s.unlocked = s.unlocked.concat(fresh); this._grantCosmetics(s, fresh); this._grantRewards(s, fresh); this._notify(fresh); }
 
     // 2nd pass: the meta "completionist" depends on how many OTHER achievements are now owned
     const others = this.CATALOG.filter(d => d.id !== 'completionist').length;
     const owned  = s.unlocked.filter(id => id !== 'completionist').length;
     stats.unlockedPct = others ? Math.floor(owned / others * 100) : 0;
     const meta = this.evaluate(stats).filter(id => s.unlocked.indexOf(id) < 0);
-    if (meta.length) { s.unlocked = s.unlocked.concat(meta); this._grantCosmetics(s, meta); this._notify(meta); fresh = fresh.concat(meta); }
+    if (meta.length) { s.unlocked = s.unlocked.concat(meta); this._grantCosmetics(s, meta); this._grantRewards(s, meta); this._notify(meta); fresh = fresh.concat(meta); }
     this._save(s);
 
     this._submit(entry, stats);     // authoritative grant (no-op offline/headless)
@@ -218,6 +218,20 @@ const Ach = {
       const cid = COSMETIC_MAP[id]; if (!cid || s.cosmetics.indexOf(cid) >= 0) return;
       s.cosmetics.push(cid);
       if (typeof AchUI !== 'undefined' && AchUI.cosmeticToast) AchUI.cosmeticToast(cid);
+    });
+  },
+
+  /* drop EVERY earned achievement's reward (skin/trail/music) into the local mirror — the superset of the
+   * gold-only _grantCosmetics above. Skins/trails land in s.cosmetics, music tracks in s.tracks. Operates on
+   * the SAME `s` the caller will _save, so the optimistic grant persists. Toasts + the user_inventory insert
+   * are fired separately by RewardEngine.onUnlock (the AchUI.unlockToast hook). No-op if REWARD_MAP absent. */
+  _grantRewards(s, ids) {
+    if (typeof REWARD_MAP === 'undefined') return;
+    if (!s.tracks) s.tracks = [];
+    ids.forEach(id => {
+      const r = REWARD_MAP[id]; if (!r) return;
+      const arr = r.kind === 'music' ? s.tracks : s.cosmetics;
+      if (arr.indexOf(r.id) < 0) arr.push(r.id);
     });
   },
 
@@ -269,7 +283,7 @@ const Ach = {
   mockGrant(id) {
     const d = this.CATALOG.find(x => x.id === id); if (!d) return false;
     const s = this._load();
-    if (s.unlocked.indexOf(id) < 0) { s.unlocked.push(id); this._grantCosmetics(s, [id]); this._notify([id]); }
+    if (s.unlocked.indexOf(id) < 0) { s.unlocked.push(id); this._grantCosmetics(s, [id]); this._grantRewards(s, [id]); this._notify([id]); }
     this._save(s);
     if (typeof AchUI !== 'undefined' && AchUI.renderGallery) AchUI.renderGallery(); else this.renderPanel();
     return true;

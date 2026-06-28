@@ -49,6 +49,13 @@ const _SKIN_DEF={c0:'#37223f',c1:'#ff8a5e',shadow:'#d97757',stroke:'#ffd9c2'};
 const SKIN_PALETTE={
   crimson_husk:{c0:'#3a0f16',c1:'#ff3b4e',shadow:'#ff3b6b',stroke:'#ffd2d8'},
   void_warden :{c0:'#1d0f3a',c1:'#9a5cff',shadow:'#9a5cff',stroke:'#e6d2ff'},
+  legionnaire :{c0:'#3a1c06',c1:'#ff9d3b',shadow:'#ff8a3b',stroke:'#ffe4c2'},
+  regent      :{c0:'#3a2f06',c1:'#ffd24a',shadow:'#ffd95e',stroke:'#fff0c2'},
+  cinder_frame:{c0:'#2a1010',c1:'#ff6a4a',shadow:'#ff7a5e',stroke:'#ffd2c2'},
+  prism_shard :{c0:'#0f2a3a',c1:'#4ad6ff',shadow:'#54e6ff',stroke:'#c2f0ff'},
+  predator    :{c0:'#0f3a1c',c1:'#4aff9d',shadow:'#54e6b5',stroke:'#c2ffd9'},
+  monoline    :{c0:'#22242c',c1:'#cfd6e6',shadow:'#cfd6e6',stroke:'#ffffff'},
+  leet_chrome :{c0:'#1a1c22',c1:'#8ad0ff',shadow:'#9ad0ff',stroke:'#e6f2ff'},
 };
 // player hull baked once per (rage,r,skin) — gradient + shadow are expensive; the hull is static
 function shipSprite(rage,r,skin){const pal=(!rage&&skin&&SKIN_PALETTE[skin])||_SKIN_DEF;
