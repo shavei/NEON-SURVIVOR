@@ -140,7 +140,7 @@ if (RM && sRM) {
     if (r) {
       ok(['skin', 'trail', 'music', 'palette'].includes(r.kind), 'valid reward kind for ' + d.id);
       ok(!rseen[r.id], 'unique reward id ' + r.id + ' (' + d.id + ')'); rseen[r.id] = 1;
-      if (r.kind === 'music') ok(['menu', 'play', 'boss0', 'boss1', 'boss2', 'over'].includes(r.src), 'valid music src for ' + d.id);
+      if (r.kind === 'music') ok(['menu', 'play', 'boss0', 'boss1', 'boss2', 'over', 'jazz', 'pop', 'rock', 'rap'].includes(r.src), 'valid music src for ' + d.id);
     }
   });
   // 7b) no orphan reward keys (every REWARD_MAP key is a real achievement)
