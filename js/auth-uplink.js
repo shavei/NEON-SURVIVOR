@@ -30,10 +30,22 @@ function _trace(stage, detail) { try { if (typeof localStorage !== 'undefined' &
 
 /* callsign input border feedback: '' neutral · 'ok' green pulse (available) · 'taken' red pulse (claimed) */
 function _unameState(s) { const u = _el('uname'); if (!u || !u.classList) return; u.classList.remove('ok', 'taken'); if (s) u.classList.add(s); }
-/* cross-language censorship gate (js/callsign-filter.js). Fires the red `taken` pulse + 'CALLSIGN
- * RESTRICTED' BEFORE any cloud write, so a flagged callsign never reaches Supabase. Filter absent → allow. */
+/* cross-language censorship gate (js/callsign-filter.js). Fires the red/orange alarm pulse + 'SYSTEM ACCESS
+ * DENIED' BEFORE any cloud write, so a flagged callsign never reaches Supabase. Filter absent → allow. */
 function _restricted(n) { try { return typeof CallsignFilter !== 'undefined' && CallsignFilter.blocked(n); } catch (e) { return false; } }
-function _flagRestricted() { _unameState('taken'); _seterr('CALLSIGN RESTRICTED'); }
+/* hardened denial: red 'taken' border pulse + an inline RED/ORANGE alarm glow (no CSS-file touch), and the
+ * unambiguous lockout message. The glow self-clears after ~900 ms so the field returns to neutral. */
+let _rsTimer = 0;
+function _flagRestricted() {
+  _unameState('taken');
+  const u = _el('uname');
+  if (u && u.style) {
+    u.style.boxShadow = '0 0 14px 2px #ff7a18, 0 0 6px 1px #ff2d2d inset';
+    try { clearTimeout(_rsTimer); } catch (e) {}
+    _rsTimer = setTimeout(function () { if (u && u.style) u.style.boxShadow = ''; }, 900);
+  }
+  _seterr('SYSTEM ACCESS DENIED: RESTRICTED CALLSIGN');
+}
 /* debounced live availability check (250 ms). Only the cloud callsign stages query; a stale response
  * (user kept typing) is dropped by token; an inconclusive/offline check leaves the border neutral. */
 let _ckTimer = 0, _ckToken = 0;
