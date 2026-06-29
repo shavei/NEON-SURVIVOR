@@ -59,8 +59,9 @@ function update(){
 
   const elapsed=(now-t0)/1000;
   // Enemy spawning — fixed difficulty curve: interval tightens over time, batch size grows with elapsed minutes.
-  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1);
-  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)));
+  if(breatherT>0)breatherT--;const breath=breatherT>0?5:1;   // post-boss breather: 0.2× spawn rate ⇒ 5× interval
+  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1)*breath;
+  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)*(breatherT>0?0.2:1)));
     for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
   if(!bossOn&&elapsed>=nextBoss)spawnBoss();   // boss waves (first at 60s)
 
@@ -74,12 +75,12 @@ function update(){
 
   // Plasma Railgun Bolts Matrix Optimization
   for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
-    if(b.life<=0||b.x<-20||b.x>WORLD.w+20||b.y<-20||b.y>WORLD.h+20){bullets.splice(i,1);continue;}
+    if(b.life<=0||b.x<-20||b.x>WORLD.w+20||b.y<-20||b.y>WORLD.h+20){poolRelease('bullets',b);bullets.splice(i,1);continue;}
     // live length: damageEnemy() may splice an enemy mid-scan (pierce), so don't cache the bound
     for(let j=0;j<enemies.length;j++){const e=enemies[j];
       const dx=b.x-e.x,dy=b.y-e.y,combR=e.r+b.r;
       if((dx*dx+dy*dy)<(combR*combR)){hitEnemy(e,b.dmg,e.col);burst(b.x,b.y,e.col,4,3);
-        if(b.pierce>0)b.pierce--;else bullets.splice(i,1);break;}}}
+        if(b.pierce>0)b.pierce--;else{poolRelease('bullets',b);bullets.splice(i,1);}break;}}}
 
   // Torpedoes / Seeker Missiles Matrix Optimization
   for(let i=missiles.length-1;i>=0;i--){const m=missiles[i];
@@ -88,7 +89,7 @@ function update(){
       let da=a-ca;while(da>Math.PI)da-=6.283;while(da<-Math.PI)da+=6.283;
       const na=ca+clamp(da,-m.turn,m.turn);m.vx=Math.cos(na)*m.spd;m.vy=Math.sin(na)*m.spd;}
     m.x+=m.vx;m.y+=m.vy;m.life--;
-    if(frame%2===0)particles.push({x:m.x,y:m.y,vx:0,vy:0,r:2,life:14,col:'#ffd95e'});
+    if(frame%2===0)spawnParticle(m.x,m.y,0,0,2,14,'#ffd95e');
     let hit=m.life<=0;
     if(!hit){
       const eLen=enemies.length;
@@ -96,7 +97,7 @@ function update(){
         const dx=m.x-e.x,dy=m.y-e.y,combR=e.r+m.r;
         if((dx*dx+dy*dy)<(combR*combR)){hit=true;break;}}
     }
-    if(hit){explodeMissile(m);missiles.splice(i,1);}}
+    if(hit){explodeMissile(m);poolRelease('missiles',m);missiles.splice(i,1);}}
 
   // Hostile Vessel Hulls Matrix Optimization
   for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];if(e.hit>0)e.hit--;if(e.scd>0)e.scd--;if(e.cdmg>0)e.cdmg--;
@@ -106,11 +107,11 @@ function update(){
       if(--e.dashT<=0)bossNext(e);}                              // dash done → advance sequence
     else if(e.boss&&e.spin>0){                                   // MAELSTROM spiral: rooted, spraying a rotating two-arm storm
       for(let s=0;s<2;s++){const a=e.spinA+s*3.1416;
-        ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.spiralSpd,vy:Math.sin(a)*BOSS.spiralSpd,r:7,dmg:e.dmg*BOSS.projDmg,life:200});}
+        spawnEbullet(e.x,e.y,Math.cos(a)*BOSS.spiralSpd,Math.sin(a)*BOSS.spiralSpd,7,e.dmg*BOSS.projDmg,200);}
       e.spinA+=BOSS.spiralRot;if(--e.spin<=0)bossNext(e);}        // storm done → advance sequence
     else{e.x+=ux*e.spd;e.y+=uy*e.spd;
       if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
-        particles.push({x:e.px,y:e.py,vx:-ux*.3,vy:-uy*.3,r:rand(1.4,2.6),life:rand(10,18),col:'#ff9d2e'});
+        spawnParticle(e.px,e.py,-ux*.3,-uy*.3,rand(1.4,2.6),rand(10,18),'#ff9d2e');
       if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}      // telegraph expired → dispatch attack[e.atk]
         else if(--e.bossT<=0){e.tele=BOSS.teleT;Fx.sfx('ping');}}}   // cadence elapsed → start wind-up telegraph
     // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger)
@@ -123,11 +124,11 @@ function update(){
 
   // Boss projectiles
   for(let i=ebullets.length-1;i>=0;i--){const b=ebullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
-    if(b.life<=0){ebullets.splice(i,1);continue;}
+    if(b.life<=0){poolRelease('ebullets',b);ebullets.splice(i,1);continue;}
     if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,rr=b.r+p.r;
       if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');
         if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
-        burst(p.x,p.y,'#ff3b6b',10,5);ebullets.splice(i,1);
+        burst(p.x,p.y,'#ff3b6b',10,5);poolRelease('ebullets',b);ebullets.splice(i,1);
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
   // Energy Core / XP Orbs Tractor Pull Matrix Optimization — magnet each orb toward the player; collect → XP.
@@ -140,7 +141,7 @@ function update(){
     if(dSq<(collectR*collectR)){orbs.splice(i,1);gainXP(o.xp);
       burst(o.x,o.y,'#54e6b5',5,2.5);Fx.sfx('pickup');}}
 
-  for(let i=particles.length-1;i>=0;i--){const q=particles[i];q.x+=q.vx;q.y+=q.vy;q.vx*=.92;q.vy*=.92;q.life--;if(q.life<=0)particles.splice(i,1);}
+  for(let i=particles.length-1;i>=0;i--){const q=particles[i];q.x+=q.vx;q.y+=q.vy;q.vx*=.92;q.vy*=.92;q.life--;if(q.life<=0){poolRelease('particles',q);particles.splice(i,1);}}
   for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.y+=f.vy;f.life--;if(f.life<=0)floats.splice(i,1);}
   for(let i=bolts.length-1;i>=0;i--){if(--bolts[i].life<=0)bolts.splice(i,1);}
   if(shake>0)shake*=.85;

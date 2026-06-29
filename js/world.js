@@ -6,6 +6,7 @@
 let state='start';
 let player,enemies,bullets,orbs,particles,floats,missiles,bolts,items,ebullets;
 let nextBoss=60,bossOn=false,_test=false;   // _test: Test Mode (one-hit bosses, manual spawn — key B)
+let breatherT=0;   // post-boss "breather": ticks remaining of throttled (0.2×) spawning after a boss falls
 let t0,now,score,wave,spawnTimer,itemTimer,shake,frame,kills,pauseStart=0,pendingLevels=0;
 let best=+(localStorage.getItem('neon_best')||0);
 let _eid=0;   // monotonically rising enemy id (stable handle for each spawned body)
@@ -31,11 +32,16 @@ function generateNebula() {
   c.width = c.height = S;
   const ctx = c.getContext('2d');
 
+  // active map palette — swappable via Theme (Showcase → Grids). Built-in default mirrors the original
+  // "cosmic nebula" byte-for-byte so a Theme-less load (e.g. the headless equiv harness) is unchanged.
+  const _np = (typeof Theme !== 'undefined' && Theme.nebula) ? Theme.nebula()
+            : { bgrad:['#070910','#05060d','#020204'], clouds:['255,95,162','84,230,181','124,140,255'], stars:['#fff','#7c8cff','#ffd95e'] };
+
   // Fill space background depth gradient
   const bgGrad = ctx.createRadialGradient(S/2, S/2, 10, S/2, S/2, S/2 * 1.4);
-  bgGrad.addColorStop(0, '#070910');
-  bgGrad.addColorStop(0.6, '#05060d');
-  bgGrad.addColorStop(1, '#020204');
+  bgGrad.addColorStop(0, _np.bgrad[0]);
+  bgGrad.addColorStop(0.6, _np.bgrad[1]);
+  bgGrad.addColorStop(1, _np.bgrad[2]);
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, S, S);
 
@@ -51,16 +57,16 @@ function generateNebula() {
     ctx.beginPath(); ctx.arc(x, y, radius, 0, 7); ctx.fill();
   }
   for (let i = 0; i < 7; i++) {
-    drawCloud(rand(0, S), rand(0, S), rand(130, 240), '255,95,162', 0.045);
-    drawCloud(rand(0, S), rand(0, S), rand(120, 210), '84,230,181', 0.04);
-    drawCloud(rand(0, S), rand(0, S), rand(150, 280), '124,140,255', 0.05);
+    drawCloud(rand(0, S), rand(0, S), rand(130, 240), _np.clouds[0], 0.045);
+    drawCloud(rand(0, S), rand(0, S), rand(120, 210), _np.clouds[1], 0.04);
+    drawCloud(rand(0, S), rand(0, S), rand(150, 280), _np.clouds[2], 0.05);
   }
 
   // ambient star cluster
   ctx.globalCompositeOperation = 'source-over';
   for (let i = 0; i < 520; i++) {
     const x = rand(0, S), y = rand(0, S), r = rand(0.4, 1.3);
-    ctx.fillStyle = ['#fff', '#7c8cff', '#ffd95e'][Math.floor(rand(0, 3))];
+    ctx.fillStyle = _np.stars[Math.floor(rand(0, _np.stars.length))];
     ctx.globalAlpha = rand(0.08, 0.55);
     ctx.fillRect(x, y, r, r);
   }
@@ -84,6 +90,8 @@ function generateNebula() {
 const STAR_FIELD = [];
 function initStars() {
   STAR_FIELD.length = 0;
+  // active palette's world-space star colours; built-in default keeps a Theme-less load byte-identical
+  const _sp = (typeof Theme !== 'undefined' && Theme.stars) ? Theme.stars() : ['#ffffff', '#7c8cff', '#ffd95e', '#ff5fa2'];
   // Generate 250 structural stars across the 3200x3200 cosmic map area
   for (let i = 0; i < 250; i++) {
     STAR_FIELD.push({
@@ -91,7 +99,7 @@ function initStars() {
       y: rand(0, 3200),
       r: rand(0.6, 2.2), // Size dictates depth perception
       alpha: rand(0.2, 0.85),
-      col: ['#ffffff', '#7c8cff', '#ffd95e', '#ff5fa2'][Math.floor(rand(0, 4))]
+      col: _sp[Math.floor(rand(0, _sp.length))]
     });
   }
 }
@@ -131,7 +139,7 @@ function reset(){
   enemies=[];bullets=[];orbs=[];particles=[];floats=[];missiles=[];bolts=[];items=[];ebullets=[];
   for(const k in Up)delete Up[k];           // clear upgrade tracker so PLAY AGAIN starts fresh
   score=0;wave=1;spawnTimer=0;itemTimer=900;shake=0;frame=0;kills=0;pendingLevels=0;t0=performance.now();
-  nextBoss=60;bossOn=false;
+  nextBoss=60;bossOn=false;breatherT=0;
   player.evo={};                                   // clear evolved-weapon flags so PLAY AGAIN starts fresh
   if(typeof Nav!=='undefined')Nav.reset();         // drop any pending map from a run that ended mid-beat
   Fx.music('reset');   // clear boss track (real + synth) if last run died mid-fight
@@ -190,7 +198,7 @@ function bossAttack(e){
   if(e.atk===0){                                   // 0) BURST — aimed radial ring
     const n=10+Math.min(10,tier*2),base=Math.atan2(player.y-e.y,player.x-e.x);
     for(let k=0;k<n;k++){const a=base+k/n*6.283;
-      ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3.3,vy:Math.sin(a)*3.3,r:7,dmg:e.dmg*BOSS.projDmg,life:220});}
+      spawnEbullet(e.x,e.y,Math.cos(a)*3.3,Math.sin(a)*3.3,7,e.dmg*BOSS.projDmg,220);}
     Fx.sfx('zap');bossNext(e);
   }else if(e.atk===1){                             // 1) DASH — lunge along a locked vector (ends in sim loop)
     const a=Math.atan2(player.y-e.y,player.x-e.x);
@@ -198,14 +206,14 @@ function bossAttack(e){
     Fx.sfx('boom');shake=Math.min(shake+7,16);
   }else if(e.atk===2){                             // 2) SLAM — outward shockwave ring to outrun
     const n=BOSS.slamN;for(let k=0;k<n;k++){const a=k/n*6.283;
-      ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.slamSpd,vy:Math.sin(a)*BOSS.slamSpd,r:9,dmg:e.dmg*BOSS.projDmg,life:200});}
+      spawnEbullet(e.x,e.y,Math.cos(a)*BOSS.slamSpd,Math.sin(a)*BOSS.slamSpd,9,e.dmg*BOSS.projDmg,200);}
     Fx.sfx('boom');shake=Math.min(shake+13,20);bossNext(e);
   }else if(e.atk===3){                             // 3) SPIRAL — root + spray a rotating two-arm storm (ends in sim loop)
     e.spin=BOSS.spiralTicks;e.spinA=Math.atan2(player.y-e.y,player.x-e.x);Fx.sfx('zap');
   }else if(e.atk===4){                             // 4) SPREAD — aimed shotgun cone of fast bolts
     const base=Math.atan2(player.y-e.y,player.x-e.x),n=BOSS.spreadN;
     for(let k=0;k<n;k++){const a=base+(k/(n-1)-.5)*BOSS.spreadArc;
-      ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.spreadSpd,vy:Math.sin(a)*BOSS.spreadSpd,r:7,dmg:e.dmg*BOSS.projDmg,life:200});}
+      spawnEbullet(e.x,e.y,Math.cos(a)*BOSS.spreadSpd,Math.sin(a)*BOSS.spreadSpd,7,e.dmg*BOSS.projDmg,200);}
     Fx.sfx('zap');shake=Math.min(shake+5,14);bossNext(e);
   }else if(e.atk===5){                             // 5) SUMMON — a ring of drones warps in around the boss
     const n=BOSS.summonN;for(let k=0;k<n;k++){const a=k/n*6.283;
@@ -218,6 +226,26 @@ function bossAttack(e){
   }
 }
 
+/* ========== PROJECTILE OBJECT POOLS ==========
+ * Fast-cycling bodies (bullets, boss ebullets, missiles, particles) used to allocate a fresh object literal
+ * every spawn and leave the spliced-out one for the GC — at high body counts that churn shows up as GC
+ * stutter. Each spawn now reuses a freed object from a free-list and overwrites EVERY field; each despawn
+ * returns the object to its list (capped so a one-off swarm can't balloon memory). Snapshot-neutral: the
+ * live arrays still hold the same field values in the same order, so verify-equiv stays byte-identical. */
+const _POOL={bullets:[],ebullets:[],missiles:[],particles:[]};
+const _POOLCAP=2000;
+function poolAcquire(k){const f=_POOL[k];return f.length?f.pop():{};}
+function poolRelease(k,o){const f=_POOL[k];if(f.length<_POOLCAP)f.push(o);}
+// spawn helpers — single place that sets every field a body type uses, then pushes the pooled object
+function spawnBullet(x,y,vx,vy,r,dmg,pierce,life){const b=poolAcquire('bullets');
+  b.x=x;b.y=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.pierce=pierce;b.life=life;bullets.push(b);return b;}
+function spawnEbullet(x,y,vx,vy,r,dmg,life){const b=poolAcquire('ebullets');
+  b.x=x;b.y=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.life=life;ebullets.push(b);return b;}
+function spawnMissile(x,y,vx,vy,spd,turn,r,dmg,target,life){const m=poolAcquire('missiles');
+  m.x=x;m.y=y;m.vx=vx;m.vy=vy;m.spd=spd;m.turn=turn;m.r=r;m.dmg=dmg;m.target=target;m.life=life;missiles.push(m);return m;}
+function spawnParticle(x,y,vx,vy,r,life,col){const q=poolAcquire('particles');
+  q.x=x;q.y=y;q.vx=vx;q.vy=vy;q.r=r;q.life=life;q.col=col;particles.push(q);return q;}
+
 /* ========== COMBAT ========== */
 function fire(p){p=p||player;   // p defaults to the local avatar → solo calls are byte-identical
   const near=p.near;if(!near)return;
@@ -225,14 +253,14 @@ function fire(p){p=p||player;   // p defaults to the local avatar → solo calls
   const n=p.multi,spread=.16,dmg=p.rageT>0?p.dmg*1.6:p.dmg;
   const rail=p.evo&&p.evo.bullet==='railgun';   // RAILGUN: infinite-pierce, fatter, faster lance
   for(let i=0;i<n;i++){const a=baseAng+(i-(n-1)/2)*spread;
-    bullets.push({x:p.x,y:p.y,vx:Math.cos(a)*p.bulletSpd*(rail?1.5:1),vy:Math.sin(a)*p.bulletSpd*(rail?1.5:1),
-      r:rail?6:4,dmg:rail?dmg*1.2:dmg,pierce:rail?999:p.pierce,life:rail?90:70});}
+    spawnBullet(p.x,p.y,Math.cos(a)*p.bulletSpd*(rail?1.5:1),Math.sin(a)*p.bulletSpd*(rail?1.5:1),
+      rail?6:4,rail?dmg*1.2:dmg,rail?999:p.pierce,rail?90:70);}
   shake=Math.min(shake+1.2,7);
   if(now-lastShootSnd>60){Fx.sfx('shoot');lastShootSnd=now;}
 }
 function burst(x,y,col,n,sp){n=Math.min(n,340-particles.length);if(n<=0)return;
   for(let i=0;i<n;i++){const a=rand(0,7),s=rand(.5,sp);
-  particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rand(1,3.4),life:rand(20,40),col});}}
+  spawnParticle(x,y,Math.cos(a)*s,Math.sin(a)*s,rand(1,3.4),rand(20,40),col);}}
 function floatText(x,y,txt,col){floats.push({x,y,txt,col,life:50,vy:-.7});}
 
 function damageEnemy(e,dmg,col){e.hp-=dmg;e.hit=6;if(e.hp<=0)killEnemy(e,col);}
@@ -242,6 +270,8 @@ function killEnemy(e,col){
   score+=e.sc;kills++;
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Fx.music('exitBoss');   // next boss 50s after this one falls; music back to normal track
+    breatherT=900;   // 15 s (900 ticks) breather: spawns drop to 0.2× so the arena clears for a beat
+    if(typeof Reward!=='undefined')Reward.pulse('#54e6b5');floatText(e.x,e.y-54,'CLEARED','#54e6b5');   // neon CLEARED announcement (banner driven by breatherT in updateHUD)
     if(typeof Ach!=='undefined')Ach.onBossKill((now-t0)/1000);   // achievements: count Wardens + flawless/fast-kill intent
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
     shake=Math.min(shake+18,24);Fx.sfx('boom');Fx.flash();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
@@ -297,8 +327,7 @@ function fireMissiles(p){p=p||player;
     let tgt=nearestTo(p,EXCLUDE_SET);
     if(tgt)EXCLUDE_SET.add(tgt);
     const a=srand(0,7);
-    missiles.push({x:p.x,y:p.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
-      spd:5.2,turn:.18,r:5,dmg:22+p.missile*7,target:tgt,life:140});}
+    spawnMissile(p.x,p.y,Math.cos(a)*3,Math.sin(a)*3,5.2,.18,5,22+p.missile*7,tgt,140);}
   Fx.sfx('tone',380,520,.12,'triangle',.05);
 }
 function explodeMissile(m){
@@ -309,7 +338,7 @@ function explodeMissile(m){
     const e=enemies[i];const dx=m.x-e.x,dy=m.y-e.y;
     if((dx*dx+dy*dy)<radSq)hitEnemy(e,m.dmg,'#ffd95e');}
   if(cluster)for(let k=0;k<8;k++){const a=k/8*6.283;   // shrapnel bullets carry half the warhead's damage
-    bullets.push({x:m.x,y:m.y,vx:Math.cos(a)*6,vy:Math.sin(a)*6,r:4,dmg:m.dmg*.5,pierce:1,life:40});}
+    spawnBullet(m.x,m.y,Math.cos(a)*6,Math.sin(a)*6,4,m.dmg*.5,1,40);}
 }
 
 function castChain(p){p=p||player;

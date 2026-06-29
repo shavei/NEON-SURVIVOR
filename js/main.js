@@ -46,8 +46,9 @@ if(mpauseBtn)mpauseBtn.onclick=()=>{if(state==='play'||state==='pause')togglePau
 /* ========== INTERFACE FLOW ========== */
 const HUD={score:document.getElementById('score'),wave:document.getElementById('wave'),time:document.getElementById('time'),
   hpfill:document.getElementById('hpfill'),hplabel:document.getElementById('hplabel'),
-  xpfill:document.getElementById('xpfill'),lvlnum:document.getElementById('lvlnum'),lowhp:document.getElementById('lowhp')};
-const _hud={score:-1,wave:-1,time:'',hp:-1,maxhp:-1,xp:-1,next:-1,lvl:-1,low:-1};
+  xpfill:document.getElementById('xpfill'),lvlnum:document.getElementById('lvlnum'),lowhp:document.getElementById('lowhp'),
+  cleared:document.getElementById('cleared')};
+const _hud={score:-1,wave:-1,time:'',hp:-1,maxhp:-1,xp:-1,next:-1,lvl:-1,low:-1,cleared:false};
 function updateHUD(elapsed){const p=player;
   // cached element refs + change-guards: skip the DOM write when the value is unchanged (most frames)
   if(score!==_hud.score){HUD.score.textContent=score;_hud.score=score;}
@@ -65,6 +66,9 @@ function updateHUD(elapsed){const p=player;
   if(frac<.35){const sev=Math.round((0.35-frac)/0.35*10)/10;
     if(_hud.low!==sev){HUD.lowhp.style.setProperty('--sev',sev);HUD.lowhp.classList.add('danger');_hud.low=sev;}}
   else if(_hud.low!==-1){HUD.lowhp.classList.remove('danger');HUD.lowhp.style.opacity='';_hud.low=-1;}
+  // post-boss CLEARED banner: visible exactly while the breather window is open (toggle only on change)
+  const onB=(typeof breatherT!=='undefined')&&breatherT>0;
+  if(onB!==_hud.cleared){if(HUD.cleared)HUD.cleared.classList.toggle('show',onB);_hud.cleared=onB;}
 }
 function flashHit(){const f=document.getElementById('flash');f.style.transition='none';f.style.opacity='.5';
   requestAnimationFrame(()=>{f.style.transition='opacity .4s';f.style.opacity='0';});}
@@ -106,7 +110,8 @@ function perfFrame(ts){
 let _wasPlaying=null;   // state-change guard: toggle the cursor class only on transition, not every frame
 function loop(ts){now=ts;
   const playing=state==='play';
-  if(playing!==_wasPlaying){document.body.classList.toggle('playing',playing);_wasPlaying=playing;}   // hide cursor only while playing
+  if(playing!==_wasPlaying){document.body.classList.toggle('playing',playing);_wasPlaying=playing;   // hide cursor only while playing
+    if(!playing&&HUD.cleared){HUD.cleared.classList.remove('show');_hud.cleared=false;}}   // drop the CLEARED banner when play pauses/ends
   if(playing){
     if(!lastTs)lastTs=ts;
     let dt=ts-lastTs;lastTs=ts;
