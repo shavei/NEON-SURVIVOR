@@ -166,12 +166,19 @@ function sanitizeIntent(claim, b) {
 }
 
 /* per-difficulty plausibility ceilings (mirror DIFFS in js/core.js) — a real score lives under
- * kills·killCeil + secs·secCeil (+ slack). Anything above is fabricated → reject, don't clamp. */
+ * kills·killCeil + earnedTime·secCeil (+ slack). Anything above is fabricated → reject, don't clamp. */
 const RATE = {
   easy:   { kill:60,  sec:120 },
   normal: { kill:90,  sec:200 },
   hard:   { kill:160, sec:380 },
 };
+
+/* In-game score is 100% kill-driven (world.js: `score += e.sc`) — wall-clock alone never mints a point.
+ * So the time term is slack for boss/elite burst score, and it must be EARNED by kills: an AFK bot that
+ * just holds a run_token and waits has zero kills, so it gets zero time allowance. We let each kill bank
+ * up to KILL_SECS seconds of time slack (≥1 kill per ~3 s covers any real run, where the swarm is
+ * relentless — even a 24-kill pacifist scores far under its capped allowance). */
+const KILL_SECS = 3;
 
 /* pure, server-authoritative run check. runRow = the trusted `runs` row; c = the client claim. */
 function validateRun(runRow, c) {
@@ -183,7 +190,8 @@ function validateRun(runRow, c) {
   const elapsed = (Date.now() - new Date(runRow.started_at).getTime()) / 1000;
   if (c.secs > elapsed + 5) return { ok:false, reason:'time_impossible' };       // can't survive longer than the wall clock
   const r = RATE[c.difficulty] || RATE.normal;
-  if (c.score > c.kills * r.kill + c.secs * r.sec + 500) return { ok:false, reason:'score_impossible' };
+  const earnedSecs = Math.min(c.secs, c.kills * KILL_SECS);                       // idle time (no kills) banks no score
+  if (c.score > c.kills * r.kill + earnedSecs * r.sec + 500) return { ok:false, reason:'score_impossible' };
   if (c.wave > 1 && c.kills < (c.wave - 1)) return { ok:false, reason:'wave_kill_mismatch' };
   return { ok:true };
 }
