@@ -101,6 +101,8 @@ const now = Date.now();
 const run = { started_at: new Date(now - 100000).toISOString(), difficulty: 'normal', verified: false };
 ok(server.validateRun(run, { score: 1000, wave: 5, kills: 50, secs: 80, level: 5, difficulty: 'normal' }).ok, 'plausible run accepted');
 ok(!server.validateRun(run, { score: 999999, wave: 5, kills: 5, secs: 10, level: 5, difficulty: 'normal' }).ok, 'spoofed score rejected');
+ok(!server.validateRun(run, { score: 15000, wave: 1, kills: 0, secs: 90, level: 1, difficulty: 'normal' }).ok, 'afk time-farm (no kills) rejected');
+ok(server.validateRun(run, { score: 200, wave: 5, kills: 40, secs: 90, level: 5, difficulty: 'normal' }).ok, 'low-kill-rate pacifist accepted');
 ok(!server.validateRun(run, { score: 10, wave: 5, kills: 50, secs: 99999, level: 5, difficulty: 'normal' }).ok, 'impossible time rejected');
 ok(!server.validateRun(run, { score: 10, wave: 5, kills: 50, secs: 80, level: 5, difficulty: 'hard' }).ok, 'difficulty mismatch rejected');
 ok(!server.validateRun(run, { score: 10, wave: 20, kills: 2, secs: 80, level: 5, difficulty: 'normal' }).ok, 'wave/kill mismatch rejected');
