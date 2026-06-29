@@ -296,6 +296,7 @@ alter table public.world_state enable row level security;
 
 drop policy if exists "anyone can read world"   on public.world_state;
 drop policy if exists "anyone can upsert world" on public.world_state;
+drop policy if exists "anyone can update world" on public.world_state;
 
 create policy "anyone can read world"
   on public.world_state for select using (true);
