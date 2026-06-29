@@ -136,7 +136,7 @@ if (RM && sRM) {
     const r = RM[d.id];
     ok(!!r, 'reward exists for achievement: ' + d.id);
     if (r) {
-      ok(['skin', 'trail', 'music'].includes(r.kind), 'valid reward kind for ' + d.id);
+      ok(['skin', 'trail', 'music', 'palette'].includes(r.kind), 'valid reward kind for ' + d.id);
       ok(!rseen[r.id], 'unique reward id ' + r.id + ' (' + d.id + ')'); rseen[r.id] = 1;
       if (r.kind === 'music') ok(['menu', 'play', 'boss0', 'boss1', 'boss2', 'over'].includes(r.src), 'valid music src for ' + d.id);
     }

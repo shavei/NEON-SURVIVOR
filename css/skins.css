@@ -21,6 +21,9 @@
 .track-card.owned{opacity:1;box-shadow:0 0 10px -2px var(--skin-accent)}
 .track-card.locked{opacity:.5;border-color:rgba(255,255,255,.18);border-style:dashed}
 .track-card.equipped{opacity:1;animation:skinNeonPulse 1.6s ease-in-out infinite}
+/* grids tab: map-theme palette preview — the 3 gas-cloud colours as a chip row (reuses .track-card) */
+.grid-swatch{display:flex;gap:4px;height:16px}
+.grid-swatch i{flex:1;border-radius:4px;box-shadow:0 0 8px -2px currentColor}
 .track-btns{display:flex;gap:6px}
 .track-btn{flex:1;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.04em;cursor:pointer;pointer-events:auto;
   padding:6px 0;border-radius:7px;color:var(--skin-accent);background:rgba(255,255,255,.04);border:1px solid var(--skin-accent);transition:.15s}

@@ -21,6 +21,7 @@
 <div id="pulse"></div>
 <div id="toast"></div>
 <div id="achtoast"></div>
+<div id="cleared"><span>CLEARED</span><small>arena breather — spawns throttled</small></div>
 <div id="sound" title="toggle sound (M)">🔊 sound</div>
 <button id="mpause" title="pause" hidden>⏸</button>
 <div id="joy" hidden><div id="joynub"></div></div>
@@ -75,9 +76,11 @@
       <div class="showcase-tabs">
         <button class="showcase-tab on" data-sc="skins">Skins</button>
         <button class="showcase-tab" data-sc="soundtrack">Soundtrack</button>
+        <button class="showcase-tab" data-sc="grids">Grids</button>
       </div>
       <div class="achlist sc-pane" id="skinlist" data-pane="skins"></div>
-      <div class="achlist sc-pane sc-off" id="tracklist" data-pane="soundtrack"></div></div>
+      <div class="achlist sc-pane sc-off" id="tracklist" data-pane="soundtrack"></div>
+      <div class="achlist sc-pane sc-off" id="gridlist" data-pane="grids"></div></div>
   </div>
 </div>
 
@@ -151,7 +154,7 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-orchestrator → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
+<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-orchestrator → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
 <script defer src="js/config.js"></script>
 <script defer src="js/config-sim.js"></script>
 <script defer src="js/core.js"></script>
@@ -168,10 +171,12 @@
 <script defer src="js/achievements-ui.js"></script>
 <script defer src="js/reward-granting-engine.js"></script>
 <script defer src="js/skins-ui.js"></script>
+<script defer src="js/theme-system.js"></script>
 <script defer src="js/achievement-sync.js"></script>
 <script defer src="js/auth-uplink.js"></script>
 <script defer src="js/leaderboard-sync.js"></script>
 <script defer src="js/leaderboard-engine.js"></script>
 <script defer src="js/main.js"></script>
+<script defer src="js/dev-tools.js"></script>
 </body>
 </html>

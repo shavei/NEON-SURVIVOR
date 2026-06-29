@@ -11,10 +11,11 @@
  * equip/preview. The server (api/verify.js, service role) stays the AUTHORITATIVE grantor — the client
  * user_inventory insert is an optimistic mirror that degrades silently if the table/policy is absent. */
 
-/* achievement id → reward. kind ∈ skin | trail | music. For music, `src` is the audio-orchestrator JUKE
- * key previewed/equipped. The 8 gold ids reuse their existing COSMETICS ids byte-for-byte so nothing
- * already granted breaks. MUST stay in lockstep with REWARD_MAP in api/verify.js — verify-achievements.cjs
- * cross-checks the {kind,id,src} projection is identical. title/ico are client-only UI metadata. */
+/* achievement id → reward. kind ∈ skin | trail | music | palette. For music, `src` is the audio-orchestrator
+ * JUKE key previewed/equipped; for palette, `id` is a Theme.PALETTES key (the unlockable map colour scheme).
+ * The 8 gold ids reuse their existing COSMETICS ids byte-for-byte so nothing already granted breaks. MUST stay
+ * in lockstep with REWARD_MAP in api/verify.js — verify-achievements.cjs cross-checks the {kind,id,src}
+ * projection is identical. title/ico are client-only UI metadata. */
 const REWARD_MAP = {
   // ---- combat ----
   first_blood:       { kind:'trail', id:'first_blood_spark',   title:'First Blood Spark',   ico:'🩸' },
@@ -22,18 +23,18 @@ const REWARD_MAP = {
   one_man_army:      { kind:'skin',  id:'legionnaire',         title:'Legionnaire',         ico:'🟧' },
   annihilator:       { kind:'skin',  id:'crimson_husk',        title:'Crimson Husk',        ico:'🟥' },
   // ---- survival ----
-  high_scorer:       { kind:'trail', id:'scorch_trail',        title:'Scorch Trail',        ico:'🔥' },
+  high_scorer:       { kind:'palette', id:'aurora_drift',      title:'Aurora Drift',        ico:'🌌' },
   score_legend:      { kind:'skin',  id:'regent',              title:'Regent',              ico:'🟨' },
   neon_god:          { kind:'trail', id:'neon_god_trail',      title:'Neon God Trail',      ico:'✨' },
   wave_rider:        { kind:'music', id:'tide_overture',       title:'Tide Overture',       ico:'🎵', src:'play'  },
   wave_master:       { kind:'music', id:'maelstrom_waltz',     title:'Maelstrom Waltz',     ico:'🎶', src:'boss1' },
   abyss_walker:      { kind:'skin',  id:'void_warden',         title:'Void Warden',         ico:'🟪' },
   power_surge:       { kind:'trail', id:'surge_arc',           title:'Surge Arc',           ico:'⚡' },
-  ascended:          { kind:'trail', id:'ascension_wake',      title:'Ascension Wake',      ico:'🌠' },
+  ascended:          { kind:'palette', id:'violet_void',       title:'Violet Void',         ico:'🔮' },
   veteran:           { kind:'music', id:'veterans_march',      title:'Veteran’s March',     ico:'🎻', src:'over'  },
   hardcore:          { kind:'skin',  id:'cinder_frame',        title:'Cinder Frame',        ico:'🟧' },
   // ---- boss ----
-  boss_slayer:       { kind:'trail', id:'slayer_mark',         title:'Slayer Mark',         ico:'💀' },
+  boss_slayer:       { kind:'palette', id:'crimson_nebula',    title:'Crimson Nebula',      ico:'🟥' },
   warden_hunter:     { kind:'music', id:'requiem_hunt',        title:'Requiem of the Hunt', ico:'🎼', src:'boss0' },
   warden_legend:     { kind:'trail', id:'warden_halo',         title:'Warden Halo',         ico:'💫' },
   // ---- skill ----
@@ -82,8 +83,8 @@ const RewardEngine = {
   },
   _toast(r) {
     if (typeof AchUI === 'undefined' || !AchUI._push) return;
-    const label = r.kind === 'music' ? '🎵 SOUNDTRACK UNLOCKED' : r.kind === 'trail' ? '🎨 TRAIL UNLOCKED' : '🎨 SKIN UNLOCKED';
-    const accent = r.kind === 'music' ? '#b98cff' : '#54e6ff';
+    const label = r.kind === 'music' ? '🎵 SOUNDTRACK UNLOCKED' : r.kind === 'palette' ? '🌌 GRID THEME UNLOCKED' : r.kind === 'trail' ? '🎨 TRAIL UNLOCKED' : '🎨 SKIN UNLOCKED';
+    const accent = r.kind === 'music' ? '#b98cff' : r.kind === 'palette' ? '#54e6b5' : '#54e6ff';
     AchUI._push(`<span class="at-ico">${r.ico}</span><div class="at-text"><b>${label}</b><span>${r.title}</span></div>`, accent);
   },
 
@@ -115,6 +116,7 @@ const RewardEngine = {
         Ach._save(s);
         if (typeof Skins !== 'undefined' && Skins.renderGallery) Skins.renderGallery();
         self.renderTrackGallery();
+        self.renderGridGallery();
       }, function () {});
     } catch (e) { return Promise.resolve(); }
   },
@@ -178,7 +180,53 @@ const RewardEngine = {
              foot + `</div>`;
   },
 
-  /* showcase tab toggle (Skins | Soundtrack) — bound once; panes are the static #skinlist / #tracklist */
+  /* ---- map palettes: the Grids tab roster + equip (the colour swap itself is delegated to Theme) ---- */
+  paletteDefs() {
+    return Object.keys(REWARD_MAP).map(function (ach) { const r = REWARD_MAP[ach]; return r.kind === 'palette' ? { id: r.id, title: r.title, ico: r.ico, from: ach } : null; }).filter(Boolean);
+  },
+  _paletteKey() { const p = (typeof getPlayer === 'function') && getPlayer(); return 'neon_grid:' + ((p && p.id) || 'local'); },
+  // equipped palette id (validated against ownership), or null = the free default "cosmic nebula"
+  equippedPalette() { try { const v = localStorage.getItem(this._paletteKey()); return (v && this.owns(v)) ? v : null; } catch (e) { return null; } },
+  equipPalette(id) {
+    if (id && !this.owns(id)) return false;                  // can't equip a locked theme (id '' = default nebula)
+    try { if (id) localStorage.setItem(this._paletteKey(), id); else localStorage.removeItem(this._paletteKey()); } catch (e) {}
+    if (typeof Theme !== 'undefined' && Theme.apply) Theme.apply(id || (Theme.DEFAULT));   // rebuild the nebula/starfield in the new colours
+    this.renderGridGallery();
+    if (id && typeof AchUI !== 'undefined' && AchUI._push) {
+      const d = this.paletteDefs().find(function (m) { return m.id === id; });
+      if (d) AchUI._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>🌌 GRID EQUIPPED</b><span>${d.title}</span></div>`, '#54e6b5');
+    }
+    return true;
+  },
+
+  /* ----- the Grids gallery (rendered into #gridlist) — the free default + every unlocked map theme ----- */
+  renderGridGallery() {
+    if (typeof document === 'undefined') return;
+    const host = document.getElementById('gridlist'); if (!host) return;
+    const defs = this.paletteDefs(), eq = this.equippedPalette(), self = this;
+    const ownedN = defs.filter(function (d) { return self.owns(d.id); }).length;
+    const header = `<div class="skin-bar"><div class="skin-n">Unlocked ${ownedN}/${defs.length}</div></div>`;
+    const dfCard = self._gridCardHTML({ id: '', title: 'Cosmic Nebula', ico: '🌌', from: null, free: true }, eq);   // the free default always shows first
+    const cards = defs.map(function (d) { return self._gridCardHTML(d, eq); }).join('');
+    host.innerHTML = header + `<div class="track-grid">${dfCard}${cards}</div>`;
+    if (typeof host.querySelectorAll === 'function')
+      host.querySelectorAll('[data-equipg]').forEach(function (b) { b.onclick = function () { self.equipPalette(b.dataset.equipg); }; });
+  },
+  _gridCardHTML(d, eq) {
+    const owned = d.free || this.owns(d.id), isEq = owned && (d.id || null) === (eq || null);
+    const cls = ['track-card', owned ? 'owned' : 'locked', isEq ? 'equipped' : ''].join(' ').trim();
+    const sw = (typeof Theme !== 'undefined' && Theme.swatch) ? Theme.swatch(d.free ? (Theme.DEFAULT) : d.id) : '';
+    const foot = owned
+      ? (isEq ? `<span class="track-badge">✓ EQUIPPED</span>` : `<button class="track-btn equip" data-equipg="${d.id}">EQUIP</button>`)
+      : `<span class="skin-lock">🔒 from: ${d.from}</span>`;
+    return `<div class="${cls}">` +
+             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">grid</span></div>` +
+             sw +
+             `<div class="skin-card-body"><b>${owned ? d.title : '???'}</b><span>${owned ? 'Map colour theme' : 'Achievement reward'}</span></div>` +
+             foot + `</div>`;
+  },
+
+  /* showcase tab toggle (Skins | Soundtrack | Grids) — bound once; panes are #skinlist / #tracklist / #gridlist */
   _initTabs() {
     if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
     const tabs = document.querySelectorAll('.showcase-tab'); if (!tabs || !tabs.forEach) return;
@@ -190,6 +238,8 @@ const RewardEngine = {
       };
     });
   },
+  // NB: the Grids gallery is rendered by theme-system.js after it loads (it owns the `Theme` const that
+  // _gridCardHTML reads) — rendering it here would touch `Theme` before its declaration in the bundled build.
   _init() { if (typeof document === 'undefined') return; this._initTabs(); this.renderTrackGallery(); },
 };
 
@@ -211,11 +261,13 @@ if (typeof window !== 'undefined') window.debugAchievement = function (id, pct) 
   let selectable = false;
   if (r) {
     if (r.kind === 'music') { RewardEngine.equipMusic(r.id); selectable = RewardEngine.equippedMusic() === r.id; }   // prove it's equippable
+    else if (r.kind === 'palette') { RewardEngine.equipPalette(r.id); selectable = RewardEngine.equippedPalette() === r.id; }   // prove the grid theme equips
     else if (r.kind === 'skin') selectable = (typeof Skins !== 'undefined' && Skins.owns(r.id));
     else selectable = inMirror;                    // trails are inventoried (equip surface is future work)
   }
   if (typeof Skins !== 'undefined' && Skins.renderGallery) Skins.renderGallery();
   RewardEngine.renderTrackGallery();
+  RewardEngine.renderGridGallery();
   return { id: id, unlocked: Ach.isUnlocked(id), toast: true, reward: r && { kind: r.kind, id: r.id, title: r.title },
            inMirror: inMirror, selectable: selectable, inventory: RewardEngine._invOff ? 'mirror-only(offline/no-table)' : 'insert-sent' };
 };
