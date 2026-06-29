@@ -21,12 +21,22 @@ const Orchestra = {
     boss1: 'audio/orchestral/boss-maelstrom.mp3',  // Bach — Toccata & Fugue in D minor
     boss2: 'audio/orchestral/boss-overseer.ogg',   // Mussorgsky — Night on Bald Mountain
     over:  'audio/orchestral/gameover.ogg',         // Chopin — Marche funèbre (somber)
+    // ---- unlockable GENRE soundtracks (re-point the gameplay theme when equipped; CC0/PD only — fetch-music.sh) ----
+    jazz:  'audio/genres/jazz.ogg',                 // smooth/lounge jazz   (→ procedural swing bed if absent)
+    pop:   'audio/genres/pop.ogg',                  // upbeat synth-pop     (→ procedural pop bed if absent)
+    rock:  'audio/genres/rock.ogg',                 // driving synth-rock   (→ procedural rock bed if absent)
+    rap:   'audio/genres/rap.ogg',                  // boom-bap / hip-hop   (→ procedural rap bed if absent)
   },
 
   // ---- procedural fallback bed: tracks = data. Aeolian beds; prog = chord tones, bass = root (MIDI) ----
   TRACKS: {
     ambient: { bpm: 80,  prog: [[57,60,64,67],[53,57,60,64],[55,58,62,65],[50,53,57,60]], bass: [33,29,31,26], drive: false, ostinato: false },
     boss:    { bpm: 132, prog: [[52,55,59,62],[51,55,58,62],[53,56,60,63],[50,53,57,60]], bass: [28,27,29,26], drive: true,  ostinato: true  },
+    // genre fallback beds (used when an equipped GENRE track's real file is absent): tempo + harmony + drive/ostinato make each audibly distinct.
+    jazz:    { bpm: 96,  prog: [[60,64,67,71],[57,61,64,67],[62,65,69,72],[55,59,62,65]], bass: [36,33,38,31], drive: false, ostinato: false },  // mellow 7th-chord swing
+    pop:     { bpm: 118, prog: [[60,64,67],[55,59,62],[57,60,64],[53,57,60]],             bass: [36,31,33,29], drive: true,  ostinato: false },  // bright I–V–vi–IV
+    rock:    { bpm: 140, prog: [[57,64,69],[53,60,65],[55,62,67],[52,59,64]],             bass: [33,29,31,28], drive: true,  ostinato: true  },  // driving power chords
+    rap:     { bpm: 90,  prog: [[57,60,64],[56,59,62],[53,57,60],[55,58,62]],             bass: [33,32,29,31], drive: false, ostinato: true  },  // sparse boom-bap, heavy low end
   },
   // intensity i(0..1) + danger + boss → section gain (procedural vertical remix). Tune here, not the loop.
   MIX: {
@@ -98,6 +108,18 @@ const Orchestra = {
     return (m && m.src && this.JUKE[m.src]) ? m.src : key;
   },
 
+  // which procedural bed the composer renders: boss bed under a boss; else an equipped GENRE bed (jazz/pop/rock/rap)
+  // when its real file is absent — so unlocked genres sound distinct offline; otherwise the default ambient bed.
+  _bed() {
+    if (this.active === 'boss') return 'boss';
+    if (!this._realActive && typeof RewardEngine !== 'undefined' && RewardEngine.equippedMusic) {
+      const eq = RewardEngine.equippedMusic();
+      const m = eq && RewardEngine.musicDefs && RewardEngine.musicDefs().find(d => d.id === eq);
+      if (m && m.src && this.TRACKS[m.src]) return m.src;
+    }
+    return this.active;
+  },
+
   // one-shot ~8 s track audition for the Soundtrack tab's ▶ Preview — a standalone <audio>, deliberately
   // OUTSIDE the state-machine graph so it can't disturb the live mix. Single instance; headless no-ops.
   previewTrack(key) {
@@ -145,7 +167,7 @@ const Orchestra = {
     const ac = Sound.ac, g = this._g; if (!g) return;
     while (this.nextTime < ac.currentTime + 0.18) {
       if (this.step % 8 === 0 && this._pending && this._pending !== this.active) { this.active = this._pending; this._pending = null; if (this.active === 'boss' && !this._realActive) this._sting('boss'); }
-      const T = this.TRACKS[this.active], stepDur = (60 / T.bpm) / 2;
+      const T = this.TRACKS[this._bed()], stepDur = (60 / T.bpm) / 2;
       const s = this.step, idx = s % 8, bar = (s / 8) | 0, ci = (bar >> 1) % T.prog.length;
       const set = T.prog[ci], root = T.bass[ci], t = this.nextTime;
       if (idx === 0) { const dur = stepDur * 16; for (const m of set) { this._v('strings', this._mtof(m), t, dur, 'sawtooth', 0.045, 0.28); this._v('strings', this._mtof(m) * 1.006, t, dur, 'triangle', 0.035, 0.32); } this._v('strings', this._mtof(root), t, dur, 'sine', 0.09, 0.18); }

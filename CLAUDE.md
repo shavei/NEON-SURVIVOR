@@ -24,7 +24,7 @@ synergy → map-system → ui-engine → net → main.
 `achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine`.
 - `js/achievements.js` `Ach` catalog + local mirror, `evaluate`, `_grantRewards`, `mockGrant`
 - `js/achievements-ui.js` `AchUI` gallery + non-pausing unlock toasts; `unlockToast(id)` → fires the reward handshake
-- `js/reward-granting-engine.js` `RewardEngine` + `REWARD_MAP` (36 rewards: skin/trail/music/palette); `onUnlock(id)` = grant handshake (toast + optimistic `user_inventory` insert), Soundtrack/Grids galleries, equip/preview
+- `js/reward-granting-engine.js` `RewardEngine` + `REWARD_MAP` (per-achievement rewards: skin/trail/music/palette); music rewards span orchestral + unlockable **genre** soundtracks (jazz/pop/rock/rap — `genre` field; equipping re-points the gameplay theme, with a per-genre procedural bed when the file is absent); `onUnlock(id)` = grant handshake (toast + optimistic `user_inventory` insert), Soundtrack/Grids galleries, equip/preview
 - `js/achievement-sync.js` `AchSync` durable identity: signUp/signIn/OTP wrappers, `_adopt`, `_setProfile`, `pull`/`pullInventory`
 - `js/callsign-filter.js` `CallsignFilter` cross-language (EN↔HE) censorship: `normalizeCallsign(text)`→{latin,hebrew} comparison strings, inline canonical blocklist, `window.debugCensor(text)`; auth-uplink gates on `blocked()` before any cloud write
 - `js/auth-uplink.js` `confirmUsername()` GRID ACCESS modal — one overlay, `_stage` machine (login·signup·signup-code·otp-code·local·callsign)

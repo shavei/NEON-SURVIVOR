@@ -26,12 +26,12 @@ const REWARD_MAP = {
   high_scorer:       { kind:'palette', id:'aurora_drift',      title:'Aurora Drift',        ico:'🌌' },
   score_legend:      { kind:'skin',  id:'regent',              title:'Regent',              ico:'🟨' },
   neon_god:          { kind:'trail', id:'neon_god_trail',      title:'Neon God Trail',      ico:'✨' },
-  wave_rider:        { kind:'music', id:'tide_overture',       title:'Tide Overture',       ico:'🎵', src:'play'  },
+  wave_rider:        { kind:'music', id:'midnight_jazz',       title:'Midnight Jazz',       ico:'🎷', src:'jazz',  genre:'Jazz' },
   wave_master:       { kind:'music', id:'maelstrom_waltz',     title:'Maelstrom Waltz',     ico:'🎶', src:'boss1' },
   abyss_walker:      { kind:'skin',  id:'void_warden',         title:'Void Warden',         ico:'🟪' },
   power_surge:       { kind:'trail', id:'surge_arc',           title:'Surge Arc',           ico:'⚡' },
   ascended:          { kind:'palette', id:'violet_void',       title:'Violet Void',         ico:'🔮' },
-  veteran:           { kind:'music', id:'veterans_march',      title:'Veteran’s March',     ico:'🎻', src:'over'  },
+  veteran:           { kind:'music', id:'neon_pop',            title:'Neon Pop',            ico:'🎤', src:'pop',   genre:'Pop'  },
   hardcore:          { kind:'skin',  id:'cinder_frame',        title:'Cinder Frame',        ico:'🟧' },
   // ---- boss ----
   boss_slayer:       { kind:'palette', id:'crimson_nebula',    title:'Crimson Nebula',      ico:'🟥' },
@@ -47,10 +47,10 @@ const REWARD_MAP = {
   glass_cannon:      { kind:'skin',  id:'prism_shard',         title:'Prism Shard',         ico:'🔮' },
   // ---- speed ----
   power_spike:       { kind:'trail', id:'spike_trail',         title:'Spike Trail',         ico:'📈' },
-  ascendant_rush:    { kind:'music', id:'ascendant_theme',     title:'Ascendant Rush',      ico:'🚄', src:'play'  },
+  ascendant_rush:    { kind:'music', id:'overdrive_rock',      title:'Overdrive',           ico:'🎸', src:'rock',  genre:'Rock' },
   blitz:             { kind:'trail', id:'blitz_streak',        title:'Blitz Streak',        ico:'⏱️' },
   killer_instinct:   { kind:'skin',  id:'predator',            title:'Predator',            ico:'🎯' },
-  massacre_clock:    { kind:'music', id:'clockwork_dies_irae', title:'Clockwork Dies Irae', ico:'⏲️', src:'boss0' },
+  massacre_clock:    { kind:'music', id:'breakbeat_rap',       title:'Breakbeat',           ico:'🎧', src:'rap',   genre:'Rap'  },
   // ---- challenge ----
   objector:          { kind:'trail', id:'objector_halo',       title:'Objector Halo',       ico:'✋' },
   pacifist_protocol: { kind:'skin',  id:'radiant_aura',        title:'Radiant Aura',        ico:'☀️' },
@@ -146,7 +146,7 @@ const RewardEngine = {
 
   /* ---- music: the Soundtrack tab roster + equip/preview ---- */
   musicDefs() {
-    return Object.keys(REWARD_MAP).map(function (ach) { const r = REWARD_MAP[ach]; return r.kind === 'music' ? { id: r.id, title: r.title, ico: r.ico, src: r.src, from: ach } : null; }).filter(Boolean);
+    return Object.keys(REWARD_MAP).map(function (ach) { const r = REWARD_MAP[ach]; return r.kind === 'music' ? { id: r.id, title: r.title, ico: r.ico, src: r.src, genre: r.genre || null, from: ach } : null; }).filter(Boolean);
   },
   _trackKey() { const p = (typeof getPlayer === 'function') && getPlayer(); return 'neon_track:' + ((p && p.id) || 'local'); },
   // the equipped track id render/audio reads; validated against ownership, or null (= default theme)
@@ -187,7 +187,7 @@ const RewardEngine = {
       : `<span class="skin-lock">🔒 from: ${d.from}</span>`;
     return `<div class="${cls}">` +
              `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">track</span></div>` +
-             `<div class="skin-card-body"><b>${owned ? d.title : '???'}</b><span>${owned ? 'Orchestral score' : 'Achievement reward'}</span></div>` +
+             `<div class="skin-card-body"><b>${owned ? d.title : '???'}</b><span>${owned ? (d.genre ? d.genre + ' track' : 'Orchestral score') : 'Achievement reward'}</span></div>` +
              foot + `</div>`;
   },
 
