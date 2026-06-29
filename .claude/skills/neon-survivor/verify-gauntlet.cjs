@@ -37,10 +37,18 @@ const GAUNTLET = [
   ['kus', 'hebrew→latin'], ['cos', 'alt transliteration'], ['benzona', 'hebrew→latin'], ['sharmuta', 'hebrew→latin'], ['chara', 'hebrew→latin'],
   // ── English slurs written in Hebrew letters (enInHe phonetics) ──
   ['פאק', 'fuck in hebrew letters'], ['שיט', 'shit in hebrew letters'], ['נאצ1', 'nazi, hebrew + leet'],
+  ['ניגר', 'nigger in hebrew letters'], ['קאנט', 'cunt in hebrew letters'],
+  // ── expanded registry: more slurs / obscenity, with affixes + obfuscation ──
+  ['c0ck', 'leet cock'], ['cocksucker', 'hard + affix'], ['g4ngb4ng', 'leet gangbang'], ['wetback', 'slur'],
+  ['raghead', 'slur'], ['tw@t', 'leet twat'], ['blowjob', 'obscenity'], ['m1lf', 'leet milf'],
+  ['rapist', 'soft exact (not therapist)'], ['wanker', 'soft + affix'], ['nazis', 'soft + affix'],
+  ['זיון', 'hebrew'], ['שמוק', 'hebrew shmuck'], ['תזדיין', 'hebrew'], ['ziyun', 'hebrew→latin'],
 ];
 /* LEGITIMATE callsigns that MUST pass (guards the hardening against over-blocking / Scunthorpe). */
 const CLEAN = ['Neonblade', 'MaelstromX', 'cooldude', 'shavei', 'Phoenix', 'Hannah', 'Chen', 'Revenant',
-  'GridRunner', 'Zephyr', 'documentary', 'Essex', 'Scunthorpe', 'analytics', 'Saxon', 'therapy'];
+  'GridRunner', 'Zephyr', 'documentary', 'Essex', 'Scunthorpe', 'analytics', 'Saxon', 'therapy',
+  'analyst', 'analog', 'analyze', 'raccoon', 'tycoon', 'cocoon', 'therapist', 'dickinson', 'dickens',
+  'wankel', 'cockpit', 'cocktail', 'peninsula', 'shiitake', 'Cumberland', 'Ashkenazi', 'torpedo', 'Negev'];
 
 console.log('— gauntlet (every attempt MUST be rejected) —');
 for (const [name, why] of GAUNTLET) {

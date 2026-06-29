@@ -100,19 +100,22 @@ function _cfTokens(text) {
  * 28 KB; they are split + projected to canonical form once at load. Keep additions in CANONICAL form. */
 const _CF_REGISTRY = {
   hard: {
-    en: 'fuck,shit,bitch,cunt,niger,nigr,fagot,faget,retard,ashole,asshole,dick,pussy,whore,slut,wank,bastard,dildo,jizm,boner,rapist,kike,chink,trany,hitler,coon,molest,pedophil',
-    he: 'כוס,זין,תחת,חרא,מניאק,שרמוטה,בנזונה,זונה,מזדין,קוקסינל,נאצי,מפגר'
+    en: 'fuck,shit,bitch,cunt,niger,nigr,niga,fagot,faget,retard,ashole,asshole,pussy,whore,slut,bastard,dildo,jizm,boner,kike,chink,trany,hitler,molest,pedophil,cocksuck,motherfuck,fuk,twat,gangbang,blowjob,handjob,cumshot,creampie,bukkake,deepthroat,smegma,spunk,wetback,beaner,raghead,towelhead,jigaboo,felch,fuhrer,goebbels',
+    he: 'כוס,זין,תחת,חרא,מניאק,שרמוטה,בנזונה,זונה,מזדין,קוקסינל,נאצי,מפגר,זיון,לזיין,תזדיין,חרבן,בולבול'
   },
   soft: {
-    en: 'sex,cum,anal,anus,pedo,spic,nazi,rape,homo',
-    he: 'סקס'
+    en: 'sex,cum,anal,anus,pedo,spic,nazi,rape,rapist,homo,coon,dick,wank,cock,fag,dyke,wog,wop,dago,gook,spook,kraut,clit,knob,prick,porn,penis,vagina,milf,orgy,horny,turd,douche,negro,reich,heil',
+    he: 'סקס,הומו,שמוק,דפוק'
   },
   phonetic: {
-    enInHe: 'פאק,שיט,ביץ',                          // fuck / shit / bitch written in Hebrew letters
-    heInEn: 'kus,zayin,benzona,sharmuta,manyak'      // Hebrew profanity written in Latin letters
+    enInHe: 'פאק,שיט,ביץ,ניגר,דיק,קאנט',                       // fuck / shit / bitch / nigger / dick / cunt in Hebrew letters
+    heInEn: 'kus,zayin,benzona,sharmuta,manyak,zona,ziyun,mefager,tachat'   // Hebrew profanity written in Latin letters
   },
-  allow: 'scunthorpe,clitheroe,penistone,lightwater,cockburn'
+  allow: 'scunthorpe,clitheroe,penistone,lightwater,cockburn,shiitake'
 };
+/* the ONLY suffixes a soft token may carry past its root (so "anal" blocks but "analyst"/"analog"/"analytics"
+ * pass, while "sexy"/"nazis"/"rapist" are still caught). '' = bare token; Hebrew plural ים/ות included. */
+const _CF_SUF = ['', 's', 'es', 'ed', 'er', 'ers', 'ing', 'y', 'ie', 'ies', 'a', 'ים', 'ות'];
 
 const CallsignFilter = (function () {
   const R = _CF_REGISTRY;
@@ -130,10 +133,10 @@ const CallsignFilter = (function () {
   const ALLOW = split(R.allow).map(lat);
 
   function _sub(form, list) { for (let i = 0; i < list.length; i++) if (list[i] && form.indexOf(list[i]) !== -1) return list[i]; return ''; }
-  function _tok(tokens, list, key) {                       // fuzzy whole-token: root == token, or token starts with root within +3 chars
+  function _tok(tokens, list, key) {                       // fuzzy whole-token: token == root, or root + ONE common affix
     for (let i = 0; i < tokens.length; i++) { const t = tokens[i][key];
       for (let j = 0; j < list.length; j++) { const r = list[j];
-        if (r && (t === r || (t.indexOf(r) === 0 && t.length - r.length <= 3))) return r; } }
+        if (r && t.indexOf(r) === 0 && _CF_SUF.indexOf(t.slice(r.length)) !== -1) return r; } }
     return '';
   }
   return {
