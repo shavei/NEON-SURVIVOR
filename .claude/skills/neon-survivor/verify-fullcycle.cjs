@@ -197,7 +197,40 @@ function runStub() {
     ok(r && r.selectable, 'reward is selectable (equip surface live)');
     ok(RewardEngine.equippedMusic() === 'maelstrom_waltz', 'track equips → equippedMusic() = maelstrom_waltz');
 
-    console.log(fails.length ? ('\\nFULL-CYCLE (stub) — ' + fails.length + ' FAILED') : '\\nFULL-CYCLE (stub) — ALL PASS (login → unique callsign → unlock → reward → showcase)');
+    // ===== STEP 6: a SKIN reward unlocks → appears + equips in the Showcase "Skins" tab =====
+    head('Skin reward → unlocked skin appears in the Showcase (Skins tab) and equips');
+    calls.inserts = [];
+    var sk = (typeof debugAchievement === 'function') ? debugAchievement('one_man_army', 100) : null;
+    await sleep(20);
+    console.log('  evidence: debugAchievement →', JSON.stringify(sk));
+    ok(sk && sk.unlocked, 'one_man_army is unlocked');
+    ok(sk && sk.reward && sk.reward.kind === 'skin' && sk.reward.id === 'legionnaire', 'reward = Legionnaire (skin)');
+    ok(sk && sk.inMirror, 'skin written to the local cosmetics mirror (Ach._grantRewards)');
+    ok(RewardEngine.owns('legionnaire'), 'RewardEngine.owns(legionnaire) = true');
+    ok(typeof Skins !== 'undefined' && Skins.owns('legionnaire'), 'skin shows as owned in the Skins showcase (Skins.owns)');
+    ok(typeof Skins !== 'undefined' && Skins.skinDefs().some(function (d) { return d.id === 'legionnaire'; }), 'Legionnaire present in the Skins gallery roster');
+    ok(typeof Skins !== 'undefined' && Skins.equip('legionnaire'), 'Skins.equip(legionnaire) accepted');
+    ok(typeof Skins !== 'undefined' && Skins.equipped() === 'legionnaire', 'skin equips → Skins.equipped() = legionnaire (render reads this each frame)');
+    var skIns = calls.inserts.filter(function (i) { return i.table === 'user_inventory'; }).pop();
+    ok(skIns && skIns.row.reward_id === 'legionnaire' && skIns.row.kind === 'skin', 'optimistic user_inventory insert sent {reward_id:legionnaire, kind:skin}');
+
+    // ===== STEP 7: a MAP THEME (palette) reward unlocks → appears + equips in the Showcase "Grids" tab =====
+    head('Map theme reward → unlocked grid theme appears in the Showcase (Grids tab) and equips');
+    calls.inserts = [];
+    var pal = (typeof debugAchievement === 'function') ? debugAchievement('high_scorer', 100) : null;
+    await sleep(20);
+    console.log('  evidence: debugAchievement →', JSON.stringify(pal));
+    ok(pal && pal.unlocked, 'high_scorer is unlocked');
+    ok(pal && pal.reward && pal.reward.kind === 'palette' && pal.reward.id === 'aurora_drift', 'reward = Aurora Drift (map theme)');
+    ok(pal && pal.inMirror, 'theme written to the local cosmetics mirror (Ach._grantRewards)');
+    ok(RewardEngine.owns('aurora_drift'), 'RewardEngine.owns(aurora_drift) = true (visible in the Grids tab)');
+    ok(RewardEngine.paletteDefs().some(function (d) { return d.id === 'aurora_drift'; }), 'Aurora Drift present in the Grids gallery roster');
+    ok(pal && pal.selectable, 'theme is selectable (equip surface live)');
+    ok(RewardEngine.equippedPalette() === 'aurora_drift', 'theme equips → equippedPalette() = aurora_drift');
+    var palIns = calls.inserts.filter(function (i) { return i.table === 'user_inventory'; }).pop();
+    ok(palIns && palIns.row.reward_id === 'aurora_drift' && palIns.row.kind === 'palette', 'optimistic user_inventory insert sent {reward_id:aurora_drift, kind:palette}');
+
+    console.log(fails.length ? ('\\nFULL-CYCLE (stub) — ' + fails.length + ' FAILED') : '\\nFULL-CYCLE (stub) — ALL PASS (login → unique callsign → unlock → reward [music+skin+map theme] → showcase)');
     process.exit(fails.length ? 1 : 0);
   } catch (e) { console.error('\\nFULL-CYCLE (stub) — ERROR:', e && e.message, e && e.stack); process.exit(1); }
 })();
