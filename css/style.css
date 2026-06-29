@@ -175,6 +175,7 @@
   .upg .uico{font-size:30px;margin-bottom:14px}
   .upg h3{font-size:1.22rem;letter-spacing:-.01em;margin-bottom:8px}
   .upg p{color:var(--muted);font-size:.92rem;line-height:1.45}
+  .upg p b.up{color:var(--c,#ffd95e);font-weight:800;text-shadow:0 0 8px currentColor}
   .upg .lvl{position:absolute;top:18px;right:20px;font-family:var(--mono);font-size:11px;color:var(--muted)}
   .upg .new{position:absolute;top:16px;right:18px;font-family:var(--mono);font-size:10px;font-weight:700;color:#1a0f0a;background:var(--c);padding:3px 7px;border-radius:6px;letter-spacing:.1em}
   /* synergy telegraph — flags a card that completes an evolution (the mastery hook) */

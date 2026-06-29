@@ -7,13 +7,14 @@ menu/leaderboard, synth + sample music.
 ## Files (load order fixed — see index.html `<script defer>` tags for the authoritative order)
 `<script defer>` **classic** scripts (NOT modules) — globals shared across files. Every served `js/*.js`
 must stay **under 28 KB** (a larger file is silently truncated → tail vanishes with no error).
-**Game core:** config → config-sim → core → audio-orchestrator → world → sim → render → rewards →
+**Game core:** config → config-sim → core → audio-orchestrator → upgrade-logic → world → sim → render → rewards →
 synergy → map-system → ui-engine → net → main.
 - `index.html` markup · `css/style.css` · `css/achievements.css` · `css/skins.css`
 - `js/config.js` public Supabase URL + anon key (empty → local-only) · `js/config-sim.js` `BOSSES`/sim tunables
 - `js/core.js` foundation, sprite cache, DIFFS, BOSS, Sound, SynthMusic
 - `js/audio-orchestrator.js` SampleKit→RealMusic→SynthMusic, `Music` facade
-- `js/world.js` state globals, reset, spawning, combat, weapons, upgrades, gainXP
+- `js/upgrade-logic.js` `UPGRADES` registry — each item's `applyLogic(p,level)` (absolute stat recalc from `p.base`×scalar) + `getLabel(level)` (dynamic card text); `window.debugUpgrade(id,level)` stat/desc audit
+- `js/world.js` state globals, reset, spawning, combat, weapons, `applyUpgrade`/`openLevelUp` (delegate to `UPGRADES`), gainXP
 - `js/sim.js` `update()` (one 1/60 s tick) · `js/render.js` `draw()` (interpolated)
 - `js/rewards.js` `Reward` in-game JUICE facade (shake/pulse) · `js/synergy.js`/`js/map-system.js` evolutions + boss rewards
 - `js/net.js` Supabase scoreboard: `getPlayer`/`savePlayer`/`submitScore`/`fetchTop` (headless/offline-safe, SB=null)

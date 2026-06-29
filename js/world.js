@@ -121,11 +121,15 @@ function nearestTo(pt,exclude){
 /* The player is a full sim body of this exact shape. makeAvatar() keeps solo byte-identical (same
  * fields/values the old reset literal produced). */
 function makeAvatar(x,y){
-  return {
+  const p={
     x,y,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
     rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
     xp:0,level:1,next:8,regenRate:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,rushT:0,
     missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:x,py:y};
+  // base snapshot — single source of base truth for UpgradeRegistry.applyLogic() absolute recalc
+  p.base={dmg:p.dmg,rate:p.rate,speed:p.speed,multi:p.multi,pierce:p.pierce,bulletSpd:p.bulletSpd,
+    magnet:p.magnet,maxhp:p.maxhp,regenRate:p.regenRate,lifesteal:p.lifesteal,missile:0,shield:0,chain:0};
+  return p;
 }
 /* spawn reference point — enemies/items appear at a ring around the player */
 function spawnAnchor(){return player;}
@@ -362,32 +366,13 @@ function castChain(p){p=p||player;
 }
 
 /* ========== LEVEL MANAGEMENT ========== */
-const UPGRADES=[
-  {id:'dmg',ico:'🗡️',c:'#ff5fa2',name:'Sharper Rounds',desc:'+35% bullet damage'},
-  {id:'rate',ico:'⚡',c:'#ffd95e',name:'Rapid Fire',desc:'+22% fire rate'},
-  {id:'multi',ico:'🔱',c:'#7c8cff',name:'Split Shot',desc:'+1 projectile per volley'},
-  {id:'pierce',ico:'➶',c:'#54e6b5',name:'Piercing',desc:'bullets pass through +1 enemy'},
-  {id:'spd',ico:'🥾',c:'#d97757',name:'Swift Boots',desc:'+12% move speed'},
-  {id:'maxhp',ico:'❤️',c:'#ff5fa2',name:'Vitality',desc:'+30 max HP & heal 30'},
-  {id:'magnet',ico:'🧲',c:'#54e6b5',name:'Magnet Core',desc:'+60% XP pickup range'},
-  {id:'regen',ico:'✚',c:'#ffd95e',name:'Regeneration',desc:'+1 HP / sec'},
-  {id:'lifesteal',ico:'🩸',c:'#ff5fa2',name:'Lifesteal',desc:'heal +1 HP on every kill'},
-  {id:'velocity',ico:'➹',c:'#7c8cff',name:'Hyper Velocity',desc:'+30% bullet speed & +8% damage'},
-  {id:'missile',ico:'🚀',c:'#ffd95e',name:'Homing Missiles',desc:'launch a missile that seeks & explodes (AoE)',weapon:'missile'},
-  {id:'shield',ico:'🛡️',c:'#54e6b5',name:'Orbiting Shield',desc:'a guardian orb circles you, shredding contact',weapon:'shield'},
-  {id:'chain',ico:'🌩️',c:'#7c8cff',name:'Chain Lightning',desc:'periodic bolt that arcs between enemies',weapon:'chain'},
-];
+/* UPGRADES registry (id/name/ico/c/weapon + getLabel/applyLogic) lives in js/upgrade-logic.js,
+ * loaded before this file. Up{} tracks per-upgrade stack counts (cleared each run by reset()). */
 const Up={};
 function applyUpgrade(id){const p=player;
-  if(id==='dmg')p.dmg*=1.35;else if(id==='rate')p.rate=Math.max(6,p.rate*.78);
-  else if(id==='multi')p.multi++;else if(id==='pierce')p.pierce++;
-  else if(id==='spd')p.speed*=1.12;
-  else if(id==='maxhp'){p.maxhp+=30;p.hp=Math.min(p.maxhp,p.hp+30);}
-  else if(id==='magnet'){p.magnet*=1.6;p.magnetSq=p.magnet*p.magnet;}
-  else if(id==='regen')p.regenRate+=1;
-  else if(id==='velocity'){p.bulletSpd*=1.3;p.dmg*=1.08;}else if(id==='lifesteal')p.lifesteal+=1;
-  else if(id==='missile')p.missile++;else if(id==='shield')p.shield++;else if(id==='chain')p.chain++;
-  Up[id]=(Up[id]||0)+1;Fx.loadout();
+  Up[id]=(Up[id]||0)+1;                                 // bump first so the level passed below is current
+  UPGRADES.find(u=>u.id===id).applyLogic(p,Up[id]);     // absolute recalc of this upgrade's stat at its level
+  Fx.loadout();
   if(typeof Synergy!=='undefined')Synergy.check();   // a pick may complete a weapon evolution (transformToEvolved)
   if(typeof Ach!=='undefined'){const isW=id==='missile'||id==='shield'||id==='chain';   // intent: starter-only / synergy / glass-cannon
     Ach.onUpgrade(id,isW,wave,(p.missile>0)+(p.shield>0)+(p.chain>0));}
@@ -410,7 +395,8 @@ function openLevelUp(){
     const evo=(typeof Synergy!=='undefined')?Synergy.previews(u.id):null;   // does this pick complete an evolution?
     const corner=evo?`<div class="evo">⚡ EVOLVES</div>`:u.weapon&&!owned?`<div class="new">NEW</div>`:owned?`<div class="lvl">Lv ${owned+1}</div>`:'';
     const tip=evo?`<p style="color:#ffd95e;margin-top:6px;font-size:.82rem">⚡ Evolves → <b>${evo.name}</b><br><span style="color:#9aa3b2;font-size:.74rem">${evo.desc}</span></p>`:'';
-    el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${u.name}</h3><p>${u.desc}</p>${tip}`;
+    const label=u.getLabel(owned+1);   // level-aware description for the level this pick would reach
+    el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${u.name}</h3><p>${label}</p>${tip}`;
     el.onclick=()=>{applyUpgrade(u.id);document.getElementById('levelup').classList.remove('show');
       state='play';t0+=performance.now()-pauseStart;};
     wrap.appendChild(el);});
