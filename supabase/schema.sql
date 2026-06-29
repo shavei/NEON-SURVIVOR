@@ -114,6 +114,33 @@ create policy "cosmetics readable"    on public.cosmetics_inventory for select u
 create policy "owner equips cosmetic" on public.cosmetics_inventory for update
   using (auth.uid() = player_id) with check (auth.uid() = player_id);
 
+-- ============================================================
+-- USER_INVENTORY — the unified reward mirror (ALL tiers, every kind). One row per (player, reward).
+-- The 35-row REWARD_MAP (js/reward-granting-engine.js) and api/verify.js both write here as
+-- { player_id, reward_id, kind }; the client insert is an OPTIMISTIC owner-mirror, while cosmetics_inventory
+-- above stays the service-role-only authoritative GOLD store. A missing row/policy just latches the
+-- client's `_invOff` and it falls back to the local mirror — so this table is a sync convenience, not a gate.
+-- ============================================================
+create table if not exists public.user_inventory (
+  player_id    uuid not null,
+  reward_id    text not null,                                   -- 'maelstrom_waltz','aurora_drift',...
+  kind         text not null check (kind in ('skin','trail','music','palette')),
+  granted_at   timestamptz not null default now(),
+  primary key (player_id, reward_id)
+);
+create index if not exists user_inventory_player_idx on public.user_inventory (player_id);
+
+alter table public.user_inventory enable row level security;
+
+drop policy if exists "reward inventory readable" on public.user_inventory;
+drop policy if exists "owner mirrors reward"      on public.user_inventory;
+-- READABLE by all (show off the collection); each player may INSERT only their OWN rows. No UPDATE/DELETE
+-- policy → the optimistic mirror can grow but never be rewritten client-side; /api/verify (service_role)
+-- is the authoritative writer and upserts past RLS.
+create policy "reward inventory readable" on public.user_inventory for select using (true);
+create policy "owner mirrors reward"      on public.user_inventory for insert
+  with check (auth.uid() = player_id);
+
 -- One row per run, keyed by a server-issued token → makes /api/verify idempotent and gives it a
 -- trusted anchor (started_at, difficulty) to sanity-check the submitted run against.
 create table if not exists public.runs (
