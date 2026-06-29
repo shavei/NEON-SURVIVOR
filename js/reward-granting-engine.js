@@ -63,6 +63,15 @@ const REWARD_MAP = {
   completionist:     { kind:'skin',  id:'prism_core',          title:'Prism Core',          ico:'🟩' },
 };
 
+/* trail reward id → streak colour (client-only — render.js draws the equipped trail behind every bullet in
+ * this hue, the Trails gallery shows it as a swatch). Keys are the 13 kind:'trail' reward ids above. */
+const TRAIL_COL = {
+  first_blood_spark:'#ff3b6b', swarm_pulse:'#ff6b3b', neon_god_trail:'#ffd95e', surge_arc:'#5ec8ff',
+  warden_halo:'#b98cff', ghost_streak:'#d6f0ff', phase_trail:'#54e6ff', factory_line:'#9db0ff',
+  second_wind_gust:'#54e6b5', spike_trail:'#7cff6b', blitz_streak:'#ffe45e', objector_halo:'#ff9d2e',
+  any_percent_blip:'#ffffff',
+};
+
 const RewardEngine = {
   MAP: REWARD_MAP,
   _invOff: false,   // user_inventory table/policy absent → stop poking the cloud (no repeat 4xx)
@@ -116,6 +125,7 @@ const RewardEngine = {
         res.data.forEach(function (row) { const arr = row.kind === 'music' ? s.tracks : s.cosmetics; if (row.reward_id && arr.indexOf(row.reward_id) < 0) arr.push(row.reward_id); });
         Ach._save(s);
         if (typeof Skins !== 'undefined' && Skins.renderGallery) Skins.renderGallery();
+        self.renderTrailGallery();
         self.renderTrackGallery();
         self.renderGridGallery();
       }, function () {});
@@ -227,7 +237,55 @@ const RewardEngine = {
              foot + `</div>`;
   },
 
-  /* showcase tab toggle (Skins | Soundtrack | Grids) — bound once; panes are #skinlist / #tracklist / #gridlist */
+  /* ---- trails: the Trails tab roster + equip. The equipped trail's colour is read by render.js, which
+   *      draws a fading streak behind every player bullet in that hue (id '' = no trail = default look). ---- */
+  trailDefs() {
+    return Object.keys(REWARD_MAP).map(function (ach) { const r = REWARD_MAP[ach]; return r.kind === 'trail' ? { id: r.id, title: r.title, ico: r.ico, col: (TRAIL_COL[r.id] || '#54e6ff'), from: ach } : null; }).filter(Boolean);
+  },
+  _trailKey() { const p = (typeof getPlayer === 'function') && getPlayer(); return 'neon_trail:' + ((p && p.id) || 'local'); },
+  // equipped trail id (validated against ownership), or null = no trail (default bullet look)
+  equippedTrail() { try { const v = localStorage.getItem(this._trailKey()); return (v && this.owns(v)) ? v : null; } catch (e) { return null; } },
+  // the colour render.js draws the bullet streak in, or null when no trail is equipped (skip the streak entirely)
+  equippedTrailColor() { const id = this.equippedTrail(); return id ? (TRAIL_COL[id] || '#54e6ff') : null; },
+  equipTrail(id) {
+    if (id && !this.owns(id)) return false;                  // can't equip a locked trail (id '' = no trail)
+    try { if (id) localStorage.setItem(this._trailKey(), id); else localStorage.removeItem(this._trailKey()); } catch (e) {}
+    this.renderTrailGallery();
+    if (id && typeof AchUI !== 'undefined' && AchUI._push) {
+      const d = this.trailDefs().find(function (m) { return m.id === id; });
+      if (d) AchUI._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>🎨 TRAIL EQUIPPED</b><span>${d.title}</span></div>`, '#54e6ff');
+    }
+    return true;
+  },
+
+  /* ----- the Trails gallery (rendered into #traillist) — the free "no trail" default + every unlocked trail ----- */
+  renderTrailGallery() {
+    if (typeof document === 'undefined') return;
+    const host = document.getElementById('traillist'); if (!host) return;
+    const defs = this.trailDefs(), eq = this.equippedTrail(), self = this;
+    const ownedN = defs.filter(function (d) { return self.owns(d.id); }).length;
+    const header = `<div class="skin-bar"><div class="skin-n">Unlocked ${ownedN}/${defs.length}</div></div>`;
+    const dfCard = self._trailCardHTML({ id: '', title: 'No Trail', ico: '∅', col: '#7c8cff', from: null, free: true }, eq);   // the free default always shows first
+    const cards = defs.map(function (d) { return self._trailCardHTML(d, eq); }).join('');
+    host.innerHTML = header + `<div class="track-grid">${dfCard}${cards}</div>`;
+    if (typeof host.querySelectorAll === 'function')
+      host.querySelectorAll('[data-equipt]').forEach(function (b) { b.onclick = function () { self.equipTrail(b.dataset.equipt); }; });
+  },
+  _trailCardHTML(d, eq) {
+    const owned = d.free || this.owns(d.id), isEq = owned && (d.id || null) === (eq || null);
+    const cls = ['track-card', owned ? 'owned' : 'locked', isEq ? 'equipped' : ''].join(' ').trim();
+    const sw = owned ? `<div class="trail-swatch" style="--trail-col:${d.col};background:linear-gradient(90deg,transparent,${d.col})"></div>` : '';
+    const foot = owned
+      ? (isEq ? `<span class="track-badge">✓ EQUIPPED</span>` : `<button class="track-btn equip" data-equipt="${d.id}">EQUIP</button>`)
+      : `<span class="skin-lock">🔒 from: ${d.from}</span>`;
+    return `<div class="${cls}">` +
+             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">trail</span></div>` +
+             sw +
+             `<div class="skin-card-body"><b>${owned ? d.title : '???'}</b><span>${owned ? 'Projectile trail' : 'Achievement reward'}</span></div>` +
+             foot + `</div>`;
+  },
+
+  /* showcase tab toggle (Skins | Trails | Soundtrack | Grids) — bound once; panes are #skinlist / #traillist / #tracklist / #gridlist */
   _initTabs() {
     if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
     const tabs = document.querySelectorAll('.showcase-tab'); if (!tabs || !tabs.forEach) return;
@@ -241,7 +299,7 @@ const RewardEngine = {
   },
   // NB: the Grids gallery is rendered by theme-system.js after it loads (it owns the `Theme` const that
   // _gridCardHTML reads) — rendering it here would touch `Theme` before its declaration in the bundled build.
-  _init() { if (typeof document === 'undefined') return; this._initTabs(); this.renderTrackGallery(); },
+  _init() { if (typeof document === 'undefined') return; this._initTabs(); this.renderTrailGallery(); this.renderTrackGallery(); },
 };
 
 /* ----- DEV verification tool (console) : prove a reward end-to-end -----
@@ -275,9 +333,11 @@ if (typeof window !== 'undefined') window.debugAchievement = function (id, pct, 
     if (r.kind === 'music') { RewardEngine.equipMusic(r.id); selectable = RewardEngine.equippedMusic() === r.id; }   // prove it's equippable
     else if (r.kind === 'palette') { RewardEngine.equipPalette(r.id); selectable = RewardEngine.equippedPalette() === r.id; }   // prove the grid theme equips
     else if (r.kind === 'skin') selectable = (typeof Skins !== 'undefined' && Skins.owns(r.id));
-    else selectable = inMirror;                    // trails are inventoried (equip surface is future work)
+    else if (r.kind === 'trail') { RewardEngine.equipTrail(r.id); selectable = RewardEngine.equippedTrail() === r.id; }   // prove the trail equips + renders
+    else selectable = inMirror;
   }
   if (typeof Skins !== 'undefined' && Skins.renderGallery) Skins.renderGallery();
+  RewardEngine.renderTrailGallery();
   RewardEngine.renderTrackGallery();
   RewardEngine.renderGridGallery();
 
