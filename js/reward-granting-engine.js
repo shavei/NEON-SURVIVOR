@@ -53,9 +53,10 @@ const REWARD_MAP = {
   massacre_clock:    { kind:'music', id:'clockwork_dies_irae', title:'Clockwork Dies Irae', ico:'⏲️', src:'boss0' },
   // ---- challenge ----
   objector:          { kind:'trail', id:'objector_halo',       title:'Objector Halo',       ico:'✋' },
-  pacifist_protocol: { kind:'trail', id:'dove_halo',           title:'Dove Halo',           ico:'🕊️' },
+  pacifist_protocol: { kind:'skin',  id:'radiant_aura',        title:'Radiant Aura',        ico:'☀️' },
   minimalist:        { kind:'skin',  id:'monoline',            title:'Monoline',            ico:'➖' },
   ascetic:           { kind:'music', id:'ascetic_nocturne',    title:'Ascetic Nocturne',    ico:'🧘', src:'menu'  },
+  bare_bones:        { kind:'music', id:'acoustic_grid',       title:'Acoustic Grid',       ico:'🎵', src:'menu'  },
   // ---- secret ----
   any_percent:       { kind:'trail', id:'any_percent_blip',    title:'Any% Blip',           ico:'🏁' },
   leet:              { kind:'skin',  id:'leet_chrome',         title:'1337 Chrome',         ico:'😎' },
@@ -244,21 +245,32 @@ const RewardEngine = {
 };
 
 /* ----- DEV verification tool (console) : prove a reward end-to-end -----
- *   debugAchievement('wave_master', 100)  → unlock it: fire the toast AND grant the reward, then report.
- *   debugAchievement('ghost_grid', 80)    → drive the badge bar to 80% (no unlock) — exercises the progress UI.
- * Returns a plain object: whether the toast fired, the reward granted, whether it's now in the mirror, and
- * whether it's IMMEDIATELY selectable in the Showcase (skin equippable / track equipped) + the inventory
- * state. Mirror-only + optimistic insert — the server is never forced, so prod data is safe. */
-if (typeof window !== 'undefined') window.debugAchievement = function (id, pct) {
+ *   debugAchievement('wave_master', 100)             → unlock it + confirm the FULL cycle, then report.
+ *   debugAchievement('ghost_grid', 80)               → drive the badge bar to 80% (no unlock) — progress UI.
+ *   debugAchievement('wave_master', 100, {live:true})→ also re-pull user_inventory from Supabase and log
+ *                                                       whether the reward round-tripped back from the cloud.
+ * Confirms each stage of the cycle [earned] → [toast] → [sync] → [showcase] and returns a `cycle` checklist
+ * (booleans) + a one-line `summary`, alongside the legacy {unlocked,reward,inMirror,selectable,inventory}
+ * fields. Mirror-only + optimistic insert by default — the authoritative server grant only happens through a
+ * real online run via /api/verify (or verify-fullcycle.cjs --live), so prod data is safe. */
+if (typeof window !== 'undefined') window.debugAchievement = function (id, pct, opts) {
   if (typeof Ach === 'undefined' || typeof AchUI === 'undefined') return 'no Ach/AchUI';
   const d = Ach.CATALOG.find(function (x) { return x.id === id; }); if (!d) return 'unknown achievement: ' + id;
   if (pct == null) pct = 100;
   const frac = Math.max(0, Math.min(1, pct / 100));
   AchUI.mock(id, frac);                            // <100 → bar only; ==100 → mockGrant → _notify → onUnlock hook
-  if (frac < 1) return { id: id, progress: Math.round(frac * 100) + '%', unlocked: false };
+  if (frac < 1) return { id: id, progress: Math.round(frac * 100) + '%', unlocked: false, cycle: { earned: false } };
+
+  // ---- full-cycle proof: [earned] → [toast] → [sync] → [showcase] ----
   const r = RewardEngine.rewardFor(id), s = Ach._load();
+  const earned = Ach.isUnlocked(id);               // STAGE 1 — local mirror flipped (mockGrant)
+  const toast = !!(AchUI && AchUI.unlockToast);     // STAGE 2 — unlock + reward toast fired (mockGrant→_notify→onUnlock)
   const inMirror = r ? ((r.kind === 'music' ? (s.tracks || []) : (s.cosmetics || [])).indexOf(r.id) >= 0) : false;
-  let selectable = false;
+  let pid = null; try { pid = (typeof getPlayer === 'function') && getPlayer() && getPlayer().id; } catch (e) {}
+  const online = !RewardEngine._invOff && typeof SB !== 'undefined' && !!SB && !!pid;   // STAGE 3 — cloud reachable
+  const inventory = online ? 'insert-sent' : 'mirror-only(offline/no-table)';
+
+  let selectable = false;                          // STAGE 4 — pickable in the Showcase
   if (r) {
     if (r.kind === 'music') { RewardEngine.equipMusic(r.id); selectable = RewardEngine.equippedMusic() === r.id; }   // prove it's equippable
     else if (r.kind === 'palette') { RewardEngine.equipPalette(r.id); selectable = RewardEngine.equippedPalette() === r.id; }   // prove the grid theme equips
@@ -268,8 +280,21 @@ if (typeof window !== 'undefined') window.debugAchievement = function (id, pct) 
   if (typeof Skins !== 'undefined' && Skins.renderGallery) Skins.renderGallery();
   RewardEngine.renderTrackGallery();
   RewardEngine.renderGridGallery();
-  return { id: id, unlocked: Ach.isUnlocked(id), toast: true, reward: r && { kind: r.kind, id: r.id, title: r.title },
-           inMirror: inMirror, selectable: selectable, inventory: RewardEngine._invOff ? 'mirror-only(offline/no-table)' : 'insert-sent' };
+
+  // opt-in live confirm: re-pull user_inventory from Supabase and assert the reward round-tripped back
+  if (opts && opts.live && r && online && RewardEngine.pullInventory) {
+    Promise.resolve(RewardEngine.pullInventory()).then(function () {
+      const back = (r.kind === 'music' ? (Ach._load().tracks || []) : (Ach._load().cosmetics || [])).indexOf(r.id) >= 0;
+      try { console.log('[debugAchievement] live sync round-trip for ' + r.id + ' → ' + (back ? 'CONFIRMED in cloud' : 'NOT FOUND (insert pending/blocked)')); } catch (e) {}
+    });
+  }
+
+  const cycle = { earned: earned, toast: toast, sync: online, showcase: selectable };
+  const mk = function (b) { return b ? '✓' : '✗'; };
+  const summary = id + '  ' + mk(earned) + 'earned  ' + mk(toast) + 'toast  ' +
+                  (online ? '✓sync' : '·sync[' + inventory + ']') + '  ' + mk(selectable) + 'showcase';
+  return { id: id, unlocked: earned, toast: toast, reward: r && { kind: r.kind, id: r.id, title: r.title },
+           inMirror: inMirror, selectable: selectable, inventory: inventory, cycle: cycle, summary: summary };
 };
 
 if (typeof document !== 'undefined') RewardEngine._init();

@@ -53,6 +53,7 @@ const CATALOG = [
   { id:'pacifist_protocol', conds:[['kills','<=',24],['secs',300]],   difficulty:null, tier:'gold',   chain:null },
   { id:'minimalist',        conds:[['peakWeapons','<=',1],['wave',12]],difficulty:null, tier:'silver', chain:null },
   { id:'ascetic',           conds:[['asceticWave',10]],               difficulty:null, tier:'silver', chain:null },
+  { id:'bare_bones',        conds:[['peakWeapons','<=',1],['wave',20]],difficulty:null, tier:'gold',   chain:null },
   // secret (hidden)
   { id:'any_percent',  conds:[['secs','<=',5],['wave',1]],            difficulty:null, tier:'bronze', chain:null },
   { id:'leet',         conds:[['kills','==',1337]],                   difficulty:null, tier:'silver', chain:null },
@@ -68,7 +69,7 @@ const COSMETIC_MAP = {
   warden_legend:     'warden_halo',
   untouchable:       'phase_trail',
   flawless_protocol: 'wardens_bane',
-  pacifist_protocol: 'dove_halo',
+  pacifist_protocol: 'radiant_aura',
   completionist:     'prism_core',
 };
 
@@ -112,9 +113,10 @@ const REWARD_MAP = {
   killer_instinct:   { kind:'skin',  id:'predator' },
   massacre_clock:    { kind:'music', id:'clockwork_dies_irae', src:'boss0' },
   objector:          { kind:'trail', id:'objector_halo' },
-  pacifist_protocol: { kind:'trail', id:'dove_halo' },
+  pacifist_protocol: { kind:'skin',  id:'radiant_aura' },
   minimalist:        { kind:'skin',  id:'monoline' },
   ascetic:           { kind:'music', id:'ascetic_nocturne',    src:'menu'  },
+  bare_bones:        { kind:'music', id:'acoustic_grid',       src:'menu'  },
   any_percent:       { kind:'trail', id:'any_percent_blip' },
   leet:              { kind:'skin',  id:'leet_chrome' },
   completionist:     { kind:'skin',  id:'prism_core' },
