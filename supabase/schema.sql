@@ -26,13 +26,10 @@ drop policy if exists "anyone can insert" on public.leaderboard;
 create policy "anyone can read"
   on public.leaderboard for select using (true);
 
-create policy "anyone can insert"
-  on public.leaderboard for insert with check (
-    char_length(username) between 1 and 16
-    and score >= 0
-    and difficulty in ('easy','normal','hard')
-  );
--- no update/delete policy → rows are append-only from the client.
+-- NO client insert policy → every browser write is denied by Postgres. The ONLY writer is /api/verify.js
+-- (service_role, bypasses RLS), which re-validates the score against the trusted `runs` anchor + per-difficulty
+-- rate ceilings before inserting. This closes the hole where any client could anon-insert any score (the
+-- forged 0:00 billion-point rows). No update/delete policy → rows stay append-only, server-written.
 
 
 -- ============================================================
@@ -223,11 +220,11 @@ grant execute on function public.callsign_available(text) to anon, authenticated
 -- Deferred so the constraint doesn't reject still-orphaned legacy player_ids before the claim runs.
 
 
--- ---------- harden the EXISTING leaderboard (FUTURE cutover, NOT run yet) ----------
--- Today's "anyone can insert" (above) lets any client post any score. Once /api/verify also writes
--- the leaderboard server-side, drop the client insert policy so the service role is the only writer:
---   drop policy if exists "anyone can insert" on public.leaderboard;
--- Staged separately to avoid a write outage while the function rolls out.
+-- ---------- harden the EXISTING leaderboard (DONE — cutover applied above) ----------
+-- The old "anyone can insert" policy let any client post any score; it has been dropped (see the
+-- leaderboard policies near the top of this file). /api/verify.js (service_role) is now the sole writer
+-- and re-validates every score against the `runs` anchor before inserting. Re-running this schema is
+-- idempotent: the `drop policy if exists "anyone can insert"` above clears any lingering open policy.
 
 -- ---------- seed the catalog (idempotent) ----------
 insert into public.achievement_defs (id,title,description,metric,threshold,difficulty,sort) values

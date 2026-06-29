@@ -38,7 +38,7 @@ async function runLive() {
   const TOKEN = (require('crypto').randomUUID && require('crypto').randomUUID()) || ('fc-' + Date.now());
   const cleanup = async () => { for (const q of [
       'player_achievements?player_id=eq.' + PID, 'cosmetics_inventory?player_id=eq.' + PID,
-      'user_inventory?player_id=eq.' + PID, 'runs?player_id=eq.' + PID])
+      'user_inventory?player_id=eq.' + PID, 'leaderboard?player_id=eq.' + PID, 'runs?player_id=eq.' + PID])
     { try { await sb(q, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); } catch (e) {} } };
 
   try {
@@ -49,7 +49,7 @@ async function runLive() {
     console.log('  [live] opened run token ' + TOKEN.slice(0, 8) + '… for test player');
 
     const handler = require(path.join(ROOT, 'api/verify.js'));
-    const claim = { player_id: PID, run_token: TOKEN, score: 2000, wave: 20, kills: 25, secs: 30, level: 5, bosses: 0, runs: 1, difficulty: 'normal' };
+    const claim = { player_id: PID, run_token: TOKEN, username: 'FullCycle', score: 2000, wave: 20, kills: 25, secs: 30, level: 5, bosses: 0, runs: 1, difficulty: 'normal' };
     let payload = null;
     const res = { status: () => ({ json: o => { payload = o; } }) };
     await handler({ method: 'POST', body: claim }, res);
@@ -68,6 +68,10 @@ async function runLive() {
       console.log('  [live] user_inventory rows:', JSON.stringify(inv));
       ok(Array.isArray(inv) && inv.some(r => r.reward_id === 'maelstrom_waltz'), 'maelstrom_waltz reward persisted in user_inventory');
     } catch (e) { console.log('  [live] user_inventory not present (' + e.message + ') — reward is mirror-only on this deployment'); }
+
+    const lb = await sb('leaderboard?select=username,score,secs&player_id=eq.' + PID);
+    console.log('  [live] leaderboard rows:', JSON.stringify(lb));
+    ok(Array.isArray(lb) && lb.some(r => r.username === 'FullCycle' && r.score === 2000), 'server-validated leaderboard row persisted (score 2000, server-written by /api/verify)');
 
     await cleanup();
     console.log(fail ? ('\nLIVE — ' + fail + ' FAILED') : '\nLIVE — ALL PASS (real DB grant verified + cleaned up)');

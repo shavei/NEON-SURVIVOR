@@ -245,7 +245,7 @@ const Ach = {
       fetch(base + '/api/verify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          player_id: p.id, run_token: this._token,
+          player_id: p.id, run_token: this._token, username: p.name,    // username → server-written leaderboard row
           score: stats.score, wave: stats.wave, secs: entry.secs | 0, kills: stats.kills,
           level: stats.level, bosses: stats.bosses, runs: stats.runs, difficulty: stats.difficulty,
           // intent fields (cosmetic-only; server clamps to plausible bounds before granting)

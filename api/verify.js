@@ -282,6 +282,20 @@ module.exports = async function handler(req, res) {
     } catch (e) {}
     earned.push(...metaEarned);
 
+    // 4d) leaderboard write — server-authoritative, from the SAME re-validated numbers (service role bypasses
+    //     RLS; the client `anyone can insert` policy is gone). Best-effort: a leaderboard hiccup must NOT undo
+    //     the achievement grant above. Runs once per token — the verified early-return (step 2) blocks replays.
+    try {
+      const uname = (String(b.username || '').slice(0, 16)) || 'anon';
+      await sb('leaderboard', {
+        method: 'POST', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          player_id: b.player_id, username: uname, score: claim.score,
+          difficulty: claim.difficulty, wave: claim.wave, secs: claim.secs,
+        }),
+      });
+    } catch (e) {}
+
     // 5) close the run token (idempotency anchor) — service role only
     await sb('runs?run_token=eq.' + encodeURIComponent(b.run_token), {
       method: 'PATCH', headers: { Prefer: 'return=minimal' },
