@@ -1,0 +1,307 @@
+{
+  "evidence": [
+    {
+      "id": "high_scorer",
+      "result": {
+        "id": "high_scorer",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "palette",
+          "id": "aurora_drift",
+          "title": "Aurora Drift"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "high_scorer  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "first_blood",
+      "result": {
+        "id": "first_blood",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "trail",
+          "id": "first_blood_spark",
+          "title": "First Blood Spark"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "first_blood  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "power_surge",
+      "result": {
+        "id": "power_surge",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "trail",
+          "id": "surge_arc",
+          "title": "Surge Arc"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "power_surge  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "wave_master",
+      "result": {
+        "id": "wave_master",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "music",
+          "id": "maelstrom_waltz",
+          "title": "Maelstrom Waltz"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "wave_master  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "one_man_army",
+      "result": {
+        "id": "one_man_army",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "skin",
+          "id": "legionnaire",
+          "title": "Legionnaire"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "one_man_army  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "ascended",
+      "result": {
+        "id": "ascended",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "palette",
+          "id": "violet_void",
+          "title": "Violet Void"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "ascended  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "warden_hunter",
+      "result": {
+        "id": "warden_hunter",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "music",
+          "id": "requiem_hunt",
+          "title": "Requiem of the Hunt"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "warden_hunter  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "annihilator",
+      "result": {
+        "id": "annihilator",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "skin",
+          "id": "crimson_husk",
+          "title": "Crimson Husk"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "annihilator  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "abyss_walker",
+      "result": {
+        "id": "abyss_walker",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "skin",
+          "id": "void_warden",
+          "title": "Void Warden"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "abyss_walker  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "neon_god",
+      "result": {
+        "id": "neon_god",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "trail",
+          "id": "neon_god_trail",
+          "title": "Neon God Trail"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "neon_god  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "untouchable",
+      "result": {
+        "id": "untouchable",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "trail",
+          "id": "phase_trail",
+          "title": "Phase Trail"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "untouchable  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "pacifist_protocol",
+      "result": {
+        "id": "pacifist_protocol",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "skin",
+          "id": "radiant_aura",
+          "title": "Radiant Aura"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "pacifist_protocol  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    },
+    {
+      "id": "boss_slayer",
+      "result": {
+        "id": "boss_slayer",
+        "unlocked": true,
+        "toast": true,
+        "reward": {
+          "kind": "palette",
+          "id": "crimson_nebula",
+          "title": "Crimson Nebula"
+        },
+        "inMirror": true,
+        "selectable": true,
+        "inventory": "mirror-only(offline/no-table)",
+        "cycle": {
+          "earned": true,
+          "toast": true,
+          "sync": false,
+          "showcase": true
+        },
+        "summary": "boss_slayer  ✓earned  ✓toast  ·sync[mirror-only(offline/no-table)]  ✓showcase"
+      }
+    }
+  ],
+  "console": [
+    "Failed to load resource: net::ERR_TUNNEL_CONNECTION_FAILED",
+    "Failed to load resource: net::ERR_TUNNEL_CONNECTION_FAILED"
+  ]
+}
