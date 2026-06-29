@@ -30,6 +30,10 @@ function _trace(stage, detail) { try { if (typeof localStorage !== 'undefined' &
 
 /* callsign input border feedback: '' neutral · 'ok' green pulse (available) · 'taken' red pulse (claimed) */
 function _unameState(s) { const u = _el('uname'); if (!u || !u.classList) return; u.classList.remove('ok', 'taken'); if (s) u.classList.add(s); }
+/* cross-language censorship gate (js/callsign-filter.js). Fires the red `taken` pulse + 'CALLSIGN
+ * RESTRICTED' BEFORE any cloud write, so a flagged callsign never reaches Supabase. Filter absent → allow. */
+function _restricted(n) { try { return typeof CallsignFilter !== 'undefined' && CallsignFilter.blocked(n); } catch (e) { return false; } }
+function _flagRestricted() { _unameState('taken'); _seterr('CALLSIGN RESTRICTED'); }
 /* debounced live availability check (250 ms). Only the cloud callsign stages query; a stale response
  * (user kept typing) is dropped by token; an inconclusive/offline check leaves the border neutral. */
 let _ckTimer = 0, _ckToken = 0;
@@ -38,6 +42,7 @@ function _checkCallsign() {
   try { clearTimeout(_ckTimer); } catch (e) {}
   const raw = (_el('uname') || {}).value || '';
   const n = (typeof sanitizeName === 'function') ? sanitizeName(raw) : raw.trim();
+  if (n.length >= 3 && _restricted(n)) { _flagRestricted(); return; }              // censored → red pulse, no query
   if (n.length < 3 || !_authReady() || typeof AchSync === 'undefined') { _unameState(''); return; }
   const token = ++_ckToken;
   _ckTimer = setTimeout(function () {
@@ -101,6 +106,7 @@ function confirmUsername() {
   if (_stage === 'local' || _stage === 'callsign') {
     const n = (typeof sanitizeName === 'function') ? sanitizeName(_el('uname').value) : (_el('uname').value || '').trim();
     if (n.length < 3) { _seterr('Please use at least 3 characters.'); return; }
+    if (_restricted(n)) { _flagRestricted(); return; }
     if (_stage === 'callsign' && _authReady()) {
       const id = ((typeof getPlayer === 'function' && getPlayer()) || {}).id;
       const ok = _el('unameok'); if (ok) ok.disabled = true; _seterr('Claiming callsign…');
@@ -143,6 +149,7 @@ function confirmUsername() {
   if (_stage === 'signup') {
     const name = (typeof sanitizeName === 'function') ? sanitizeName(_el('uname').value) : '';
     if (name.length < 3) { if (ok) ok.disabled = false; _seterr('Callsign: at least 3 characters.'); return; }
+    if (_restricted(name)) { if (ok) ok.disabled = false; _flagRestricted(); return; }
     _authEmail = email; _pendingCallsign = name; _seterr('Creating account…');
     AchSync.pwSignUp(email, pass).then(function (r) {
       if (!r || !r.ok) { if (ok) ok.disabled = false; _seterr((r && r.error) || 'Sign-up failed.'); return; }

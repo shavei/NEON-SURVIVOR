@@ -21,11 +21,12 @@ synergy → map-system → ui-engine → net → main.
 - `js/main.js` init/wiring, loop, menus, flow, `sanitizeName`, F3 debug overlay
 
 **Identity / achievement / reward stack** (loads after net, before main; all headless/offline-safe):
-`achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine`.
+`achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine`.
 - `js/achievements.js` `Ach` catalog + local mirror, `evaluate`, `_grantRewards`, `mockGrant`
 - `js/achievements-ui.js` `AchUI` gallery + non-pausing unlock toasts; `unlockToast(id)` → fires the reward handshake
 - `js/reward-granting-engine.js` `RewardEngine` + `REWARD_MAP` (36 rewards: skin/trail/music/palette); `onUnlock(id)` = grant handshake (toast + optimistic `user_inventory` insert), Soundtrack/Grids galleries, equip/preview
 - `js/achievement-sync.js` `AchSync` durable identity: signUp/signIn/OTP wrappers, `_adopt`, `_setProfile`, `pull`/`pullInventory`
+- `js/callsign-filter.js` `CallsignFilter` cross-language (EN↔HE) censorship: `normalizeCallsign(text)`→{latin,hebrew} comparison strings, inline canonical blocklist, `window.debugCensor(text)`; auth-uplink gates on `blocked()` before any cloud write
 - `js/auth-uplink.js` `confirmUsername()` GRID ACCESS modal — one overlay, `_stage` machine (login·signup·signup-code·otp-code·local·callsign)
 - `js/theme-system.js` `Theme` map palettes · `js/skins-ui.js` `Skins` showcase · `js/leaderboard-*.js` board sync/UI
 - `api/verify.js` THE authoritative server grantor (service role): validates a run, writes `player_achievements`/`cosmetics_inventory`/`user_inventory`. `REWARD_MAP`/`CATALOG`/`COSMETIC_MAP` here MUST stay in lockstep with the client.
@@ -37,6 +38,7 @@ synergy → map-system → ui-engine → net → main.
 - `node .claude/skills/neon-survivor/verify-equiv.cjs` — after behavior-preserving refactors
 - `node .claude/skills/neon-survivor/verify-achievements.cjs` — after achievement/reward catalog or `api/verify.js` edits (client↔server lockstep)
 - `node .claude/skills/neon-survivor/verify-otp.cjs` — after auth-uplink / achievement-sync edits (signup-code · otp-code · instant-resume)
+- `node .claude/skills/neon-survivor/verify-censor.cjs` — after callsign-filter / auth-gate edits (cross-language EN↔HE censorship: blocked · allowed · convergence · `debugCensor`)
 - `node .claude/skills/neon-survivor/verify-fullcycle.cjs` — full identity arc: login → unique callsign → unlock → reward → showcase (`--live` for a real Supabase round-trip)
 - `node .claude/skills/neon-survivor/verify-size.cjs` — 28 KB silent-truncation guard for every served `js/*.js`
 
