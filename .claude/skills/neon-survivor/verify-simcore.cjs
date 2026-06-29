@@ -9,7 +9,7 @@
  */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '../../..');
-const files = ['js/config-sim.js', 'js/core.js', 'js/world.js', 'js/sim.js'];   // sim layer ONLY — no audio/render/ui/main
+const files = ['js/config-sim.js', 'js/core.js', 'js/upgrade-logic.js', 'js/world.js', 'js/sim.js'];   // sim layer ONLY — no audio/render/ui/main (upgrade-logic = UPGRADES registry world.js depends on)
 const src = files.map(f => fs.readFileSync(path.resolve(ROOT, f), 'utf8')).join('\n;\n');
 
 const any = new Proxy(function () {}, { get: () => any, apply: () => any, set: () => true, construct: () => any });
