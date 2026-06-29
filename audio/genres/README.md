@@ -7,14 +7,19 @@ re-points the in-game gameplay theme to that genre. Each file is **copyright-fre
 real recording is supplied.
 
 ## Tracks
-| File | Genre | Unlocked by | Status |
+All four are **HoliznaCC0** recordings, released **CC0 1.0 Universal** (public-domain dedication, no
+attribution required) — sourced from the Free Music Archive (https://freemusicarchive.org/music/holiznacc0/).
+
+| File | Genre | Recording (CC0) | Unlocked by |
 | :--- | :--- | :--- | :--- |
-| `jazz.ogg` | Jazz (Midnight Jazz) | `wave_rider` — reach wave 10 | ⏳ procedural swing bed until supplied |
-| `pop.ogg`  | Pop (Neon Pop)       | `veteran` — finish 10 runs   | ⏳ procedural pop bed until supplied |
-| `rock.ogg` | Rock (Overdrive)     | `ascendant_rush` — level 20 in 5 min | ⏳ procedural rock bed until supplied |
-| `rap.ogg`  | Rap (Breakbeat)      | `massacre_clock` — 250 kills in 3 min | ⏳ procedural rap bed until supplied |
+| `jazz.mp3` | Jazz (Midnight Jazz) | *Busted Guitar (Jazz)* — "1 (jazz)" | `wave_rider` — reach wave 10 |
+| `pop.mp3`  | Pop (Neon Pop)       | *Gamer Beats!* — "Legends"          | `veteran` — finish 10 runs |
+| `rock.mp3` | Rock (Overdrive)     | *Rock Montage* — "Punk"             | `ascendant_rush` — level 20 in 5 min |
+| `rap.mp3`  | Rap (Breakbeat)      | *Only In The Milky Way* — "Gangsters In Space" (lo-fi hip-hop) | `massacre_clock` — 250 kills in 3 min |
 
 The file each genre looks for is set in the `JUKE` manifest at the top of `js/audio-orchestrator.js`.
+Swap any track by dropping a different CC0/PD file at the same path (`.mp3` or `.ogg` — if `.ogg`, edit
+the manifest path). A missing file falls back to that genre's built-in procedural bed.
 
 ## Supplying real recordings (must be PD/CC0)
 - `./fetch-music.sh` tries Wikimedia Commons for PD/CC0 audio (the jazz pick — *Livery Stable Blues*,

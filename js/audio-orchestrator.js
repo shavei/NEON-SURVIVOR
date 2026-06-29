@@ -22,10 +22,10 @@ const Orchestra = {
     boss2: 'audio/orchestral/boss-overseer.ogg',   // Mussorgsky — Night on Bald Mountain
     over:  'audio/orchestral/gameover.ogg',         // Chopin — Marche funèbre (somber)
     // ---- unlockable GENRE soundtracks (re-point the gameplay theme when equipped; CC0/PD only — fetch-music.sh) ----
-    jazz:  'audio/genres/jazz.ogg',                 // smooth/lounge jazz   (→ procedural swing bed if absent)
-    pop:   'audio/genres/pop.ogg',                  // upbeat synth-pop     (→ procedural pop bed if absent)
-    rock:  'audio/genres/rock.ogg',                 // driving synth-rock   (→ procedural rock bed if absent)
-    rap:   'audio/genres/rap.ogg',                  // boom-bap / hip-hop   (→ procedural rap bed if absent)
+    jazz:  'audio/genres/jazz.mp3',                 // HoliznaCC0 — Busted Guitar (Jazz) [CC0]   (→ procedural swing bed if absent)
+    pop:   'audio/genres/pop.mp3',                  // HoliznaCC0 — Legends / Gamer Beats! [CC0] (→ procedural pop bed if absent)
+    rock:  'audio/genres/rock.mp3',                 // HoliznaCC0 — Punk / Rock Montage [CC0]    (→ procedural rock bed if absent)
+    rap:   'audio/genres/rap.mp3',                  // HoliznaCC0 — Gangsters In Space [CC0]     (→ procedural rap bed if absent)
   },
 
   // ---- procedural fallback bed: tracks = data. Aeolian beds; prog = chord tones, bass = root (MIDI) ----
