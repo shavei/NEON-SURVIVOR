@@ -53,6 +53,7 @@ const ACH_CATALOG = [
   { id:'pacifist_protocol', conds:[['kills','<=',24],['secs',300]],   cat:'challenge', difficulty:null, ico:'🕊️', title:'Pacifist Protocol', desc:'Survive 5 minutes with fewer than 25 kills.',       tier:'gold',   chain:null },
   { id:'minimalist',        conds:[['peakWeapons','<=',1],['wave',12]],cat:'challenge',difficulty:null, ico:'➖', title:'Minimalist',        desc:'Reach wave 12 owning at most one weapon.',          tier:'silver', chain:null },
   { id:'ascetic',           conds:[['asceticWave',10]],               cat:'challenge', difficulty:null, ico:'🧘', title:'Ascetic',           desc:'Reach wave 10 collecting zero pickups.',            tier:'silver', chain:null },
+  { id:'bare_bones',        conds:[['peakWeapons','<=',1],['wave',20]],cat:'challenge',difficulty:null, ico:'🦴', title:'Bare Bones',        desc:'Reach wave 20 wielding only your starter weapon.',  tier:'gold',   chain:null },
 
   // ---- secret (hidden until unlocked) ----
   { id:'any_percent',  conds:[['secs','<=',5],['wave',1]],            cat:'secret',    difficulty:null, hidden:true, ico:'🏁', title:'Any% Speedrun',          desc:'Die within 5 seconds of starting a run.',       tier:'bronze', chain:null },
@@ -69,7 +70,7 @@ const COSMETICS = [
   { id:'warden_halo',    kind:'trail', title:'Warden Halo',    from:'warden_legend',     ico:'💫' },
   { id:'phase_trail',    kind:'trail', title:'Phase Trail',    from:'untouchable',       ico:'🌀' },
   { id:'wardens_bane',   kind:'skin',  title:'Warden’s Bane',  from:'flawless_protocol', ico:'🟦' },
-  { id:'dove_halo',      kind:'trail', title:'Dove Halo',      from:'pacifist_protocol', ico:'🕊️' },
+  { id:'radiant_aura',   kind:'skin',  title:'Radiant Aura',   from:'pacifist_protocol', ico:'☀️' },
   { id:'prism_core',     kind:'skin',  title:'Prism Core',     from:'completionist',     ico:'🟩' },
 ];
 /* gold achievement id → cosmetic id (drives the in-game "cosmetic unlocked" toast). MUST match api/verify.js. */

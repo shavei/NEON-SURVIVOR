@@ -79,10 +79,10 @@ const AchUI = {
     this._busy = true;
     const { html, accent, gold } = this._q.shift();
     el.style.setProperty('--ac', accent || '#ffd95e');
-    el.innerHTML = html; el.classList.add('show', 'glitch'); if (gold) el.classList.add('shimmer');   // gold caps sweep
+    el.innerHTML = html; el.classList.add('show', 'glitch', 'pulse'); if (gold) el.classList.add('shimmer');   // neon pulse for its whole dwell; gold caps also sweep
     clearTimeout(this._t1); clearTimeout(this._t2);
     this._t1 = setTimeout(() => el.classList.remove('glitch'), 240);                 // brief glitch flash only
-    this._t2 = setTimeout(() => { el.classList.remove('show', 'shimmer'); this._busy = false; setTimeout(() => this._drain(), 360); }, 3200);
+    this._t2 = setTimeout(() => { el.classList.remove('show', 'shimmer', 'pulse'); this._busy = false; setTimeout(() => this._drain(), 360); }, 3200);
   },
   unlockToast(id) {
     if (typeof Ach === 'undefined') return;
