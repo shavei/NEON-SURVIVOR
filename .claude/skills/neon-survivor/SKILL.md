@@ -18,6 +18,11 @@ The canonical map of its internals lives in **`CLAUDE.md`** (project root) — r
    ```
    It syntax-checks, headless-loads (catches out-of-scope/ReferenceErrors), then starts a game, forces a boss, runs ~220 frames, and kills the boss. Prints `PASS — ...` or a `RUNTIME ERROR` with stack. Exit code 0 = good.
    For behavior-preserving refactors also run `verify-equiv.cjs` (900-frame golden hash vs `baseline-original.js`; re-anchor the baseline only for *intentional* logic changes).
+   Targeted verifiers for the non-game systems (run the matching one after editing that area):
+   - `verify-achievements.cjs` — achievement/reward catalog ↔ `api/verify.js` lockstep (36 defs · 36 rewards).
+   - `verify-otp.cjs` — GRID ACCESS code sign-in: signup-code · otp-code · instant-resume all adopt the durable id.
+   - `verify-fullcycle.cjs` — the whole identity arc (login → unique callsign → unlock → reward → showcase); prints evidence per step. `--live` does a real Supabase round-trip (env-gated; skips cleanly when offline/unconfigured).
+   - `verify-size.cjs` — the 28 KB silent-truncation guard for every served `js/*.js` (run after any edit that grows a module).
 4. After a durable change, update `CLAUDE.md` (map / upgrade table) so the next session stays cheap.
 
 ## Common pitfalls (seen in this codebase)
