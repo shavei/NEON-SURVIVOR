@@ -56,6 +56,9 @@ const SKIN_PALETTE={
   predator    :{c0:'#0f3a1c',c1:'#4aff9d',shadow:'#54e6b5',stroke:'#c2ffd9'},
   monoline    :{c0:'#22242c',c1:'#cfd6e6',shadow:'#cfd6e6',stroke:'#ffffff'},
   leet_chrome :{c0:'#1a1c22',c1:'#8ad0ff',shadow:'#9ad0ff',stroke:'#e6f2ff'},
+  wardens_bane:{c0:'#0a1840',c1:'#3b82ff',shadow:'#5b9dff',stroke:'#cfe0ff'},   // sapphire — boss-bane
+  radiant_aura:{c0:'#3a3212',c1:'#fff2c0',shadow:'#ffe48a',stroke:'#fffdf0'},   // white-gold halo — pacifist
+  prism_core  :{c0:'#06322a',c1:'#19e6b0',shadow:'#2cffcf',stroke:'#d2fff2'},   // jade prism — completionist
 };
 // player hull baked once per (rage,r,skin) — gradient + shadow are expensive; the hull is static
 function shipSprite(rage,r,skin){const pal=(!rage&&skin&&SKIN_PALETTE[skin])||_SKIN_DEF;
