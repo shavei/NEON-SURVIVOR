@@ -50,6 +50,23 @@ jobs:
       - name: Install Bubblewrap CLI
         run: npm install -g @bubblewrap/cli
 
+      - name: Point Bubblewrap at the preinstalled JDK & Android SDK
+        # Without this Bubblewrap prompts "install the JDK? (Y/n)" on first run and,
+        # with no TTY in CI, aborts (exit 130). Pre-seeding its config makes it reuse
+        # the JDK/SDK that setup-java and setup-android already installed.
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.bubblewrap"
+          cat > "$HOME/.bubblewrap/config.json" <<EOF
+          {
+            "jdkPath": "${JAVA_HOME}",
+            "androidSdkPath": "${ANDROID_HOME}"
+          }
+          EOF
+          cat "$HOME/.bubblewrap/config.json"
+          # Make sure the Android SDK licenses are accepted so the Gradle build can fetch build-tools.
+          yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+
       - name: Prepare signing keystore
         id: keystore
         env:
