@@ -6,6 +6,13 @@ dist/
 build/
 .vercel/
 
+# Capacitor — native project + signing artifacts are generated in CI, never committed
+android/
+ios/
+*.apk
+*.aab
+*.keystore
+
 # IDE
 .vscode/
 .idea/
