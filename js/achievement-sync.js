@@ -180,6 +180,9 @@ const AchSync = {
         const s = Ach._load();
         const localOnly = (s.unlocked || []).filter(function (x) { return cloud.indexOf(x) < 0; });
         s.unlocked = cloud.concat(localOnly);
+        // derive the non-gold rewards (trails/music/palettes) straight from REWARD_MAP so they hydrate on a
+        // fresh device even when user_inventory is empty/absent — pullInventory only covers the table-backed rows.
+        if (typeof Ach._grantRewards === 'function') { s.cosmetics = s.cosmetics || []; Ach._grantRewards(s, s.unlocked); }
         Ach._save(s);
         if (typeof Ach.renderPanel === 'function') Ach.renderPanel();
         self.pullCosmetics(id);                                       // …and reconcile the gold-tier rewards
