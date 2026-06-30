@@ -178,10 +178,12 @@
   .upg p b.up{color:var(--c,#ffd95e);font-weight:800;text-shadow:0 0 8px currentColor}
   .upg .lvl{position:absolute;top:18px;right:20px;font-family:var(--mono);font-size:11px;color:var(--muted)}
   .upg .new{position:absolute;top:16px;right:18px;font-family:var(--mono);font-size:10px;font-weight:700;color:#1a0f0a;background:var(--c);padding:3px 7px;border-radius:6px;letter-spacing:.1em}
-  /* synergy telegraph — flags a card that completes an evolution (the mastery hook) */
+  /* evolution offer — explicit "⚡ EVOLVE" card the player can take instead of a stat upgrade */
   .upg .evo{position:absolute;top:16px;right:18px;font-family:var(--mono);font-size:10px;font-weight:700;color:#1a0f0a;background:#ffd95e;
     padding:3px 7px;border-radius:6px;letter-spacing:.08em;box-shadow:0 0 14px #ffd95e;animation:evoglow 1s ease-in-out infinite}
   @keyframes evoglow{0%,100%{box-shadow:0 0 8px #ffd95e}50%{box-shadow:0 0 20px #ffd95e}}
+  .upg.evocard{border-color:var(--c);background:rgba(255,217,94,.06);box-shadow:0 0 22px rgba(255,217,94,.18)}
+  .upg.evocard h3{color:var(--c)}
 
   /* neon pulse overlay — full-screen color flash for reward triggers (evolutions, node rewards) */
   #pulse{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:0;mix-blend-mode:screen;

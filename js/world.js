@@ -372,7 +372,6 @@ function applyUpgrade(id){const p=player;
   Up[id]=(Up[id]||0)+1;                                 // bump first so the level passed below is current
   UPGRADES.find(u=>u.id===id).applyLogic(p,Up[id]);     // absolute recalc of this upgrade's stat at its level
   Fx.loadout();
-  if(typeof Synergy!=='undefined')Synergy.check();   // a pick may complete a weapon evolution (transformToEvolved)
   if(typeof Ach!=='undefined'){const isW=id==='missile'||id==='shield'||id==='chain';   // intent: starter-only / synergy / glass-cannon
     Ach.onUpgrade(id,isW,wave,(p.missile>0)+(p.shield>0)+(p.chain>0));}
 }
@@ -387,17 +386,22 @@ function renderLoadout(){
 function openLevelUp(){
   state='levelup';needsDraw=true;
   const avail=UPGRADES.filter(u=>!(u.id==='rate'&&player.rate<=6));   // retire maxed Rapid Fire
-  const pool=avail.sort(()=>srng()-.5).slice(0,3);   // seedable → all peers are offered the SAME 3 upgrades
+  const pool=avail.sort(()=>srng()-.5).slice(0,3);   // always draw 3 → seeded peers consume RNG identically
+  const evoReady=(typeof Synergy!=='undefined')?Synergy.ready():null; // an earned-but-untaken evolution to offer as a choice
   const wrap=document.getElementById('cards');wrap.innerHTML='';
-  pool.forEach(u=>{const el=document.createElement('div');el.className='upg';el.style.setProperty('--c',u.c);
+  const close=()=>{document.getElementById('levelup').classList.remove('show');state='play';t0+=performance.now()-pauseStart;};
+  if(evoReady){   // explicit EVOLVE card — take the evolution, or pick a stat upgrade instead; it stays offered until taken
+    const el=document.createElement('div');el.className='upg evocard';el.style.setProperty('--c',evoReady.col);
+    el.innerHTML=`<div class="evo">⚡ EVOLVE</div><div class="uico">${evoReady.ico}</div><h3>${evoReady.name}</h3><p>${evoReady.desc}</p>`;
+    el.onclick=()=>{Synergy.transformToEvolved(evoReady);close();};
+    wrap.appendChild(el);}
+  const show=evoReady?pool.slice(0,2):pool;   // evo card takes one slot → screen stays at 3 cards
+  show.forEach(u=>{const el=document.createElement('div');el.className='upg';el.style.setProperty('--c',u.c);
     const owned=Up[u.id]||0;
-    const evo=(typeof Synergy!=='undefined')?Synergy.previews(u.id):null;   // does this pick complete an evolution?
-    const corner=evo?`<div class="evo">⚡ EVOLVES</div>`:u.weapon&&!owned?`<div class="new">NEW</div>`:owned?`<div class="lvl">Lv ${owned+1}</div>`:'';
-    const tip=evo?`<p style="color:#ffd95e;margin-top:6px;font-size:.82rem">⚡ Evolves → <b>${evo.name}</b><br><span style="color:#9aa3b2;font-size:.74rem">${evo.desc}</span></p>`:'';
+    const corner=u.weapon&&!owned?`<div class="new">NEW</div>`:owned?`<div class="lvl">Lv ${owned+1}</div>`:'';
     const label=u.getLabel(owned+1);   // level-aware description for the level this pick would reach
-    el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${u.name}</h3><p>${label}</p>${tip}`;
-    el.onclick=()=>{applyUpgrade(u.id);document.getElementById('levelup').classList.remove('show');
-      state='play';t0+=performance.now()-pauseStart;};
+    el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${u.name}</h3><p>${label}</p>`;
+    el.onclick=()=>{applyUpgrade(u.id);close();};
     wrap.appendChild(el);});
   document.getElementById('levelup').classList.add('show');pauseStart=performance.now();
 }
