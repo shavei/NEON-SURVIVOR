@@ -10,9 +10,7 @@
     "androidScheme": "https",
     "cleartext": false,
     "allowNavigation": [
-      "neon-survivor.com",
-      "*.neon-survivor.com",
-      "*.vercel.app"
+      "*"
     ]
   }
 }
