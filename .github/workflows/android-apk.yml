@@ -1,0 +1,127 @@
+name: Build Android APK
+
+# Wraps the live site (https://neon-survivor.com) into a Trusted Web Activity (TWA)
+# APK with Bubblewrap. The APK *is* the website — same game, same Supabase leaderboard,
+# auth and achievements, no separate backend wiring.
+#
+# Triggers:
+#   • push a tag like v1.0.0  -> builds the APK and publishes it to a GitHub Release
+#                                (asset is always named neon-survivor.apk, so the
+#                                 /releases/latest/download/neon-survivor.apk link is stable).
+#   • manual "Run workflow"   -> builds the APK and uploads it as a run artifact (no release).
+#
+# Optional repo secrets for a STABLE signing identity (needed for the fullscreen,
+# no-address-bar experience via .well-known/assetlinks.json):
+#   ANDROID_KEYSTORE_BASE64   - base64 of a keytool .keystore you generated once
+#   ANDROID_KEYSTORE_PASSWORD - that keystore's store password
+#   ANDROID_KEY_PASSWORD      - the key (alias "android") password
+# If they are absent, the workflow generates a throwaway keystore so the APK still
+# builds and installs by sideload (the browser address bar may remain visible).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Bubblewrap CLI
+        run: npm install -g @bubblewrap/cli
+
+      - name: Prepare signing keystore
+        id: keystore
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          STORE_PASS="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+          KEY_PASS="${{ secrets.ANDROID_KEY_PASSWORD }}"
+          if [ -n "$KS_B64" ]; then
+            echo "Using provided keystore from secret."
+            echo "$KS_B64" | base64 -d > android.keystore
+            : "${STORE_PASS:?ANDROID_KEYSTORE_PASSWORD required when ANDROID_KEYSTORE_BASE64 is set}"
+            : "${KEY_PASS:?ANDROID_KEY_PASSWORD required when ANDROID_KEYSTORE_BASE64 is set}"
+          else
+            echo "No keystore secret found — generating an ephemeral keystore."
+            STORE_PASS="${STORE_PASS:-neonsurvivor}"
+            KEY_PASS="${KEY_PASS:-neonsurvivor}"
+            keytool -genkeypair -v -keystore android.keystore \
+              -alias android -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$STORE_PASS" -keypass "$KEY_PASS" \
+              -dname "CN=NEON SURVIVOR, O=neon-survivor.com, C=US"
+          fi
+          echo "store_pass=$STORE_PASS" >> "$GITHUB_OUTPUT"
+          echo "key_pass=$KEY_PASS" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp version from tag / run number
+        run: |
+          set -euo pipefail
+          REF="${GITHUB_REF_NAME:-dev}"
+          VERSION="${REF#v}"
+          [ "$VERSION" = "$REF" ] && VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          node -e "
+            const fs=require('fs');
+            const m=JSON.parse(fs.readFileSync('twa-manifest.json','utf8'));
+            m.appVersionName='$VERSION';
+            m.appVersionCode=Number(process.env.GITHUB_RUN_NUMBER)||1;
+            m.appVersion='$VERSION';
+            fs.writeFileSync('twa-manifest.json', JSON.stringify(m,null,2));
+            console.log('appVersionName',m.appVersionName,'code',m.appVersionCode);
+          "
+
+      - name: Generate Android project from twa-manifest.json
+        run: bubblewrap update --skipVersionUpgrade
+
+      - name: Build & sign APK
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ steps.keystore.outputs.store_pass }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ steps.keystore.outputs.key_pass }}
+        run: |
+          set -euo pipefail
+          bubblewrap build --skipPwaValidation
+          cp app-release-signed.apk neon-survivor.apk
+          ls -la *.apk
+
+      - name: Print signing SHA-256 (paste into .well-known/assetlinks.json)
+        run: |
+          echo "::group::Digital Asset Links fingerprint"
+          keytool -list -v -keystore android.keystore -alias android \
+            -storepass "${{ steps.keystore.outputs.store_pass }}" 2>/dev/null \
+            | grep -i "SHA256:" || true
+          echo "Put the SHA256 value above into .well-known/assetlinks.json to drop the address bar."
+          echo "::endgroup::"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neon-survivor-apk
+          path: neon-survivor.apk
+
+      - name: Publish APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: neon-survivor.apk
+          fail_on_unmatched_files: true
