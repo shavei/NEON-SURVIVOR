@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!-- Capacitor loads https://neon-survivor.com in the app's WebView (see capacitor.config.json
+     server.url). This bundled page only shows if the live site can't be reached (e.g. offline). -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>NEON SURVIVOR</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0a12;color:#e8e8f0;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    display:flex;align-items:center;justify-content:center;text-align:center}
+  .box{padding:24px;max-width:340px}
+  .ring{width:84px;height:84px;margin:0 auto 22px;border-radius:50%;
+    border:9px solid #ff5fa2;display:flex;align-items:center;justify-content:center}
+  .core{width:26px;height:26px;border-radius:50%;background:#54e6b5}
+  h1{font-size:1.5rem;letter-spacing:2px;margin:0 0 10px}
+  p{color:#9aa;line-height:1.5;margin:0 0 20px}
+  button{background:#ff5fa2;color:#0a0a12;border:0;border-radius:10px;
+    padding:13px 26px;font-size:1rem;font-weight:700;letter-spacing:1px}
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="ring"><div class="core"></div></div>
+    <h1>NEON&nbsp;SURVIVOR</h1>
+    <p>Couldn't reach the game. Check your connection and try again.</p>
+    <button onclick="location.href='https://neon-survivor.com'">Retry</button>
+  </div>
+</body>
+</html>

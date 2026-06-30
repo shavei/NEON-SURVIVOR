@@ -1,22 +1,20 @@
 name: Build Android APK
 
-# Wraps the live site (https://neon-survivor.com) into a Trusted Web Activity (TWA)
-# APK with Bubblewrap. The APK *is* the website — same game, same Supabase leaderboard,
-# auth and achievements, no separate backend wiring.
+# Packages the game as a standalone native Android app with Capacitor — it runs in the app's
+# own Android System WebView (NOT the Chrome app): no address bar, no "Running in Chrome", and
+# screen-time is attributed to NEON SURVIVOR. The WebView loads https://neon-survivor.com
+# (see capacitor.config.json server.url), so it's the exact same game with the same Supabase
+# leaderboard, sign-in and achievements — nothing extra to wire up.
 #
 # Triggers:
 #   • push a tag like v1.0.0  -> builds the APK and publishes it to a GitHub Release
-#                                (asset is always named neon-survivor.apk, so the
-#                                 /releases/latest/download/neon-survivor.apk link is stable).
+#                                (asset is always neon-survivor.apk, so the
+#                                 /releases/latest/download/neon-survivor.apk link stays valid).
 #   • manual "Run workflow"   -> builds the APK and uploads it as a run artifact (no release).
 #
-# Optional repo secrets for a STABLE signing identity (needed for the fullscreen,
-# no-address-bar experience via .well-known/assetlinks.json):
-#   ANDROID_KEYSTORE_BASE64   - base64 of a keytool .keystore you generated once
-#   ANDROID_KEYSTORE_PASSWORD - that keystore's store password
-#   ANDROID_KEY_PASSWORD      - the key (alias "android") password
-# If they are absent, the workflow generates a throwaway keystore so the APK still
-# builds and installs by sideload (the browser address bar may remain visible).
+# Optional repo secrets for a STABLE signing identity (so app updates install over each other):
+#   ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_PASSWORD
+# If absent, an ephemeral keystore is generated so the APK still builds and sideloads.
 
 on:
   push:
@@ -47,25 +45,44 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Bubblewrap CLI
-        run: npm install -g @bubblewrap/cli
+      - name: Install dependencies (Capacitor)
+        run: npm install
 
-      - name: Point Bubblewrap at the preinstalled JDK & Android SDK
-        # Without this Bubblewrap prompts "install the JDK? (Y/n)" on first run and,
-        # with no TTY in CI, aborts (exit 130). Pre-seeding its config makes it reuse
-        # the JDK/SDK that setup-java and setup-android already installed.
+      - name: Resolve version from tag / run number
+        id: ver
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.bubblewrap"
-          cat > "$HOME/.bubblewrap/config.json" <<EOF
-          {
-            "jdkPath": "${JAVA_HOME}",
-            "androidSdkPath": "${ANDROID_HOME}"
-          }
-          EOF
-          cat "$HOME/.bubblewrap/config.json"
-          # Make sure the Android SDK licenses are accepted so the Gradle build can fetch build-tools.
+          REF="${GITHUB_REF_NAME:-dev}"
+          VERSION="${REF#v}"
+          [ "$VERSION" = "$REF" ] && VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION (code ${GITHUB_RUN_NUMBER})"
+
+      - name: Generate native Android project
+        run: |
+          set -euo pipefail
+          npx cap add android
+          npx cap copy android
+          # Point Gradle at the runner's Android SDK.
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          # Accept SDK licenses so Gradle can fetch any missing build-tools/platforms.
           yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+
+      - name: Brand launcher icons
+        run: node tools/gen-android-icons.cjs android/app/src/main/res
+
+      - name: Stamp app version
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          node -e "
+            const fs=require('fs'); const f='android/app/build.gradle';
+            let s=fs.readFileSync(f,'utf8');
+            s=s.replace(/versionCode\s+\d+/, 'versionCode '+(Number(process.env.GITHUB_RUN_NUMBER)||1));
+            s=s.replace(/versionName\s+\"[^\"]*\"/, 'versionName \"'+process.env.VERSION+'\"');
+            fs.writeFileSync(f,s);
+            console.log(s.match(/versionCode.*/)[0], '|', s.match(/versionName.*/)[0]);
+          "
 
       - name: Prepare signing keystore
         id: keystore
@@ -77,14 +94,14 @@ jobs:
           KEY_PASS="${{ secrets.ANDROID_KEY_PASSWORD }}"
           if [ -n "$KS_B64" ]; then
             echo "Using provided keystore from secret."
-            echo "$KS_B64" | base64 -d > android.keystore
+            echo "$KS_B64" | base64 -d > "$GITHUB_WORKSPACE/android.keystore"
             : "${STORE_PASS:?ANDROID_KEYSTORE_PASSWORD required when ANDROID_KEYSTORE_BASE64 is set}"
             : "${KEY_PASS:?ANDROID_KEY_PASSWORD required when ANDROID_KEYSTORE_BASE64 is set}"
           else
             echo "No keystore secret found — generating an ephemeral keystore."
             STORE_PASS="${STORE_PASS:-neonsurvivor}"
             KEY_PASS="${KEY_PASS:-neonsurvivor}"
-            keytool -genkeypair -v -keystore android.keystore \
+            keytool -genkeypair -v -keystore "$GITHUB_WORKSPACE/android.keystore" \
               -alias android -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass "$STORE_PASS" -keypass "$KEY_PASS" \
               -dname "CN=NEON SURVIVOR, O=neon-survivor.com, C=US"
@@ -92,43 +109,28 @@ jobs:
           echo "store_pass=$STORE_PASS" >> "$GITHUB_OUTPUT"
           echo "key_pass=$KEY_PASS" >> "$GITHUB_OUTPUT"
 
-      - name: Stamp version from tag / run number
+      - name: Build release APK
+        working-directory: android
         run: |
           set -euo pipefail
-          REF="${GITHUB_REF_NAME:-dev}"
-          VERSION="${REF#v}"
-          [ "$VERSION" = "$REF" ] && VERSION="1.0.${GITHUB_RUN_NUMBER}"
-          node -e "
-            const fs=require('fs');
-            const m=JSON.parse(fs.readFileSync('twa-manifest.json','utf8'));
-            m.appVersionName='$VERSION';
-            m.appVersionCode=Number(process.env.GITHUB_RUN_NUMBER)||1;
-            m.appVersion='$VERSION';
-            fs.writeFileSync('twa-manifest.json', JSON.stringify(m,null,2));
-            console.log('appVersionName',m.appVersionName,'code',m.appVersionCode);
-          "
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
 
-      - name: Generate Android project from twa-manifest.json
-        run: bubblewrap update --skipVersionUpgrade
-
-      - name: Build & sign APK
-        env:
-          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ steps.keystore.outputs.store_pass }}
-          BUBBLEWRAP_KEY_PASSWORD: ${{ steps.keystore.outputs.key_pass }}
+      - name: Sign & align APK
         run: |
           set -euo pipefail
-          bubblewrap build --skipPwaValidation
-          cp app-release-signed.apk neon-survivor.apk
-          ls -la *.apk
-
-      - name: Print signing SHA-256 (paste into .well-known/assetlinks.json)
-        run: |
-          echo "::group::Digital Asset Links fingerprint"
-          keytool -list -v -keystore android.keystore -alias android \
-            -storepass "${{ steps.keystore.outputs.store_pass }}" 2>/dev/null \
-            | grep -i "SHA256:" || true
-          echo "Put the SHA256 value above into .well-known/assetlinks.json to drop the address bar."
-          echo "::endgroup::"
+          UNSIGNED=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          echo "Using build-tools at $BT"
+          "${BT}zipalign" -p -f 4 "$UNSIGNED" aligned.apk
+          "${BT}apksigner" sign \
+            --ks "$GITHUB_WORKSPACE/android.keystore" \
+            --ks-pass pass:"${{ steps.keystore.outputs.store_pass }}" \
+            --ks-key-alias android \
+            --key-pass pass:"${{ steps.keystore.outputs.key_pass }}" \
+            --out neon-survivor.apk aligned.apk
+          "${BT}apksigner" verify --print-certs neon-survivor.apk | grep -i "SHA-256" || true
+          ls -la neon-survivor.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

@@ -16,32 +16,33 @@ runs offline.
 **[⬇ Download the latest APK](https://github.com/shavei/neon-survivor/releases/latest/download/neon-survivor.apk)** ·
 [all releases](https://github.com/shavei/neon-survivor/releases)
 
-The Android app is the **exact same game as the website** — it's a
-[Trusted Web Activity](https://developer.chrome.com/docs/android/trusted-web-activity) that runs
-`https://neon-survivor.com` natively, so the **Supabase global leaderboard, sign-in, and
-achievements all work identically** with nothing extra to configure. Update the website and the
-app updates with it.
+The Android app is a **standalone native app** built with
+[Capacitor](https://capacitorjs.com). It runs the game in the app's own Android System WebView —
+**not** the Chrome app — so there's **no address bar, no "Running in Chrome", and screen-time
+counts as NEON SURVIVOR**. The WebView loads `https://neon-survivor.com`, so it's the **exact same
+game** and the **Supabase leaderboard, sign-in, and achievements all work identically** with
+nothing extra to configure. Update the website and the app updates with it.
 
 > Installing: open the downloaded `.apk` on your phone and allow installs from your browser when
 > prompted (it's signed but not distributed through the Play Store, so Android treats it as a
-> sideload). Minimum Android 5.0 (API 21).
+> sideload). Minimum Android 5.1 (API 22).
 
 ## How the APK is built
 
-The APK is produced in CI from the live site — no Android code lives in the game itself:
+The APK is produced in CI — no native code is committed to the repo:
 
-- [`twa-manifest.json`](twa-manifest.json) — [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap)
-  config (host, name, colors, icons) pointing at `neon-survivor.com`.
-- [`manifest.webmanifest`](manifest.webmanifest) + [`icons/`](icons/) — the PWA manifest and app
-  icons that Bubblewrap reads from the deployed site.
-- [`.github/workflows/android-apk.yml`](.github/workflows/android-apk.yml) — builds and signs the
-  APK and publishes it.
+- [`capacitor.config.json`](capacitor.config.json) — Capacitor config (app id, name, and
+  `server.url` pointing the WebView at `neon-survivor.com`).
+- [`tools/gen-android-icons.cjs`](tools/gen-android-icons.cjs) — generates the branded launcher
+  icons; [`www/`](www/) is the offline fallback page.
+- [`.github/workflows/android-apk.yml`](.github/workflows/android-apk.yml) — generates the native
+  Android project with Capacitor, then builds, signs, and publishes the APK.
 
 **To cut a release:**
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
 The workflow builds the APK and attaches it to the matching GitHub Release as
@@ -49,19 +50,12 @@ The workflow builds the APK and attaches it to the matching GitHub Release as
 permanently valid. You can also trigger it manually from the **Actions** tab (that path uploads the
 APK as a build artifact instead of publishing a release).
 
-### Optional: fullscreen (drop the address bar)
+### Optional: a stable signing key
 
-By default a TWA shows a thin browser address bar unless the site verifies the app via
-[Digital Asset Links](https://developers.google.com/digital-asset-links). To go fullscreen:
-
-1. Generate a signing keystore once and add it to the repo as secrets
-   (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`). Without these
-   the workflow still builds an installable APK using a throwaway key.
-2. Copy the `SHA256:` fingerprint the build logs print into
-   [`.well-known/assetlinks.json`](.well-known/assetlinks.json) (replacing the placeholder) and
-   redeploy the site.
-
-The game runs fully either way — the asset-links step only removes the address bar.
+By default the workflow generates a throwaway signing key each run, so the APK always builds and
+sideloads. To make app updates install over each other (same signature every release), generate a
+keystore once and add it as repo secrets — `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_PASSWORD` — and the build will use it.
 
 ## Development
 

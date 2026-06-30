@@ -1,0 +1,13 @@
+{
+  "appId": "com.neonsurvivor.app",
+  "appName": "NEON SURVIVOR",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0a0a12"
+  },
+  "server": {
+    "url": "https://neon-survivor.com",
+    "androidScheme": "https",
+    "cleartext": false
+  }
+}
