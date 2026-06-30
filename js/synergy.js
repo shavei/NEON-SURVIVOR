@@ -1,10 +1,10 @@
 /* NEON SURVIVOR — synergy.js
- * SynergyRegistry — specific upgrade pairings cross a threshold and a weapon TRANSFORMS to an evolved
- * state. Build-planning mastery is the core retention hook, so completing a pair fires the marquee
- * Reward.trigger('evolution') and the level-up card telegraphs "EVOLVES" one pick early.
- * Counts are read from the existing Up{} tracker (applyUpgrade increments it for EVERY pick, weapons
- * included). Evolved flags live on player.evo{} (reset() clears it each run). Behavior branches live
- * in the weapon fns (world.js/sim.js), keyed on player.evo[slot].
+ * SYNERGIES — specific upgrade pairs you can build toward; meeting both thresholds EARNS a weapon
+ * evolution. The evolution is never auto-applied: openLevelUp() offers it as an explicit "⚡ EVOLVE"
+ * card so taking it is a real choice (take the evolution, or a normal stat upgrade instead). It stays
+ * offered until taken. ready() = the next earned-but-untaken evolution; transformToEvolved() applies it.
+ * Counts are read from the Up{} tracker (applyUpgrade increments it for EVERY pick). Evolved flags live
+ * on player.evo{} (reset() clears it each run); weapon fns (world.js/sim.js) branch on player.evo[slot].
  * Classic script (shared global scope). Load AFTER rewards, world. Headless-safe. */
 
 const SYNERGIES=[
@@ -22,40 +22,28 @@ const SYNERGIES=[
 
 const Synergy={
   _lvl(id){ return (typeof Up!=='undefined'&&Up[id])||0; },           // owned level of an upgrade id
-  _met(need, bump){                                                    // are all thresholds met? (bump: +1 to one id for preview)
-    for(const k in need){ let n=this._lvl(k); if(bump===k)n++; if(n<need[k])return false; } return true;
-  },
+  _met(need){ for(const k in need){ if(this._lvl(k)<need[k])return false; } return true; },  // both thresholds met?
 
-  /* called from applyUpgrade() after every pick — evolve any pair that just crossed its threshold */
-  check(){
-    if(typeof player==='undefined'||!player)return;
+  /* the next evolution the player has EARNED but not yet taken — null if none.
+     openLevelUp() offers this as an explicit "⚡ EVOLVE" card; it persists across level-ups until taken. */
+  ready(){
+    if(typeof player==='undefined'||!player)return null;
     player.evo=player.evo||{};
     for(const s of SYNERGIES){
       if(player.evo[s.slot])continue;                                  // slot already evolved → skip
-      if(this._met(s.need))this.transformToEvolved(s);
+      if(this._met(s.need))return s;                                   // earned, not yet taken → offer it
     }
+    return null;
   },
 
+  /* applied only when the player PICKS the EVOLVE card in openLevelUp() */
   transformToEvolved(s){
     player.evo=player.evo||{};
     player.evo[s.slot]=s.id;                                           // weapon fns branch on this flag
     if(typeof Reward!=='undefined')
       Reward.trigger('evolution',{col:s.col,x:player.x,y:player.y,text:s.name,toast:s.name+' — EVOLVED',ico:s.ico});
-    if(typeof Fx!=='undefined')Fx.music('stingSynergy');               // Tier-3 evolution → orchestral evolution chord
+    if(typeof Fx!=='undefined')Fx.music('stingSynergy');               // evolution → orchestral evolution chord
     if(typeof Fx!=='undefined')Fx.loadout&&Fx.loadout();              // refresh weapon pips (shows evolved name)
     if(typeof Ach!=='undefined'&&Ach.onSynergy)Ach.onSynergy(s.id);   // optional achievements hook (safe if absent)
-  },
-
-  /* would picking `id` next COMPLETE a not-yet-earned synergy? → returns the synergy (for the card badge) */
-  previews(id){
-    if(typeof player==='undefined'||!player)return null;
-    const evo=player.evo||{};
-    for(const s of SYNERGIES){
-      if(evo[s.slot])continue;
-      if(!(id in s.need))continue;                                     // this pick doesn't feed the pair
-      if(this._met(s.need))continue;                                   // already complete without it (shouldn't happen)
-      if(this._met(s.need, id))return s;                               // complete only WITH this pick → telegraph it
-    }
-    return null;
   },
 };
