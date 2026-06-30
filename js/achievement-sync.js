@@ -22,6 +22,10 @@ const AchSync = {
   boot() {
     if (this.ready()) { this.resolveSession(); return; }
     const self = this;
+    // Known-offline (e.g. the installed APK launched with no connection) → fall back at once instead of
+    // staring at "Connecting…" for 7s. navigator.onLine===false is reliable; the 7s guard below still
+    // covers the ambiguous "online but the SDK is slow/blocked" case.
+    try { if (typeof navigator !== 'undefined' && navigator.onLine === false) { setTimeout(function () { if (!self.ready()) self._fire('onAuthOffline'); }, 400); return; } } catch (e) {}
     try { setTimeout(function () { if (!self.ready()) self._fire('onAuthOffline'); }, 7000); } catch (e) {}
   },
 
