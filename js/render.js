@@ -147,7 +147,12 @@ function draw(){
     ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(p.r-3,5);ctx.lineTo(p.r-3+fl+6,0);ctx.lineTo(p.r-3,-5);ctx.closePath();ctx.fill();ctx.restore();ctx.shadowBlur=0;}
   ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r,typeof Skins!=='undefined'?Skins.equipped():null);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
   const pr=3+Math.sin(frame*.15)*1.2;ctx.shadowBlur=14;ctx.shadowColor=rage?'#ffd95e':'#7c8cff';
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();ctx.shadowBlur=0;
+  // 11b. Player health ring — arc hugging the ship, depletes clockwise from top, hue green→red; your eyes live on the ship so HP reads at a glance
+  {const frac=clamp(p.hp/p.maxhp,0,1),hr=p.r+9,hc='hsl('+(120*frac)+',85%,55%)';ctx.globalAlpha=1;
+    ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,hr,0,7);ctx.stroke();
+    ctx.strokeStyle=hc;ctx.lineCap='round';ctx.shadowBlur=8;ctx.shadowColor=hc;
+    ctx.beginPath();ctx.arc(0,0,hr,-1.5708,-1.5708+6.2832*frac);ctx.stroke();ctx.shadowBlur=0;ctx.lineCap='butt';}
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // 12. Deflector Energy Shield Matrices

@@ -47,7 +47,7 @@ if(mpauseBtn)mpauseBtn.onclick=()=>{if(state==='play'||state==='pause')togglePau
 const HUD={score:document.getElementById('score'),wave:document.getElementById('wave'),time:document.getElementById('time'),
   hpfill:document.getElementById('hpfill'),hplabel:document.getElementById('hplabel'),
   xpfill:document.getElementById('xpfill'),lvlnum:document.getElementById('lvlnum'),lowhp:document.getElementById('lowhp'),
-  cleared:document.getElementById('cleared')};
+  diff:document.getElementById('diff'),cleared:document.getElementById('cleared')};
 const _hud={score:-1,wave:-1,time:'',hp:-1,maxhp:-1,xp:-1,next:-1,lvl:-1,low:-1,cleared:false};
 function updateHUD(elapsed){const p=player;
   // cached element refs + change-guards: skip the DOM write when the value is unchanged (most frames)
@@ -134,6 +134,7 @@ function loop(ts){now=ts;
   requestAnimationFrame(loop);}
 function startGame(){
   Sound.init();Sound.resume();Music.start();reset();state='play';
+  HUD.diff.textContent=DIFF.label.toUpperCase();HUD.diff.style.color=DIFF.col;   // show the chosen difficulty in the HUD, tinted to its colour
   if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');
