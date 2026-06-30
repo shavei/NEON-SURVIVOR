@@ -125,7 +125,7 @@ function loop(ts){now=ts;
     if(n===MAXSUBSTEP)acc=0;                           // drop unrecoverable backlog
     _perf.ticks=n;
     alpha=acc/STEP;                                    // fractional sim tick → render interpolation factor
-    draw();
+    if(state==='over')drawBackdrop();else draw();      // gameOver() can flip state mid-frame → paint a clean backdrop, never the frozen battlefield
   }else{
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
     if((state==='levelup'||state==='pause'||state==='map')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position
@@ -140,6 +140,8 @@ function startGame(){
   document.getElementById('sound').classList.add('show');
   const mp=document.getElementById('mpause');if(mp)mp.hidden=false;}   // reveal touch-pause for the run (CSS gates it to mobile)
 function playAgain(){startGame();}
+function dismissToasts(){const t=document.getElementById('toast');if(t)t.classList.remove('show');   // drop lingering map/boss + achievement toasts so they can't bleed behind the game-over/menu overlay
+  if(typeof showToast==='function')clearTimeout(showToast._t);if(typeof AchUI!=='undefined'&&AchUI.dismiss)AchUI.dismiss();}
 function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
   const newBest=score>best;if(newBest){best=score;localStorage.setItem('neon_best',best);}
@@ -150,6 +152,7 @@ function gameOver(){state='over';Music.die();
   if(typeof Ach!=='undefined'){Ach.reportRun(run);Ach.renderPanel();}        // fold run into achievements (optimistic + server-validated)
   if(typeof Skins!=='undefined')Skins.renderGallery();                        // refresh the Skins panel (new skins may have unlocked)
   if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();      // refresh the Soundtrack tab (new tracks may have unlocked)
+  dismissToasts();   // clear mid-run AND run-end-fired toasts (reportRun above can unlock) so none bleed behind the game-over overlay
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
   document.getElementById('hibest').textContent=newBest?'★ NEW BEST!':'best: '+best;
@@ -277,6 +280,8 @@ function showMenu(){
   document.getElementById('sound').classList.remove('show');
   const mp=document.getElementById('mpause');if(mp)mp.hidden=true;   // re-stow touch-pause when leaving the run
   document.getElementById('start').classList.remove('hidden');
+  if(typeof drawBackdrop==='function')drawBackdrop();   // wipe any frozen run frame so it can't bleed behind the menu
+  dismissToasts();   // and any in-flight toast
   _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
   syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);   // re-warm stale boards; instant if fresh
   if(typeof Music!=='undefined')Music.menu();}   // chill menu theme (audio must already be unlocked by a prior gesture)

@@ -3,6 +3,9 @@
  * Classic script (shared global scope). Load order: core → world → sim → render → main. */
 
 /* ========== DRAW LOOP (Batched Canvas States) ========== */
+// Repaint a clean deep-space backdrop with NO bodies/HUD — used when an overlay (game-over, menu) covers
+// the arena, so the last gameplay frame (boss bar, enemies, player) can't bleed through the translucent panel.
+function drawBackdrop(){ctx.clearRect(0,0,W,H);if(NEBULA_CANVAS)ctx.drawImage(NEBULA_CANVAS,0,0,W,H);}
 function draw(){
   // interpolated camera — render between the last two sim ticks (alpha=fractional tick) for smooth scroll
   const A=alpha,icx=lerp(cam.px,cam.x,A),icy=lerp(cam.py,cam.y,A);
@@ -78,11 +81,12 @@ function draw(){
     ctx.save();ctx.translate(mx,my);ctx.rotate(Math.atan2(m.vy,m.vx));ctx.fillStyle='#fff';
     ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-4,3);ctx.lineTo(-4,-3);ctx.closePath();ctx.fill();ctx.restore();}
 
-  // 8. EMP Chain Arcs / Lightning
-  const boltLen=bolts.length;
-  for(let i=0;i<boltLen;i++){const bo=bolts[i];ctx.strokeStyle='rgba(157,176,255,'+clamp(bo.life/9,0,1)+')';ctx.lineWidth=2.4;
+  // 8. EMP Chain Arcs / Lightning — neon bloom (shadowBlur) so the arc reads as a bright bolt, not a flat thread
+  const boltLen=bolts.length;ctx.shadowColor='#9db0ff';ctx.lineCap='round';
+  for(let i=0;i<boltLen;i++){const bo=bolts[i],a=clamp(bo.life/9,0,1);ctx.shadowBlur=14*a;ctx.strokeStyle='rgba(200,214,255,'+a+')';ctx.lineWidth=2.8;
     ctx.beginPath();const seg=6;for(let j=0;j<=seg;j++){const tt=j/seg;const x=bo.a.x+(bo.b.x-bo.a.x)*tt+rand(-7,7);
       const y=bo.a.y+(bo.b.y-bo.a.y)*tt+rand(-7,7);j?ctx.lineTo(x,y):ctx.moveTo(bo.a.x,bo.a.y);}ctx.stroke();}
+  ctx.shadowBlur=0;ctx.lineCap='butt';
 
   // 8b. Boss projectiles
   const ebSpr=dotSprite('#ff3b6b');
@@ -159,7 +163,7 @@ function draw(){
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // 12. Deflector Energy Shield Matrices
-  if(p.shield>0){const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,ss=dotSprite('#4ea8ff'),vr=12;   // cyan/blue — never confused with teal XP orbs
+  if(p.shield>0){const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,ss=dotSprite('#cfe6ff'),vr=12;   // icy white-blue — distinct from periwinkle grunts (#7c8cff), teal XP orbs (#54e6b5) and cyan boss
     for(let k=0;k<orbs;k++){const a=p.shieldAng+k/orbs*6.283;const ox=ipx+Math.cos(a)*rad,oy=ipy+Math.sin(a)*rad;
       ctx.drawImage(ss,ox-vr,oy-vr,vr*2,vr*2);}}
 

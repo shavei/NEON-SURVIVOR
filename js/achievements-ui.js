@@ -84,6 +84,10 @@ const AchUI = {
     this._t1 = setTimeout(() => el.classList.remove('glitch'), 240);                 // brief glitch flash only
     this._t2 = setTimeout(() => { el.classList.remove('show', 'shimmer', 'pulse'); this._busy = false; setTimeout(() => this._drain(), 360); }, 3200);
   },
+  dismiss() {   // hard-clear any in-flight unlock toast (run end / menu open) so it can't bleed behind the overlay
+    this._q.length = 0; this._busy = false; clearTimeout(this._t1); clearTimeout(this._t2);
+    if (typeof document !== 'undefined') { const el = document.getElementById('achtoast'); if (el) el.classList.remove('show', 'glitch', 'pulse', 'shimmer'); }
+  },
   unlockToast(id) {
     if (typeof Ach === 'undefined') return;
     const d = Ach.CATALOG.find(x => x.id === id); if (!d) return;

@@ -34,6 +34,7 @@
   #minimap{position:fixed;right:14px;bottom:14px;z-index:5;width:160px;height:160px;display:none;pointer-events:none;
     border:1px solid rgba(124,140,255,.4);border-radius:8px;background:rgba(8,9,16,.6)}
   body.playing #minimap{display:block}
+  body:not(.playing) #hud,body:not(.playing) #bars,body:not(.playing) #loadout{display:none}   /* keep the live run-HUD off the menu / game-over screens so it can't bleed through the overlay */
   .wpip{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px;opacity:.9}
   .wpip i{font-style:normal;font-size:15px}
   .wpip b{color:var(--ink)}
