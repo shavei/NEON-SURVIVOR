@@ -8,6 +8,9 @@
   "server": {
     "url": "https://neon-survivor.com",
     "androidScheme": "https",
-    "cleartext": false
+    "cleartext": false,
+    "allowNavigation": [
+      "*"
+    ]
   }
 }
