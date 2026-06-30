@@ -8,6 +8,11 @@
   "server": {
     "url": "https://neon-survivor.com",
     "androidScheme": "https",
-    "cleartext": false
+    "cleartext": false,
+    "allowNavigation": [
+      "neon-survivor.com",
+      "*.neon-survivor.com",
+      "*.vercel.app"
+    ]
   }
 }
