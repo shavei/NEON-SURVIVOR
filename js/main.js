@@ -300,6 +300,7 @@ if(typeof Skins!=='undefined')Skins.renderGallery();   // paint the separate Ski
 if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();   // paint the Soundtrack tab from the local mirror
 
 if(typeof LBSync!=='undefined')LBSync.syncAll();   // kick concurrent prefetch of all difficulty boards at startup
+syncGlobalTab(_gdiff);   // light the tab that matches the board we're about to show, so the active tab never disagrees with the rows
 renderGlobal(_gdiff);   // prime the visible tab (skeleton until rows land; offline/empty when unconfigured)
 bootMenu();             // first-run players get the username modal before the menu
 // browsers block autoplay until a gesture: on the first interaction, unlock audio + start the menu theme
