@@ -242,7 +242,8 @@ function poolAcquire(k){const f=_POOL[k];return f.length?f.pop():{};}
 function poolRelease(k,o){const f=_POOL[k];if(f.length<_POOLCAP)f.push(o);}
 // spawn helpers — single place that sets every field a body type uses, then pushes the pooled object
 function spawnBullet(x,y,vx,vy,r,dmg,pierce,life){const b=poolAcquire('bullets');
-  b.x=b.px=x;b.y=b.py=y;b.sx=x;b.sy=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.pierce=pierce;b.life=life;bullets.push(b);return b;}   // seed px/py so a recycled bullet doesn't streak from its last death pos on frame 1; sx/sy = muzzle origin so the trail can't reach back into the ship
+  b.x=b.px=x;b.y=b.py=y;b.sx=x;b.sy=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.pierce=pierce;b.life=life;
+  b.hitIds=b.hitIds||[];b.hitIds.length=0;bullets.push(b);return b;}   // hitIds: enemy ids this bullet already tagged → pierce never re-hits the same enemy (clear on reuse)   // seed px/py so a recycled bullet doesn't streak from its last death pos on frame 1; sx/sy = muzzle origin so the trail can't reach back into the ship
 function spawnEbullet(x,y,vx,vy,r,dmg,life){const b=poolAcquire('ebullets');
   b.x=b.px=x;b.y=b.py=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.life=life;ebullets.push(b);return b;}
 function spawnMissile(x,y,vx,vy,spd,turn,r,dmg,target,life){const m=poolAcquire('missiles');

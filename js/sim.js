@@ -76,11 +76,15 @@ function update(){
   // Plasma Railgun Bolts Matrix Optimization
   for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
     if(b.life<=0||b.x<-20||b.x>WORLD.w+20||b.y<-20||b.y>WORLD.h+20){poolRelease('bullets',b);bullets.splice(i,1);continue;}
-    // live length: damageEnemy() may splice an enemy mid-scan (pierce), so don't cache the bound
+    // live length: hitEnemy() may splice the hit enemy mid-scan (kill), so don't cache the bound.
+    // skip enemies already in b.hitIds → a pierce charge is never wasted re-hitting the same enemy
+    // across ticks; no break on pierce → one bullet passes through every fresh overlap this tick.
     for(let j=0;j<enemies.length;j++){const e=enemies[j];
+      if(b.hitIds.indexOf(e.id)>=0)continue;
       const dx=b.x-e.x,dy=b.y-e.y,combR=e.r+b.r;
-      if((dx*dx+dy*dy)<(combR*combR)){hitEnemy(e,b.dmg,e.col);burst(b.x,b.y,e.col,4,3);
-        if(b.pierce>0)b.pierce--;else{poolRelease('bullets',b);bullets.splice(i,1);}break;}}}
+      if((dx*dx+dy*dy)<(combR*combR)){b.hitIds.push(e.id);const n=enemies.length;hitEnemy(e,b.dmg,e.col);burst(b.x,b.y,e.col,4,3);
+        if(enemies.length<n)j--;   // current enemy died & was spliced → step back so its neighbour isn't skipped
+        if(b.pierce>0)b.pierce--;else{poolRelease('bullets',b);bullets.splice(i,1);break;}}}}
 
   // Torpedoes / Seeker Missiles Matrix Optimization
   for(let i=missiles.length-1;i>=0;i--){const m=missiles[i];
