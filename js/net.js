@@ -37,9 +37,17 @@ function _initSupabase(){
 function submitScore(entry){return Promise.resolve();}
 
 /* fetch top-10 for a difficulty. Resolves to an array, or null when the global board is unavailable
- * (so the UI can distinguish "offline" from "no rows yet"). */
+ * (so the UI can distinguish "offline" from "no rows yet"). The read path goes STRAIGHT to PostgREST
+ * via fetch — it never waits for the heavy supabase SDK script to download/parse, so the board paints
+ * on first frame. The SDK still loads in the background for auth/writes; this is read-only + public. */
 async function fetchTop(diff){
-  if(!SB)return null;
+  if(_isBrowser&&SUPA_OK&&typeof fetch==='function'){
+    try{const u=SUPA_URL+'/rest/v1/leaderboard?select=username,score,secs,wave,created_at'
+        +'&difficulty=eq.'+encodeURIComponent(diff)+'&order=score.desc&limit=10';
+      const r=await fetch(u,{headers:{apikey:SUPA_ANON_KEY,Authorization:'Bearer '+SUPA_ANON_KEY}});
+      return r.ok?(await r.json()||[]):null;}catch(e){return null;}
+  }
+  if(!SB)return null;                                                  // headless / SDK fallback
   try{const{data,error}=await SB.from('leaderboard').select('username,score,secs,wave,created_at')
       .eq('difficulty',diff).order('score',{ascending:false}).limit(10);
     return error?null:(data||[]);}catch(e){return null;}

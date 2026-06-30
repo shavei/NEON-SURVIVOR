@@ -34,6 +34,7 @@ function reportRun(entry){
   _lbRender(score,cached===undefined?null:cached);            // instant feedback (zero network wait)
   if(typeof submitScore!=='function'||typeof fetchTop!=='function')return;
   Promise.all([submitScore(entry),fetchTop(diff)]).then(([,rows])=>{   // submit + refresh concurrently
-    if(rows!==null&&typeof leaderboardCache!=='undefined')leaderboardCache[diff]={state:'ready',rows,ts:Date.now()};
+    if(rows!==null&&typeof leaderboardCache!=='undefined'){leaderboardCache[diff]={state:'ready',rows,ts:Date.now()};
+      if(typeof LBSync!=='undefined')LBSync._persist();}   // keep the post-run board for the next visit
     _lbRender(score,rows);},()=>{});
 }

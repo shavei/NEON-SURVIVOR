@@ -243,6 +243,7 @@ function renderGlobal(diff){_gdiff=diff;
   const e=LBSync.get(diff);
   if(e&&e.state==='ready'){renderGlobalRows(e.rows);return;}
   if(e&&e.state==='error'){renderGlobalRows(null);return;}   // known-offline → message (retry via syncAll on menu open/SDK connect)
+  if(e&&e.rows&&e.rows.length){renderGlobalRows(e.rows);LBSync.ensure(diff);return;}  // stale-while-revalidate: show last-known rows during the refetch (no skeleton flash)
   renderGlobalSkeleton();LBSync.ensure(diff);}                                    // loading/absent → resolves via onLeaderboardUpdate
 /* leaderboard-sync.js calls this when any difficulty's rows land → repaint only if it's the visible tab */
 function onLeaderboardUpdate(diff){if(diff===_gdiff)renderGlobal(diff);}
