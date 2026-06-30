@@ -24,3 +24,10 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Secrets — service-role keys live in Vercel/GitHub env vars, NEVER in the repo
+.env
+.env.*
+*.pem
+*.key
+secrets.json
