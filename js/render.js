@@ -3,6 +3,9 @@
  * Classic script (shared global scope). Load order: core → world → sim → render → main. */
 
 /* ========== DRAW LOOP (Batched Canvas States) ========== */
+// Repaint a clean deep-space backdrop with NO bodies/HUD — used when an overlay (game-over, menu) covers
+// the arena, so the last gameplay frame (boss bar, enemies, player) can't bleed through the translucent panel.
+function drawBackdrop(){ctx.clearRect(0,0,W,H);if(NEBULA_CANVAS)ctx.drawImage(NEBULA_CANVAS,0,0,W,H);}
 function draw(){
   // interpolated camera — render between the last two sim ticks (alpha=fractional tick) for smooth scroll
   const A=alpha,icx=lerp(cam.px,cam.x,A),icy=lerp(cam.py,cam.y,A);
