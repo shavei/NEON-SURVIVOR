@@ -85,15 +85,27 @@ const Orchestra = {
     this._jk[key] = rec; return rec;
   },
   _warm() { ['menu', 'play', 'over'].forEach(k => this._track(k)); },   // preload the common tracks
+  XFADE: 2.4,                                    // s — equal-power blend between real tracks (longer = gentler, no hard cut)
+  _ramp(param, to, dur) {                        // smooth equal-power glide of one gain → `to` over `dur` s (no audible step)
+    const ac = Sound.ac; if (!ac) return;
+    const now = ac.currentTime, from = param.value;
+    if (Math.abs(from - to) < 0.001) return;
+    try {
+      if (typeof param.cancelAndHoldAtTime === 'function') param.cancelAndHoldAtTime(now); else param.cancelScheduledValues(now);
+      const N = 32, arr = new Float32Array(N);   // fade-in tracks sin, fade-out tracks cos ⇒ sin²+cos²=1, constant power through a swap
+      for (let k = 0; k < N; k++) { const x = k / (N - 1);
+        arr[k] = to > from ? from + (to - from) * Math.sin(x * Math.PI / 2) : to + (from - to) * Math.cos(x * Math.PI / 2); }
+      arr[N - 1] = to; param.setValueCurveAtTime(arr, now, dur);
+    } catch (e) { try { param.setTargetAtTime(to, now, dur / 3); } catch (_) {} }
+  },
   _playReal(key) {                               // crossfade to a real track; false ⇒ unavailable (use procedural)
     if (!this._g || !this._jukeOK()) return false;
     key = this._resolve(key);                    // a player-equipped Soundtrack track overrides the gameplay theme
     const rec = this._track(key); if (!rec || rec.bad) return false;
-    const ac = Sound.ac;
     for (const k in this._jk) { const r = this._jk[k]; if (!r.gain) continue; const on = k === key;
-      r.gain.gain.setTargetAtTime(on ? 1 : 0, ac.currentTime, 0.6);
+      this._ramp(r.gain.gain, on ? 1 : 0, this.XFADE);   // equal-power crossfade — both tracks overlap, no hard cut
       if (on) { try { const p = r.a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
-      else setTimeout(() => { if (this._real !== k) try { r.a.pause(); } catch (e) {} }, 1300);
+      else setTimeout(() => { if (this._real !== k) try { r.a.pause(); } catch (e) {} }, (this.XFADE + 0.4) * 1000);   // pause only once the fade-out has fully completed
     }
     this._real = key; this._realActive = true; return true;
   },
