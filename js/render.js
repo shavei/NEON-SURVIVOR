@@ -148,11 +148,14 @@ function draw(){
   ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r,typeof Skins!=='undefined'?Skins.equipped():null);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
   const pr=3+Math.sin(frame*.15)*1.2;ctx.shadowBlur=14;ctx.shadowColor=rage?'#ffd95e':'#7c8cff';
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();ctx.shadowBlur=0;
-  // 11b. Player health ring — arc hugging the ship, depletes clockwise from top, hue green→red; your eyes live on the ship so HP reads at a glance
-  {const frac=clamp(p.hp/p.maxhp,0,1),hr=p.r+9,hc='hsl('+(120*frac)+',85%,55%)';ctx.globalAlpha=1;
-    ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,hr,0,7);ctx.stroke();
-    ctx.strokeStyle=hc;ctx.lineCap='round';ctx.shadowBlur=8;ctx.shadowColor=hc;
-    ctx.beginPath();ctx.arc(0,0,hr,-1.5708,-1.5708+6.2832*frac);ctx.stroke();ctx.shadowBlur=0;ctx.lineCap='butt';}
+  // 11b. Player health ring — palette-locked neon arc hugging the ship (teal→gold→crimson), glows brighter as HP drops + pulses when critical; eyes live on the ship so HP reads instantly
+  {const frac=clamp(p.hp/p.maxhp,0,1),lo=frac<.5,t=lo?frac/.5:(frac-.5)/.5,
+    c0=lo?[255,59,107]:[255,217,94],c1=lo?[255,217,94]:[84,230,181],   // crimson→gold below half, gold→teal above
+    hc='rgb('+(c0[0]+(c1[0]-c0[0])*t|0)+','+(c0[1]+(c1[1]-c0[1])*t|0)+','+(c0[2]+(c1[2]-c0[2])*t|0)+')',
+    pulse=frac<.3?.62+.38*Math.abs(Math.sin(frame*.12)):1,hr=p.r+8;
+    ctx.globalAlpha=1;ctx.strokeStyle='rgba(124,140,255,.16)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,hr,0,7);ctx.stroke();   // faint blurple track
+    ctx.globalAlpha=(.5+.5*(1-frac))*pulse;ctx.strokeStyle=hc;ctx.lineWidth=3;ctx.lineCap='round';ctx.shadowBlur=11;ctx.shadowColor=hc;
+    ctx.beginPath();ctx.arc(0,0,hr,-1.5708,-1.5708+6.2832*frac);ctx.stroke();ctx.shadowBlur=0;ctx.lineCap='butt';ctx.globalAlpha=1;}
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // 12. Deflector Energy Shield Matrices
