@@ -249,14 +249,14 @@ const Orchestra = {
   enterBoss(bt) {                                // boss spawn: crossfade to this archetype's epic theme + sting
     if (this.bossMode) return; this.bossMode = true; this._bt = bt | 0;
     if (this._g) this._pending = 'boss'; else this.active = 'boss';
-    this._playReal('boss' + (this._bt % 3));      // procedural boss bed if no asset (sched fires the sting)
+    if (!this._playReal('boss' + (this._bt % 3))) this._realActive = false;   // boss asset absent ⇒ clear the flag so _tick un-mutes the procedural boss bed (matches menu/play paths)
     if (this._realActive) this._sting('boss');    // real track plays: layer the sting on the sting bus
     this._go('BOSS', 'enterBoss b' + (this._bt % 3) + ' · xfade');
   },
   exitBoss() {
     if (!this.bossMode) return; this.bossMode = false;
     if (this._g) this._pending = 'ambient'; else this.active = 'ambient';
-    this._playReal('play');
+    if (!this._playReal('play')) this._realActive = false;   // ambient real track absent ⇒ fall back to the procedural bed instead of staying muted
     this._go('AMBIENT', 'exitBoss · xfade');
   },
   stingLevelUp() { this._sting('levelup'); },
