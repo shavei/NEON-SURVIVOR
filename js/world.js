@@ -317,9 +317,7 @@ function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
   if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Fx.sfx('tone',440,900,.25,'sine',.09);}
   else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
     shake=Math.min(shake+18,22);Fx.sfx('boom');burst(p.x,p.y,'#ffd95e',46,9);Fx.flash();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
-  else if(it.type==='magnet'){p.rushT=600;   // 10s of 2x XP (gainXP doubles while rushT>0)
-    for(let i=0;i<orbs.length;i++)orbs[i].homing=true;   // one-time pulse: flag current orbs to tractor in regardless of range (magnet stat untouched)
-    if(typeof _perf!=='undefined'&&_perf.on)console.log('[XP RUSH] pulse flagged',orbs.length,'orbs · rushT=',p.rushT);
+  else if(it.type==='magnet'){p.rushT=600;   // 10s of 2x XP + tractor every orb (current and future) for the whole window; magnet stat untouched (handled in sim tractor via rushT)
     Fx.sfx('pickup');floatText(p.x,p.y-22,'XP RUSH x2','#54e6b5');}
   else if(it.type==='rage'){p.rageT=540;Fx.sfx('tone',180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
 }
