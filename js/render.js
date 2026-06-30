@@ -163,7 +163,7 @@ function draw(){
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // 12. Deflector Energy Shield Matrices
-  if(p.shield>0){const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,ss=dotSprite('#4ea8ff'),vr=12;   // cyan/blue — never confused with teal XP orbs
+  if(p.shield>0){const orbs=Math.min(p.shield+1,6),rad=48+p.shield*5,ss=dotSprite('#cfe6ff'),vr=12;   // icy white-blue — distinct from periwinkle grunts (#7c8cff), teal XP orbs (#54e6b5) and cyan boss
     for(let k=0;k<orbs;k++){const a=p.shieldAng+k/orbs*6.283;const ox=ipx+Math.cos(a)*rad,oy=ipy+Math.sin(a)*rad;
       ctx.drawImage(ss,ox-vr,oy-vr,vr*2,vr*2);}}
 
