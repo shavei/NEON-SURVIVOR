@@ -325,3 +325,8 @@
     /* shift minimap top-left, clear of the bottom-right pause/mute buttons and the thumb-stick / #bars zones */
     #minimap{left:14px;top:max(64px,calc(env(safe-area-inset-top) + 60px));right:auto;bottom:auto;width:108px;height:108px}
   }
+
+/* Android APK call-to-action on the start screen. Hidden when the page is already
+   running as the installed app (TWA / standalone PWA) — no point offering the download there. */
+.apk-cta{display:inline-flex;align-items:center;gap:6px;margin-top:10px;text-decoration:none}
+@media (display-mode:standalone),(display-mode:fullscreen),(display-mode:minimal-ui){.apk-cta{display:none}}

@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>NEON SURVIVOR</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a12'/><circle cx='16' cy='16' r='8' fill='none' stroke='%23ff5fa2' stroke-width='3'/><circle cx='16' cy='16' r='2.5' fill='%2354e6b5'/></svg>">
+<!-- PWA / Android TWA: same game, same Supabase backend, installable to a phone -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0a0a12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <!-- warm the TLS handshake to the scoreboard backend + SDK CDN before any fetch fires -->
 <link rel="preconnect" href="https://ukvsnjgysbrmuheibrgv.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://ukvsnjgysbrmuheibrgv.supabase.co">
@@ -64,6 +71,7 @@
   <div class="startactions">
     <button class="btn" id="startbtn">▶ PLAY</button>
   </div>
+  <a class="menubtn apk-cta" id="apkdl" href="https://github.com/shavei/neon-survivor/releases/latest/download/neon-survivor.apk" rel="noopener">📱 Get the Android app (APK)</a>
   <div class="menupanels">
     <div class="mpanel mpanel--ref"><div class="mptitle">⚡ Pickups — found on the map</div><div class="legend" id="pickupsLegend"></div></div>
     <div class="mpanel mpanel--ref"><div class="mptitle">🛠 Weapons — unlocked on level-up</div><div class="legend" id="weaponsLegend"></div></div>
