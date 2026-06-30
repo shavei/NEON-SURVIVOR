@@ -63,8 +63,10 @@ function draw(){
   const bLen=bullets.length;
   const trailCol=(typeof RewardEngine!=='undefined'&&RewardEngine.equippedTrailColor)?RewardEngine.equippedTrailColor():null;
   if(trailCol){ctx.lineCap='round';ctx.shadowColor=trailCol;ctx.shadowBlur=12;
-    for(let i=0;i<bLen;i++){const b=bullets[i];const sp=Math.hypot(b.vx,b.vy)||1,tl=b.r*7+sp*1.6;   // long streak: clears the bolt sprite + glow so it actually reads
-      const bx=ix(b),by=iy(b),tx=bx-b.vx/sp*tl,ty=by-b.vy/sp*tl;
+    for(let i=0;i<bLen;i++){const b=bullets[i];const sp=Math.hypot(b.vx,b.vy)||1;
+      const bx=ix(b),by=iy(b),tl=Math.min(b.r*7+sp*1.6,Math.hypot(bx-b.sx,by-b.sy));   // clamp streak to distance flown so the tail never reaches back into the ship at the muzzle
+      if(tl<1)continue;                                                                  // freshly-fired bolt sits on the player → no streak yet (this blob was flashing the ship)
+      const tx=bx-b.vx/sp*tl,ty=by-b.vy/sp*tl;
       const grd=ctx.createLinearGradient(tx,ty,bx,by);grd.addColorStop(0,'transparent');grd.addColorStop(1,trailCol);   // fade from tail → bullet
       ctx.strokeStyle=grd;ctx.lineWidth=b.r*1.7;ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(bx,by);ctx.stroke();}
     ctx.shadowBlur=0;ctx.lineCap='butt';}
