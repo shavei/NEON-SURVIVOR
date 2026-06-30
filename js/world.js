@@ -242,11 +242,11 @@ function poolAcquire(k){const f=_POOL[k];return f.length?f.pop():{};}
 function poolRelease(k,o){const f=_POOL[k];if(f.length<_POOLCAP)f.push(o);}
 // spawn helpers — single place that sets every field a body type uses, then pushes the pooled object
 function spawnBullet(x,y,vx,vy,r,dmg,pierce,life){const b=poolAcquire('bullets');
-  b.x=x;b.y=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.pierce=pierce;b.life=life;bullets.push(b);return b;}
+  b.x=b.px=x;b.y=b.py=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.pierce=pierce;b.life=life;bullets.push(b);return b;}   // seed px/py so a recycled bullet doesn't streak from its last death pos on frame 1
 function spawnEbullet(x,y,vx,vy,r,dmg,life){const b=poolAcquire('ebullets');
-  b.x=x;b.y=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.life=life;ebullets.push(b);return b;}
+  b.x=b.px=x;b.y=b.py=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.life=life;ebullets.push(b);return b;}
 function spawnMissile(x,y,vx,vy,spd,turn,r,dmg,target,life){const m=poolAcquire('missiles');
-  m.x=x;m.y=y;m.vx=vx;m.vy=vy;m.spd=spd;m.turn=turn;m.r=r;m.dmg=dmg;m.target=target;m.life=life;missiles.push(m);return m;}
+  m.x=m.px=x;m.y=m.py=y;m.vx=vx;m.vy=vy;m.spd=spd;m.turn=turn;m.r=r;m.dmg=dmg;m.target=target;m.life=life;missiles.push(m);return m;}
 function spawnParticle(x,y,vx,vy,r,life,col){const q=poolAcquire('particles');
   q.x=x;q.y=y;q.vx=vx;q.vy=vy;q.r=r;q.life=life;q.col=col;particles.push(q);return q;}
 
