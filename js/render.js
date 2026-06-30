@@ -62,11 +62,12 @@ function draw(){
   const bSpr=dotSprite('#ffd95e');
   const bLen=bullets.length;
   const trailCol=(typeof RewardEngine!=='undefined'&&RewardEngine.equippedTrailColor)?RewardEngine.equippedTrailColor():null;
-  if(trailCol){ctx.lineCap='round';ctx.strokeStyle=trailCol;ctx.shadowColor=trailCol;ctx.shadowBlur=9;ctx.globalAlpha=.5;
-    for(let i=0;i<bLen;i++){const b=bullets[i];const sp=Math.hypot(b.vx,b.vy)||1,tl=b.r*3.4;
+  if(trailCol){ctx.lineCap='round';ctx.shadowColor=trailCol;ctx.shadowBlur=12;
+    for(let i=0;i<bLen;i++){const b=bullets[i];const sp=Math.hypot(b.vx,b.vy)||1,tl=b.r*7+sp*1.6;   // long streak: clears the bolt sprite + glow so it actually reads
       const bx=ix(b),by=iy(b),tx=bx-b.vx/sp*tl,ty=by-b.vy/sp*tl;
-      ctx.lineWidth=b.r*1.3;ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(bx,by);ctx.stroke();}
-    ctx.globalAlpha=1;ctx.shadowBlur=0;ctx.lineCap='butt';}
+      const grd=ctx.createLinearGradient(tx,ty,bx,by);grd.addColorStop(0,'transparent');grd.addColorStop(1,trailCol);   // fade from tail → bullet
+      ctx.strokeStyle=grd;ctx.lineWidth=b.r*1.7;ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(bx,by);ctx.stroke();}
+    ctx.shadowBlur=0;ctx.lineCap='butt';}
   for(let i=0;i<bLen;i++){const b=bullets[i];const vr=b.r*2.4,bx=ix(b),by=iy(b);ctx.drawImage(bSpr,bx-vr,by-vr,vr*2,vr*2);}
 
   // 7. Seeker Torpedoes / Missiles
