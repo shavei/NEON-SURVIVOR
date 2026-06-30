@@ -16,6 +16,19 @@ const LBSync = {
   fresh(diff) { const e = leaderboardCache[diff]; return !!(e && e.state === 'ready' && (Date.now() - e.ts) < LBSync.TTL); },
   get(diff) { return leaderboardCache[diff]; },
 
+  /* cross-session persistence (stale-while-revalidate): last-known rows survive a reload so the board
+   * paints instantly from disk on the next visit, then refreshes in the background. localStorage may be
+   * absent (headless/private mode) — every access is guarded, never throws. */
+  _KEY: 'neon_lb_cache',
+  _persist() { try { if (typeof localStorage === 'undefined') return;
+    const o = {}; LBSync.DIFFS.forEach(d => { const e = leaderboardCache[d]; if (e && e.state === 'ready' && e.rows) o[d] = e.rows; });
+    localStorage.setItem(LBSync._KEY, JSON.stringify(o)); } catch (e) {} },
+  /* hydrate at boot: seed each board as 'ready' but ts:0 so it renders at once yet is never deemed
+   * 'fresh' — syncAll() still refetches, replacing the stale snapshot when the network lands. */
+  _hydrate() { try { if (typeof localStorage === 'undefined') return;
+    const o = JSON.parse(localStorage.getItem(LBSync._KEY) || '{}');
+    LBSync.DIFFS.forEach(d => { if (o[d] && o[d].length && !leaderboardCache[d]) leaderboardCache[d] = { state: 'ready', rows: o[d], ts: 0 }; }); } catch (e) {} },
+
   /* fetch ONE difficulty; isolates its own failure so a sibling in Promise.all can't be taken down */
   _one(diff) {
     if (LBSync._inflight[diff]) return LBSync._inflight[diff];
@@ -24,6 +37,7 @@ const LBSync = {
     const settle = (state, rows) => {
       leaderboardCache[diff] = { state, rows, ts: Date.now() };
       delete LBSync._inflight[diff];
+      if (state === 'ready') LBSync._persist();   // survive a reload → instant paint next visit
       if (typeof onLeaderboardUpdate === 'function') try { onLeaderboardUpdate(diff); } catch (e) {}
     };
     let p;
@@ -55,3 +69,5 @@ const LBSync = {
     });
   },
 };
+
+LBSync._hydrate();   // seed the cache from last session so boards render before the first network round-trip
