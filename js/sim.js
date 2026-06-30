@@ -119,8 +119,8 @@ function update(){
       if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}      // telegraph expired → dispatch attack[e.atk]
         else if(--e.bossT<=0){e.tele=BOSS.teleT;Fx.sfx('ping');}}}   // cadence elapsed → start wind-up telegraph
     // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger)
-    if(p.inv<=0&&e.cdmg<=0){const combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;
-      if(dp*dp<combR*combR){
+    if(p.inv<=0&&e.cdmg<=0){const cdx=p.x-e.x,cdy=p.y-e.y,combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;   // recompute post-move: a dashing boss closes the gap this tick, stale pre-move dp misses the lunge
+      if(cdx*cdx+cdy*cdy<combR*combR){
         p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);Fx.flash();Fx.sfx('hurt');
         if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff5fa2',14,5);e.x-=ux*12;e.y-=uy*12;
@@ -138,8 +138,8 @@ function update(){
   // Energy Core / XP Orbs Tractor Pull Matrix Optimization — magnet each orb toward the player; collect → XP.
   for(let i=orbs.length-1;i>=0;i--){const o=orbs[i];
     const dx=o.x-p.x,dy=o.y-p.y;const dSq=dx*dx+dy*dy;
-    if(o.homing||dSq<p.magnetSq){   // homing orbs (XP Rush pulse) ignore magnet range; range stat itself is never mutated
-      const d=Math.sqrt(dSq)||1,pull=o.homing?Math.max(d*.25,6):clamp((p.magnet-d)/p.magnet*6,.6,6);
+    if(p.rushT>0||dSq<p.magnetSq){   // during XP Rush every orb (current AND newly spawned) tractors in regardless of range; range stat itself is never mutated
+      const d=Math.sqrt(dSq)||1,pull=p.rushT>0?Math.max(d*.25,6):clamp((p.magnet-d)/p.magnet*6,.6,6);
       o.x-=dx/d*pull;o.y-=dy/d*pull;}   // pull toward player without atan2/cos/sin
     const collectR=p.r+6;
     if(dSq<(collectR*collectR)){orbs.splice(i,1);gainXP(o.xp);
