@@ -105,7 +105,9 @@ const RewardEngine = {
     try {
       if (this._invOff || typeof SB === 'undefined' || !SB) return;
       const p = (typeof getPlayer === 'function') && getPlayer(); if (!p || !p.id) return;
-      SB.from('user_inventory').insert({ player_id: p.id, reward_id: r.id, kind: r.kind })
+      // ignore-duplicates upsert (PK = player_id,reward_id): the server (api/verify.js) already wrote this row
+      // for any prior grant, so a plain insert's unique-violation would wrongly latch _invOff and kill pullInventory.
+      SB.from('user_inventory').upsert({ player_id: p.id, reward_id: r.id, kind: r.kind }, { onConflict: 'player_id,reward_id', ignoreDuplicates: true })
         .then(res => { if (res && res.error) this._invOff = true; }, () => { this._invOff = true; });
     } catch (e) { this._invOff = true; }
   },

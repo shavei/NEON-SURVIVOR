@@ -77,7 +77,7 @@ function flashHit(){const f=document.getElementById('flash');f.style.transition=
  * Line 1 perf: fps, avg/worst frame-time, sim ticks-per-frame (proves the accumulator catches up: ~1 at
  *   60 Hz, <1 at 144 Hz), live body count. Lines 2-3 (play only): boss FSM + the upgrade-mutated stats. */
 const _perf={on:false,el:null,n:0,sum:0,worst:0,ticks:0,last:0};
-const _ATK=['BURST','DASH','SLAM'];           // mirrors e.atk dispatch in world.js (0/1/2)
+const _ATK=['BURST','DASH','SLAM','SPIRAL','SPREAD','SUMMON','BLINK'];   // mirrors e.atk dispatch in world.js (0-6: all 3 archetypes, MAELSTROM uses 3/4, OVERSEER 5/0/6)
 function togglePerf(){
   _perf.on=!_perf.on;
   if(!_perf.el){const d=document.createElement('div');d.id='perfhud';document.body.appendChild(d);_perf.el=d;}
@@ -101,7 +101,7 @@ function perfFrame(ts){
   if(_perf.last){const d=ts-_perf.last;_perf.sum+=d;if(d>_perf.worst)_perf.worst=d;_perf.n++;}
   _perf.last=ts;
   if(_perf.sum>=200){                        // repaint ~5×/s to avoid its own DOM thrash
-    const avg=_perf.sum/_perf.n,ec=enemies.length+bullets.length+orbs.length+particles.length+missiles.length+ebullets.length;
+    const avg=_perf.sum/_perf.n,ec=player?enemies.length+bullets.length+orbs.length+particles.length+missiles.length+ebullets.length:0;   // body arrays are undefined until reset() — guard so F3 on the menu doesn't throw out of the rAF loop
     let txt=`${(1000/avg).toFixed(0)} fps · ${avg.toFixed(1)}ms avg · ${_perf.worst.toFixed(1)}ms max · ${_perf.ticks} tick/f · ${ec} bodies`;
     if(state==='play'&&player)txt+='\n'+_bossLine()+'\n'+_statLine();   // boss/stat lines need a live run (player exists, t0 set)
     _perf.el.textContent=txt;                // single write — one reflow, not per-field
@@ -141,7 +141,7 @@ function startGame(){
 function playAgain(){startGame();}
 function gameOver(){state='over';Music.die();
   const lh=document.getElementById('lowhp');lh.classList.remove('danger');lh.style.opacity=0;_hud.low=-1;
-  if(score>best){best=score;localStorage.setItem('neon_best',best);}
+  const newBest=score>best;if(newBest){best=score;localStorage.setItem('neon_best',best);}
   const elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
   const run={score,secs:Math.floor(elapsed),wave,kills,level:player.level,difficulty:DIFF.key};
   if(typeof reportRun==='function')reportRun(run);                          // concurrent submit+fetch + dynamic feedback
@@ -151,7 +151,7 @@ function gameOver(){state='over';Music.die();
   if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();      // refresh the Soundtrack tab (new tracks may have unlocked)
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
-  document.getElementById('hibest').textContent=score>=best?'★ NEW BEST!':'best: '+best;
+  document.getElementById('hibest').textContent=newBest?'★ NEW BEST!':'best: '+best;
   document.getElementById('over').classList.remove('hidden');}
 function syncPauseIcon(){const b=document.getElementById('mpause');if(b)b.textContent=state==='pause'?'▶':'⏸';}
 function togglePause(){
