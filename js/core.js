@@ -82,7 +82,7 @@ const Sound={
     this.ac=new A();this.master=this.ac.createGain();this.master.gain.value=this.muted?0:.85;this.master.connect(this.ac.destination);},
   resume(){if(this.ac&&this.ac.state==='suspended')this.ac.resume();},
   toggle(){this.muted=!this.muted;if(this.master)this.master.gain.value=this.muted?0:.85;
-    document.getElementById('sound').textContent=this.muted?'🔇 muted':'🔊 sound';},
+    document.getElementById('sound').textContent=this.muted?tr('🔇 muted'):tr('🔊 sound');},
   tone(f1,f2,dur,type,vol){if(!this.ac||this.muted)return;const ac=this.ac,o=ac.createOscillator(),g=ac.createGain();
     o.type=type||'square';o.frequency.setValueAtTime(f1,ac.currentTime);
     if(f2)o.frequency.exponentialRampToValueAtTime(Math.max(1,f2),ac.currentTime+dur);

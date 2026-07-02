@@ -203,7 +203,7 @@ function draw(){
     ctx.fillStyle=bcol;ctx.shadowBlur=12;ctx.shadowColor=bcol;
     roundRect(bx+2,by+2,(bwid-4)*bf,bh-4,5);ctx.fill();ctx.shadowBlur=0;
     ctx.fillStyle='#fff';ctx.font='700 11px Inter,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('☠ '+_boss.name+'  ·  '+Math.ceil(_boss.hp)+' / '+Math.ceil(_boss.maxhp),W/2,by+bh+9);
+    ctx.fillText('☠ '+_boss.name.replace(/^\S+/,w=>tr(w))+'  ·  '+Math.ceil(_boss.hp)+' / '+Math.ceil(_boss.maxhp),W/2,by+bh+9);
     ctx.textBaseline='alphabetic';
   }
   if(_test){ctx.fillStyle='#54e6b5';ctx.font='700 12px Inter,sans-serif';ctx.textAlign='left';

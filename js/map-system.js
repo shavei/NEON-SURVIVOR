@@ -35,7 +35,7 @@ const Nav={
     wrap.innerHTML='';
     this.NODES.forEach(nd=>{
       const el=document.createElement('div'); el.className='upg'; el.style.setProperty('--c',nd.col);
-      el.innerHTML=`<div class="uico">${nd.ico}</div><h3>${nd.name}</h3><p>${nd.desc}</p>`;
+      el.innerHTML=`<div class="uico">${nd.ico}</div><h3>${tr(nd.name)}</h3><p>${tr(nd.desc)}</p>`;
       el.onclick=()=>Nav.choose(nd.id);
       wrap.appendChild(el);
     });
@@ -49,14 +49,14 @@ const Nav={
     const p=(typeof player!=='undefined')?player:null;
     if(id==='shop'){
       if(typeof pendingLevels!=='undefined')pendingLevels++;            // next tick → openLevelUp() (its own clock-safe pause)
-      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#ffd95e',x:p&&p.x,y:p&&p.y,text:'FREE UPGRADE',ico:'🛒'});
+      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#ffd95e',x:p&&p.x,y:p&&p.y,text:tr('FREE UPGRADE'),ico:'🛒'});
     }else if(id==='elite'){
       this._spawnElites();
       this._drop(p?p.x:0,(p?p.y:0)-30);                                // guaranteed cache for taking the risk
-      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#ff3b6b',x:p&&p.x,y:p&&p.y,text:'ELITE FIGHT',ico:'☠'});
+      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#ff3b6b',x:p&&p.x,y:p&&p.y,text:tr('ELITE FIGHT'),ico:'☠'});
     }else{                                                              // treasure
       if(p){this._drop(p.x-26,p.y);this._drop(p.x+26,p.y);}
-      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#54e6b5',x:p&&p.x,y:p&&p.y,text:'LOOT DROP',ico:'💎'});
+      if(typeof Reward!=='undefined')Reward.trigger('major',{col:'#54e6b5',x:p&&p.x,y:p&&p.y,text:tr('LOOT DROP'),ico:'💎'});
     }
   },
 

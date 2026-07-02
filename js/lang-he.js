@@ -59,5 +59,62 @@ const LANG_HE={
 '⚠ <b>End this run?</b> Quitting now <b>permanently loses all progress</b> from this game — your score, level, upgrades, weapons and time will be gone. This cannot be undone.':'⚠ <b>לסיים את הריצה?</b> יציאה עכשיו <b>תמחק לצמיתות את כל ההתקדמות</b> מהמשחק הזה — הניקוד, הרמה, השדרוגים, הנשקים והזמן יאבדו. אי אפשר לבטל זאת.',
 'Yes, end run & lose progress':'כן, לסיים ולאבד התקדמות',
 'No, keep playing':'לא, להמשיך לשחק',
+/* --- upgrades (names + card label fragments) --- */
+'Sharper Rounds':'קליעים חדים','Rapid Fire':'ירי מהיר','Split Shot':'ירי מפוצל','Piercing':'חדירה',
+'Swift Boots':'מגפי זריזות','Vitality':'חיוניות','Magnet Core':'ליבת מגנט','Regeneration':'התחדשות',
+'Lifesteal':'שאיבת חיים','Hyper Velocity':'מהירות-על','Homing Missiles':'טילים מתביתים',
+'Orbiting Shield':'מגן מקיף','Chain Lightning':'ברק משתרשר',
+'bullet damage':'נזק קליעים','fire rate':'קצב ירי','Fires':'יורה','projectiles per volley':'קליעים בכל מטח',
+'Bullets pass through':'הקליעים חודרים דרך','enemy':'אויב אחד','enemies':'אויבים','move speed':'מהירות תנועה',
+'max HP &amp; heal 30':'חיים מרביים + ריפוי 30','XP pickup range':'טווח איסוף XP','HP / sec':'חיים / שנייה',
+'Heal':'ריפוי','HP on every kill':'חיים על כל הרג','bullet speed':'מהירות קליע','damage':'נזק',
+'Launch a homing missile that seeks &amp; explodes (AoE)':'משגר טיל מתביית שרודף ומתפוצץ (נזק שטח)',
+'faster salvos (AoE)':'מטחים מהירים יותר (נזק שטח)',
+'guardian orbs circle you, shredding contact':'כדורי מגן חגים סביבכם וגורסים כל מגע',
+'Periodic bolt that arcs between enemies':'ברק תקופתי שמקפץ בין אויבים','faster, arcs more':'מהיר יותר, מקפץ יותר',
+'Lv':'רמה','NEW':'חדש','EVOLVE':'אבולוציה','EVOLVED':'שודרג','⚡EVO':'⚡משודרג','Pair':'שלבו',
+/* --- weapon merges (synergies) --- */
+'CLUSTER WARHEADS':'ראשי נפץ מתפצלים','missiles fragment into a shrapnel burst on impact':'טילים מתפצלים לרסס רסיסים בפגיעה',
+'TESLA WEB':'רשת טסלה','lightning forks farther and arcs through far more foes':'הברק מתפצל רחוק יותר ומקפץ דרך הרבה יותר אויבים',
+'AEGIS DRIVE':'מגן איגיס','guardian orbs swell, multiply, and knock enemies back':'כדורי המגן גדלים, מתרבים והודפים אויבים לאחור',
+'RAILGUN':'תותח מסילה','shots become a hyper-velocity infinite-pierce lance':'הירי הופך לרומח במהירות-על שחודר הכול',
+'CRIMSON STORM':'סופה ארגמנית','lifesteal procs on EVERY kill — the cooldown is gone':'שאיבת חיים פועלת על כל הרג — בלי זמן המתנה',
+/* --- boss rewards (map nodes) --- */
+'FREE UPGRADE':'שדרוג חינם','Safe · pick any one upgrade now — like an extra level-up.':'בטוח · בחרו שדרוג אחד עכשיו — כמו עליית רמה נוספת.',
+'LOOT DROP':'שלל','Safe · two power-ups (heal / nuke / magnet / overdrive) drop at your feet.':'בטוח · שני חיזוקים (ריפוי / פצצה / מגנט / טורבו) נופלים לרגליכם.',
+'ELITE FIGHT':'קרב עילית','Risky · a tough elite pack spawns — kill it for a guaranteed power-up.':'מסוכן · חבורת עילית קשוחה מגיחה — חסלו אותה לחיזוק מובטח.',
+/* --- pickups --- */
+'+25 HP':'+25 חיים','NUKE':'פצצה','NUKE!':'בום!','XP RUSH':'גל XP','XP RUSH x2':'XP כפול x2','OVERDRIVE':'טורבו',
+'Nuke':'פצצה','XP Rush':'גל XP','Overdrive':'טורבו',
+'Instantly restores 25 HP. Grab it when you\'re hurt.':'מחזיר מיד 25 נקודות חיים. קחו כשנפגעתם.',
+'Detonates the whole screen — clears a swarm in a pinch.':'מפוצץ את כל המסך — מנקה נחיל ברגע צרה.',
+'Pulls in every XP orb on the map for an instant level-up.':'מושך כל כדור XP במפה לעליית רמה מיידית.',
+'9 seconds of double fire-rate and +60% damage. Go aggressive.':'9 שניות של קצב ירי כפול ו‑60%+ נזק. תקפו בלי רחמים.',
+'Auto-launches a seeking missile that explodes for area damage.':'משגר אוטומטית טיל מתביית שמתפוצץ לנזק שטח.',
+'Orbs spin around you, destroying anything they touch — strong defense.':'כדורים חגים סביבכם ומשמידים כל מה שהם נוגעים בו — הגנה חזקה.',
+'A bolt that leaps between nearby enemies, hitting several at once.':'ברק שמזנק בין אויבים קרובים ופוגע בכמה בבת אחת.',
+'appeared on the map':'הופיע על המפה','(boss drop)':'(שלל בוס)',
+/* --- bosses --- */
+'BOSS':'בוס','BOSS DOWN':'הבוס חוסל','REVENANT':'רוונאנט','MAELSTROM':'מלשטרום','OVERSEER':'המשגיח',
+/* --- loadout pips --- */
+'Missiles':'טילים','Shield':'מגן','Lightning':'ברק',
+/* --- pause stats --- */
+'survived':'שרדתם','score':'ניקוד','kills':'הריגות','wave':'גל','level':'רמה','health':'חיים',
+'on screen':'על המסך','score / s':'ניקוד / שנ׳','sustain':'תחזוקה','on':'פעיל',
+'no upgrades yet — collect XP orbs to level up':'אין שדרוגים עדיין — אספו כדורי XP כדי לעלות רמה',
+'none yet — pair the right upgrades to merge a weapon (see 🔀 Weapon merges on the menu)':'אין עדיין — שלבו את השדרוגים הנכונים כדי למזג נשק (ראו 🔀 מיזוגי נשק בתפריט)',
+'🗡️ Damage':'🗡️ נזק','⚡ Fire rate':'⚡ קצב ירי','🔱 Projectiles':'🔱 קליעים','➶ Pierce':'➶ חדירה',
+'➹ Bullet spd':'➹ מהירות קליע','🥾 Move spd':'🥾 מהירות תנועה','❤️ Max HP':'❤️ חיים מרביים','🧲 Magnet':'🧲 מגנט',
+'✚ Regen':'✚ התחדשות','🩸 Lifesteal':'🩸 שאיבת חיים','🚀 Missiles':'🚀 טילים','🛡️ Shield':'🛡️ מגן','🌩️ Lightning':'🌩️ ברק',
+'/s':'/שנ׳','/kill':'/הרג',
+/* --- game over / hud misc --- */
+'★ NEW BEST!':'★ שיא חדש!','best:':'השיא:','🔇 muted':'🔇 מושתק',
+/* --- difficulty hints --- */
+'Relaxed — slower spawns and weaker enemies. Good for learning the ropes.':'רגוע — הגחות איטיות ואויבים חלשים. טוב ללימוד הבסיס.',
+'Balanced pace and pressure. Recommended for your first real run.':'קצב ולחץ מאוזנים. מומלץ לריצה האמיתית הראשונה.',
+'Brutal — dense swarms, tanky enemies and heavy hits. For veterans.':'אכזרי — נחילים צפופים, אויבים משוריינים ומכות כבדות. לוותיקים.',
+/* --- leaderboard --- */
+'Global board offline.<br>Scores still save on this device.':'הלוח העולמי לא זמין.<br>הניקוד עדיין נשמר במכשיר הזה.',
+'No runs yet.<br>Be the first!':'אין ריצות עדיין.<br>היו הראשונים!',
 };
 I18N.apply();

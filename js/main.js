@@ -134,7 +134,7 @@ function loop(ts){now=ts;
   requestAnimationFrame(loop);}
 function startGame(){
   Sound.init();Sound.resume();Music.start();reset();state='play';
-  HUD.diff.textContent=DIFF.label.toUpperCase();HUD.diff.style.color=DIFF.col;   // show the chosen difficulty in the HUD, tinted to its colour
+  HUD.diff.textContent=tr(DIFF.label.toUpperCase());HUD.diff.style.color=DIFF.col;   // show the chosen difficulty in the HUD, tinted to its colour
   if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');
@@ -154,8 +154,8 @@ function gameOver(){state='over';Music.die();
   if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();      // refresh the Soundtrack tab (new tracks may have unlocked)
   dismissToasts();   // clear mid-run AND run-end-fired toasts (reportRun above can unlock) so none bleed behind the game-over overlay
   document.getElementById('finalscore').textContent=score;
-  document.getElementById('finalmeta').textContent=`survived ${m}:${String(s).padStart(2,'0')} · wave ${wave} · Lv ${player.level} · ${DIFF.label}`;
-  document.getElementById('hibest').textContent=newBest?'★ NEW BEST!':'best: '+best;
+  document.getElementById('finalmeta').textContent=`${tr('survived')} ${m}:${String(s).padStart(2,'0')} · ${tr('wave')} ${wave} · ${tr('Lv')} ${player.level} · ${tr(DIFF.label)}`;
+  document.getElementById('hibest').textContent=newBest?tr('★ NEW BEST!'):tr('best:')+' '+best;
   document.getElementById('over').classList.remove('hidden');}
 function syncPauseIcon(){const b=document.getElementById('mpause');if(b)b.textContent=state==='pause'?'▶':'⏸';}
 function togglePause(){
@@ -167,37 +167,39 @@ function showPause(){
   const p=player,elapsed=(now-t0)/1000,m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
   const dps=elapsed>0?(score/elapsed).toFixed(1):'0';
   const stats=[['⏱ '+m+':'+String(s).padStart(2,'0'),'survived'],[score,'score'],[kills,'kills'],
-    [wave,'wave'],['Lv '+p.level,'level'],[Math.ceil(p.hp)+'/'+p.maxhp,'health'],
-    [enemies.length,'on screen'],[dps,'score / s'],[(p.lifesteal||p.regenRate?'on':'—'),'sustain']];
-  document.getElementById('pausestats').innerHTML=stats.map(([v,l])=>`<div class="pstat"><b>${v}</b><span>${l}</span></div>`).join('');
+    [wave,'wave'],[tr('Lv')+' '+p.level,'level'],[Math.ceil(p.hp)+'/'+p.maxhp,'health'],
+    [enemies.length,'on screen'],[dps,'score / s'],[(p.lifesteal||p.regenRate?tr('on'):'—'),'sustain']];
+  document.getElementById('pausestats').innerHTML=stats.map(([v,l])=>`<div class="pstat"><b>${v}</b><span>${tr(l)}</span></div>`).join('');
   const owned=UPGRADES.filter(u=>Up[u.id]);
   document.getElementById('pausebuild').innerHTML=owned.length
-    ?owned.map(u=>`<div class="pchip"><i>${u.ico}</i>${u.name} <b>Lv${Up[u.id]}</b></div>`).join('')
-    :`<div class="none">no upgrades yet — collect XP orbs to level up</div>`;
+    ?owned.map(u=>`<div class="pchip"><i>${u.ico}</i>${tr(u.name)} <b>${tr('Lv')}${Up[u.id]}</b></div>`).join('')
+    :`<div class="none">${tr('no upgrades yet — collect XP orbs to level up')}</div>`;
   /* merged/evolved weapons: full name + what each does, so the pause screen is the live build reference */
   const evo=p.evo||{};
   const merged=(typeof SYNERGIES!=='undefined'?SYNERGIES:[]).filter(sy=>evo[sy.slot]);
   document.getElementById('pauseevo').innerHTML=merged.length
-    ?merged.map(sy=>`<div class="pevorow"><i>${sy.ico}</i> <b>${sy.name}</b> — <span>${sy.desc}.</span></div>`).join('')
-    :`<div class="none">none yet — pair the right upgrades to merge a weapon (see 🔀 Weapon merges on the menu)</div>`;
+    ?merged.map(sy=>`<div class="pevorow"><i>${sy.ico}</i> <b>${tr(sy.name)}</b> — <span>${tr(sy.desc)}.</span></div>`).join('')
+    :`<div class="none">${tr('none yet — pair the right upgrades to merge a weapon (see 🔀 Weapon merges on the menu)')}</div>`;
   const cs=[
-    ['🗡️ Damage',p.dmg.toFixed(1)],['⚡ Fire rate',(60/p.rate).toFixed(1)+'/s'],
+    ['🗡️ Damage',p.dmg.toFixed(1)],['⚡ Fire rate',(60/p.rate).toFixed(1)+tr('/s')],
     ['🔱 Projectiles',p.multi],['➶ Pierce',p.pierce],
     ['➹ Bullet spd',p.bulletSpd.toFixed(1)],['🥾 Move spd',p.speed.toFixed(2)],
     ['❤️ Max HP',p.maxhp],['🧲 Magnet',Math.round(p.magnet)],
-    ['✚ Regen',p.regenRate+'/s'],['🩸 Lifesteal',p.lifesteal+'/kill']];
-  if(p.missile)cs.push(['🚀 Missiles','Lv '+p.missile]);
-  if(p.shield)cs.push(['🛡️ Shield','Lv '+p.shield]);
-  if(p.chain)cs.push(['🌩️ Lightning','Lv '+p.chain]);
-  document.getElementById('pausecombat').innerHTML=cs.map(([k,v])=>`<div class="pchip">${k} <b>${v}</b></div>`).join('');
+    ['✚ Regen',p.regenRate+tr('/s')],['🩸 Lifesteal',p.lifesteal+tr('/kill')]];
+  if(p.missile)cs.push(['🚀 Missiles',tr('Lv')+' '+p.missile]);
+  if(p.shield)cs.push(['🛡️ Shield',tr('Lv')+' '+p.shield]);
+  if(p.chain)cs.push(['🌩️ Lightning',tr('Lv')+' '+p.chain]);
+  document.getElementById('pausecombat').innerHTML=cs.map(([k,v])=>`<div class="pchip">${tr(k)} <b>${v}</b></div>`).join('');
   document.getElementById('quitconfirm').classList.remove('show');   // always start collapsed
   document.getElementById('pause').classList.remove('hidden');
 }
 
 const DHINT={easy:'Relaxed — slower spawns and weaker enemies. Good for learning the ropes.',normal:'Balanced pace and pressure. Recommended for your first real run.',hard:'Brutal — dense swarms, tanky enemies and heavy hits. For veterans.'};
+let _dh='balanced — recommended for a first run';   // current hint key (English) — re-translated on lang switch
+function updDiffHint(){const el=document.getElementById('diffhint');if(el)el.textContent=tr(_dh);}
 document.querySelectorAll('.diff').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.diff').forEach(z=>z.classList.remove('on'));b.classList.add('on');
-  DIFF=DIFFS[b.dataset.d];document.getElementById('diffhint').textContent=DHINT[b.dataset.d];});
+  DIFF=DIFFS[b.dataset.d];_dh=DHINT[b.dataset.d];updDiffHint();});
 /* ===== main-menu content: pickups, weapons, persistent high scores ===== */
 const PICKUP_INFO=[
   {ico:'❤️',name:'Heal',desc:'Instantly restores 25 HP. Grab it when you\'re hurt.'},
@@ -214,14 +216,14 @@ const WEAPON_INFO=[
    reference never drifts from the actual game rules. Recipe = the upgrade pair that triggers each evo. */
 function evoInfo(){
   if(typeof SYNERGIES==='undefined')return[];
-  const nm=id=>(typeof UPGRADES!=='undefined'&&(UPGRADES.find(u=>u.id===id)||{}).name)||id;
+  const nm=id=>tr((typeof UPGRADES!=='undefined'&&(UPGRADES.find(u=>u.id===id)||{}).name)||id);
   return SYNERGIES.map(s=>{
     const recipe=Object.keys(s.need).map(k=>`${nm(k)} ×${s.need[k]}`).join(' + ');
-    return{ico:s.ico,name:s.name,desc:`Pair ${recipe} — ${s.desc}.`};});}
+    return{ico:s.ico,name:s.name,desc:`${tr('Pair')} ${recipe} — ${tr(s.desc)}.`};});}
 function nodeInfo(){
   return(typeof Nav!=='undefined'&&Nav.NODES?Nav.NODES:[]).map(n=>({ico:n.ico,name:n.name,desc:n.desc}));}
 function legendHTML(list){return list.map(o=>
-  `<div class="legrow"><span class="lico">${o.ico}</span><div class="ltext"><b>${o.name}</b><span>${o.desc}</span></div></div>`).join('');}
+  `<div class="legrow"><span class="lico">${o.ico}</span><div class="ltext"><b>${tr(o.name)}</b><span>${tr(o.desc)}</span></div></div>`).join('');}
 function renderLegends(){
   document.getElementById('pickupsLegend').innerHTML=legendHTML(PICKUP_INFO);
   document.getElementById('weaponsLegend').innerHTML=legendHTML(WEAPON_INFO);
@@ -233,8 +235,8 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 let _gdiff='normal';       // visible tab; rows come from the shared leaderboardCache (leaderboard-sync.js)
 function renderGlobalRows(rows){
   const el=document.getElementById('global');if(!el)return;
-  if(rows===null){el.innerHTML='<div class="empty">Global board offline.<br>Scores still save on this device.</div>';return;}
-  if(!rows.length){el.innerHTML='<div class="empty">No runs yet.<br>Be the first!</div>';return;}
+  if(rows===null){el.innerHTML='<div class="empty">'+tr('Global board offline.<br>Scores still save on this device.')+'</div>';return;}
+  if(!rows.length){el.innerHTML='<div class="empty">'+tr('No runs yet.<br>Be the first!')+'</div>';return;}
   el.innerHTML=rows.map((r,i)=>
     `<div class="lbrow"><span class="rank">${i+1}</span><span class="sc">${r.score}</span><span class="meta">${esc(r.username||'—')} · ${fmtTime(r.secs)}</span></div>`).join('');}
 function renderGlobalSkeleton(){const el=document.getElementById('global');if(!el)return;   // shimmer placeholder
@@ -300,7 +302,15 @@ document.getElementById('quityes').onclick=quitToMenu;
 document.getElementById('tomenu').onclick=showMenu;
 /* Grid Access modal buttons (unameok / authotp / authtoggle / editname + input Enter keys) self-wire in
  * js/auth-uplink.js — see that file's _isBrowser block. Kept there so all auth UI lives in one place. */
-renderLegends();
+renderLegends();updDiffHint();
+/* live EN⇄HE switch: re-render every dynamically built surface in the new language */
+if(typeof I18N!=='undefined')I18N.onChange(()=>{renderLegends();updDiffHint();renderGlobal(_gdiff);
+  if(typeof DIFF!=='undefined'&&HUD.diff)HUD.diff.textContent=tr(DIFF.label.toUpperCase());
+  const sn=document.getElementById('sound');if(sn&&typeof Sound!=='undefined')sn.textContent=Sound.muted?tr('🔇 muted'):tr('🔊 sound');
+  if(typeof Ach!=='undefined')Ach.renderPanel();
+  if(typeof Skins!=='undefined')Skins.renderGallery();
+  if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();
+  if(state==='pause')showPause();});
 if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
 if(typeof Skins!=='undefined')Skins.renderGallery();   // paint the separate Skins panel from the local mirror
 if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();   // paint the Soundtrack tab from the local mirror
