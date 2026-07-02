@@ -114,6 +114,11 @@
   .menubtn{margin-top:16px;pointer-events:auto;cursor:pointer;background:none;border:none;
     font-family:var(--mono);font-size:13px;color:var(--muted);text-decoration:underline;letter-spacing:.05em}
   .menubtn:hover{color:var(--ink)}
+  /* EN⇄HE language toggle — pinned to the top-right of the start/pause overlays */
+  .langbtn{position:absolute;top:14px;right:14px;z-index:5;pointer-events:auto;cursor:pointer;
+    font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.04em;padding:8px 14px;
+    border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.04);color:var(--ink)}
+  .langbtn:hover{border-color:#54e6b5;color:#54e6b5}
   /* achievements grid (main-menu panel) — locked rows dimmed, unlocked glow gold */
   .achlist{display:flex;flex-direction:column;gap:9px;max-height:240px;overflow-y:auto;padding-right:4px}
   .achrow{display:flex;align-items:center;gap:10px;opacity:.4;transition:opacity .2s}

@@ -32,16 +32,16 @@
 <div id="pulse"></div>
 <div id="toast"></div>
 <div id="achtoast"></div>
-<div id="cleared"><span>CLEARED</span><small>arena breather — spawns throttled</small></div>
+<div id="cleared"><span data-i18n>CLEARED</span><small data-i18n>arena breather — spawns throttled</small></div>
 <div id="sound" title="toggle sound (M)">🔊 sound</div>
 <button id="mpause" title="pause" hidden>⏸</button>
 <div id="joy" hidden><div id="joynub"></div></div>
 
 <div class="panel" id="hud">
-  <div><div class="stat">SCORE<b id="score">0</b></div></div>
-  <div style="text-align:center"><div class="stat">WAVE<b id="wave">1</b></div></div>
-  <div style="text-align:center"><div class="stat">MODE<b id="diff">NORMAL</b></div></div>
-  <div class="stat r">TIME<b id="time">0:00</b></div>
+  <div><div class="stat"><span data-i18n>SCORE</span><b id="score">0</b></div></div>
+  <div style="text-align:center"><div class="stat"><span data-i18n>WAVE</span><b id="wave">1</b></div></div>
+  <div style="text-align:center"><div class="stat"><span data-i18n>MODE</span><b id="diff">NORMAL</b></div></div>
+  <div class="stat r"><span data-i18n>TIME</span><b id="time">0:00</b></div>
 </div>
 
 <div id="loadout"></div>
@@ -50,47 +50,48 @@
 
 <div id="bars">
   <div class="bar"><div class="fill" id="hpfill"></div><div class="barlabel" id="hplabel">100 / 100</div></div>
-  <div class="bar"><div class="fill" id="xpfill"></div><div class="barlabel">LVL <span id="lvlnum">1</span></div></div>
+  <div class="bar"><div class="fill" id="xpfill"></div><div class="barlabel"><span data-i18n>LVL</span>&nbsp;<span id="lvlnum">1</span></div></div>
 </div>
 
 <div class="overlay" id="start">
+  <button class="langbtn" title="English / עברית">🌐 עברית</button>
   <div class="title">NEON<br>SURVIVOR</div>
-  <p class="tag">Survive the swarm. Your gun auto-fires — you just move, dodge, and choose upgrades. Unlock homing missiles, an orbiting shield, and chain lightning. How long can you last?</p>
+  <p class="tag" data-i18n>Survive the swarm. Your gun auto-fires — you just move, dodge, and choose upgrades. Unlock homing missiles, an orbiting shield, and chain lightning. How long can you last?</p>
   <div class="keys">
-    <span class="key">WASD / ↑↓←→ move</span>
-    <span class="key">auto-fire</span>
-    <span class="key">P pause</span>
-    <span class="key">M mute</span>
+    <span class="key" data-i18n>WASD / ↑↓←→ move</span>
+    <span class="key" data-i18n>auto-fire</span>
+    <span class="key" data-i18n>P pause</span>
+    <span class="key" data-i18n>M mute</span>
   </div>
   <div class="diffsel" id="diffsel">
-    <button class="diff" data-d="easy" style="--dc:#54e6b5">EASY</button>
-    <button class="diff on" data-d="normal" style="--dc:#ffd95e">NORMAL</button>
-    <button class="diff" data-d="hard" style="--dc:#ff5fa2">HARD</button>
+    <button class="diff" data-d="easy" style="--dc:#54e6b5" data-i18n>EASY</button>
+    <button class="diff on" data-d="normal" style="--dc:#ffd95e" data-i18n>NORMAL</button>
+    <button class="diff" data-d="hard" style="--dc:#ff5fa2" data-i18n>HARD</button>
   </div>
   <div class="diffhint" id="diffhint">balanced — recommended for a first run</div>
   <div class="startactions">
-    <button class="btn" id="startbtn">▶ PLAY</button>
+    <button class="btn" id="startbtn" data-i18n>▶ PLAY</button>
   </div>
-  <a class="menubtn apk-cta" id="apkdl" href="https://github.com/shavei/neon-survivor/releases/latest/download/neon-survivor.apk" rel="noopener">📱 Get the Android app (APK)</a>
+  <a class="menubtn apk-cta" id="apkdl" href="https://github.com/shavei/neon-survivor/releases/latest/download/neon-survivor.apk" rel="noopener" data-i18n>📱 Get the Android app (APK)</a>
   <div class="menupanels">
-    <div class="mpanel mpanel--ref"><div class="mptitle">⚡ Pickups — found on the map</div><div class="legend" id="pickupsLegend"></div></div>
-    <div class="mpanel mpanel--ref"><div class="mptitle">🛠 Weapons — unlocked on level-up</div><div class="legend" id="weaponsLegend"></div></div>
-    <div class="mpanel mpanel--ref"><div class="mptitle">🔀 Weapon merges — pair upgrades to evolve</div><div class="legend" id="evoLegend"></div></div>
-    <div class="mpanel mpanel--ref"><div class="mptitle">🗺 Boss rewards — choose one of three</div><div class="legend" id="nodeLegend"></div></div>
-    <div class="mpanel mpanel--lb"><div class="mptitle">🌐 Global best runs</div>
+    <div class="mpanel mpanel--ref"><div class="mptitle" data-i18n>⚡ Pickups — found on the map</div><div class="legend" id="pickupsLegend"></div></div>
+    <div class="mpanel mpanel--ref"><div class="mptitle" data-i18n>🛠 Weapons — unlocked on level-up</div><div class="legend" id="weaponsLegend"></div></div>
+    <div class="mpanel mpanel--ref"><div class="mptitle" data-i18n>🔀 Weapon merges — pair upgrades to evolve</div><div class="legend" id="evoLegend"></div></div>
+    <div class="mpanel mpanel--ref"><div class="mptitle" data-i18n>🗺 Boss rewards — choose one of three</div><div class="legend" id="nodeLegend"></div></div>
+    <div class="mpanel mpanel--lb"><div class="mptitle" data-i18n>🌐 Global best runs</div>
       <div class="gtabs" id="gtabs">
-        <button class="gtab" data-d="easy">Easy</button>
-        <button class="gtab on" data-d="normal">Normal</button>
-        <button class="gtab" data-d="hard">Hard</button>
+        <button class="gtab" data-d="easy" data-i18n>Easy</button>
+        <button class="gtab on" data-d="normal" data-i18n>Normal</button>
+        <button class="gtab" data-d="hard" data-i18n>Hard</button>
       </div>
       <div class="lb" id="global"></div></div>
-    <div class="mpanel mpanel--ach"><div class="mptitle">🏅 Achievements</div><div class="achlist" id="achlist"></div></div>
-    <div class="mpanel mpanel--skin"><div class="mptitle">🎨 Showcase — skins &amp; soundtrack</div>
+    <div class="mpanel mpanel--ach"><div class="mptitle" data-i18n>🏅 Achievements</div><div class="achlist" id="achlist"></div></div>
+    <div class="mpanel mpanel--skin"><div class="mptitle" data-i18n>🎨 Showcase — skins &amp; soundtrack</div>
       <div class="showcase-tabs">
-        <button class="showcase-tab on" data-sc="skins">Skins</button>
-        <button class="showcase-tab" data-sc="trails">Trails</button>
-        <button class="showcase-tab" data-sc="soundtrack">Soundtrack</button>
-        <button class="showcase-tab" data-sc="grids">Grids</button>
+        <button class="showcase-tab on" data-sc="skins" data-i18n>Skins</button>
+        <button class="showcase-tab" data-sc="trails" data-i18n>Trails</button>
+        <button class="showcase-tab" data-sc="soundtrack" data-i18n>Soundtrack</button>
+        <button class="showcase-tab" data-sc="grids" data-i18n>Grids</button>
       </div>
       <div class="achlist sc-pane" id="skinlist" data-pane="skins"></div>
       <div class="achlist sc-pane sc-off" id="traillist" data-pane="trails"></div>
@@ -101,75 +102,79 @@
 
 <div class="overlay hidden" id="boot">
   <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">NEON<br>SURVIVOR</div>
-  <p class="tag" style="margin-top:16px">Connecting<span class="bootdots"></span></p>
+  <p class="tag" style="margin-top:16px"><span data-i18n>Connecting</span><span class="bootdots"></span></p>
 </div>
 
 <div class="overlay hidden" id="username">
-  <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">GRID ACCESS</div>
-  <p class="tag" style="margin-top:12px" id="authtag">Sign in to sync your achievements across every device.</p>
+  <button class="langbtn" title="English / עברית">🌐 עברית</button>
+  <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)" data-i18n>GRID ACCESS</div>
+  <p class="tag" style="margin-top:12px" id="authtag" data-i18n>Sign in to sync your achievements across every device.</p>
   <form class="unamebox" onsubmit="return false">
-    <input id="authemail" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="email" aria-label="email">
-    <input id="authpass" type="password" autocomplete="current-password" placeholder="password (min 6)" aria-label="password">
-    <input id="authcode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" spellcheck="false" placeholder="6-digit code" aria-label="verification code">
-    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="callsign (3–16)" aria-label="callsign">
+    <input id="authemail" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="email" aria-label="email" data-i18n-ph>
+    <input id="authpass" type="password" autocomplete="current-password" placeholder="password (min 6)" aria-label="password" data-i18n-ph>
+    <input id="authcode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" spellcheck="false" placeholder="6-digit code" aria-label="verification code" data-i18n-ph>
+    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="callsign (3–16)" aria-label="callsign" data-i18n-ph>
     <div class="unameerr" id="unameerr"></div>
   </form>
-  <button class="btn" id="unameok">✔ SIGN IN</button>
-  <button class="menubtn" id="authotp">📧 Log in with a code instead</button>
-  <button class="menubtn" id="authtoggle">New here? Create an account</button>
+  <button class="btn" id="unameok" data-i18n>✔ SIGN IN</button>
+  <button class="menubtn" id="authotp" data-i18n>📧 Log in with a code instead</button>
+  <button class="menubtn" id="authtoggle" data-i18n>New here? Create an account</button>
 </div>
 
 <div class="overlay hidden" id="over">
-  <div class="title" style="font-size:clamp(2.2rem,7vw,4rem)">GAME OVER</div>
+  <div class="title" style="font-size:clamp(2.2rem,7vw,4rem)" data-i18n>GAME OVER</div>
   <div class="gostat">
-    <div>you scored</div>
+    <div data-i18n>you scored</div>
     <div class="big" id="finalscore">0</div>
     <div id="finalmeta">survived 0:00 · wave 1 · level 1</div>
     <div class="hi" id="hibest"></div>
     <div class="gofeedback" id="gofeedback"></div>
   </div>
-  <button class="btn" id="againbtn">↻ PLAY AGAIN</button>
-  <button class="menubtn" id="tomenu">↩ main menu</button>
+  <button class="btn" id="againbtn" data-i18n>↻ PLAY AGAIN</button>
+  <button class="menubtn" id="tomenu" data-i18n>↩ main menu</button>
 </div>
 
 <div id="levelup">
-  <div class="luhead">LEVEL UP</div>
-  <div class="lusub">choose one upgrade</div>
+  <div class="luhead" data-i18n>LEVEL UP</div>
+  <div class="lusub" data-i18n>choose one upgrade</div>
   <div class="cards" id="cards"></div>
 </div>
 
 <div id="map">
-  <div class="luhead">BOSS DOWN — CHOOSE YOUR REWARD</div>
-  <div class="lusub">pick one of three · two are safe, one is a risky gamble</div>
+  <div class="luhead" data-i18n>BOSS DOWN — CHOOSE YOUR REWARD</div>
+  <div class="lusub" data-i18n>pick one of three · two are safe, one is a risky gamble</div>
   <div class="cards" id="mapcards"></div>
 </div>
 
 <div class="overlay hidden" id="pause">
-  <div class="title" style="font-size:clamp(1.5rem,5vw,2.4rem)">PAUSED</div>
+  <button class="langbtn" title="English / עברית">🌐 עברית</button>
+  <div class="title" style="font-size:clamp(1.5rem,5vw,2.4rem)" data-i18n>PAUSED</div>
   <div class="pstats" id="pausestats"></div>
-  <div class="pttl">your build</div>
+  <div class="pttl" data-i18n>your build</div>
   <div class="pbuild" id="pausebuild"></div>
-  <div class="pttl">weapon merges — evolved upgrades</div>
+  <div class="pttl" data-i18n>weapon merges — evolved upgrades</div>
   <div class="pevo" id="pauseevo"></div>
-  <div class="pttl">combat stats</div>
+  <div class="pttl" data-i18n>combat stats</div>
   <div class="pbuild" id="pausecombat"></div>
   <div class="keys" style="margin-top:30px">
-    <span class="key">WASD / ↑↓←→ move</span>
-    <span class="key">P resume</span>
-    <span class="key">M mute</span>
+    <span class="key" data-i18n>WASD / ↑↓←→ move</span>
+    <span class="key" data-i18n>P resume</span>
+    <span class="key" data-i18n>M mute</span>
   </div>
-  <button class="btn" id="resumebtn">▶ RESUME</button>
-  <button class="quitbtn" id="quitbtn">✕ Quit to main menu</button>
+  <button class="btn" id="resumebtn" data-i18n>▶ RESUME</button>
+  <button class="quitbtn" id="quitbtn" data-i18n>✕ Quit to main menu</button>
   <div class="quitconfirm" id="quitconfirm">
-    <p>⚠ <b>End this run?</b> Quitting now <b>permanently loses all progress</b> from this game — your score, level, upgrades, weapons and time will be gone. This cannot be undone.</p>
+    <p data-i18n-html>⚠ <b>End this run?</b> Quitting now <b>permanently loses all progress</b> from this game — your score, level, upgrades, weapons and time will be gone. This cannot be undone.</p>
     <div class="qcbtns">
-      <button class="qcyes" id="quityes">Yes, end run &amp; lose progress</button>
-      <button class="qcno" id="quitno">No, keep playing</button>
+      <button class="qcyes" id="quityes" data-i18n>Yes, end run &amp; lose progress</button>
+      <button class="qcno" id="quitno" data-i18n>No, keep playing</button>
     </div>
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: config → config-sim → core → audio-orchestrator → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
+<!-- classic scripts, shared global scope — load order matters: i18n → lang-he → config → config-sim → core → audio-orchestrator → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
+<script defer src="js/i18n.js"></script>
+<script defer src="js/lang-he.js"></script>
 <script defer src="js/config.js"></script>
 <script defer src="js/config-sim.js"></script>
 <script defer src="js/core.js"></script>
