@@ -42,6 +42,7 @@ const CATALOG = [
   { id:'overclocked',       conds:[['peakWeapons',3],['wave',15]],    difficulty:null, tier:'silver', chain:null },
   { id:'second_wind',       conds:[['cameback',1]],                   difficulty:null, tier:'bronze', chain:null },
   { id:'glass_cannon',      conds:[['glassWave',12]],                 difficulty:null, tier:'silver', chain:null },
+  { id:'weaponsmith',       conds:[['evolutions',1]],                 difficulty:null, tier:'silver', chain:null },
   // speed (server-derived)
   { id:'power_spike',       conds:[['level',10],['secs','<=',90]],    difficulty:null, tier:'bronze', chain:null },
   { id:'ascendant_rush',    conds:[['level',20],['secs','<=',300]],   difficulty:null, tier:'silver', chain:null },
@@ -107,6 +108,7 @@ const REWARD_MAP = {
   overclocked:       { kind:'music', id:'overclock_toccata',   src:'boss1' },
   second_wind:       { kind:'trail', id:'second_wind_gust' },
   glass_cannon:      { kind:'skin',  id:'prism_shard' },
+  weaponsmith:       { kind:'trail', id:'evolver_arc' },
   power_spike:       { kind:'trail', id:'spike_trail' },
   ascendant_rush:    { kind:'music', id:'overdrive_rock',      src:'rock'  },
   blitz:             { kind:'trail', id:'blitz_streak' },
@@ -163,6 +165,7 @@ function sanitizeIntent(claim, b) {
   claim.peakWeapons  = cl(b.peakWeapons, 0, Math.min(3, Math.max(0, lv - 1)));  // each weapon costs a level-up
   claim.bossKillSecs = bo >= 1 ? cl(b.bossKillSecs, 0, Math.max(claim.secs, 0)) : 9999;  // no boss → no fast kill
   claim.cameback     = (b.cameback && w >= 2) ? 1 : 0;         // a comeback means surviving into a new wave
+  claim.evolutions   = cl(b.evolutions, 0, Math.min(5, Math.max(0, lv - 1)));  // 5 synergies exist; each costs upgrade picks
 }
 
 /* per-difficulty plausibility ceilings (mirror DIFFS in js/core.js) — a real score lives under

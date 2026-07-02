@@ -33,7 +33,7 @@ const ok = (c, m) => { if (!c) { console.error('  FAIL: ' + m); fail++; } };
 const rnd = n => Math.floor(Math.random() * n);
 const norm = a => a.slice().sort().join(',');
 const METRICS = ['kills','score','wave','level','bosses','runs','secs','noHitWave','starterWave','soloWave',
-  'asceticWave','glassWave','flawlessBoss','peakWeapons','bossKillSecs','cameback','unlockedPct'];
+  'asceticWave','glassWave','flawlessBoss','peakWeapons','bossKillSecs','cameback','unlockedPct','evolutions'];
 // lockstep projection: only id/conds/difficulty are cross-checked (cat/tier/ico/etc. are client-only UI meta)
 const normCat = a => JSON.stringify(a.map(d => ({ id: d.id, conds: d.conds, difficulty: d.difficulty })));
 const condOp = c => (c.length === 2 ? '>=' : c[1]);
@@ -81,17 +81,18 @@ for (let i = 0; i < 400; i++) {
   s.kills = rnd(1400); s.score = rnd(110000); s.wave = rnd(32); s.level = rnd(30); s.bosses = rnd(60);
   s.runs = rnd(12); s.secs = rnd(420); s.noHitWave = rnd(25); s.starterWave = rnd(25); s.soloWave = rnd(12);
   s.asceticWave = rnd(15); s.glassWave = rnd(16); s.flawlessBoss = rnd(3); s.peakWeapons = rnd(4);
-  s.bossKillSecs = rnd(9999); s.cameback = rnd(2); s.unlockedPct = rnd(101);
+  s.bossKillSecs = rnd(9999); s.cameback = rnd(2); s.unlockedPct = rnd(101); s.evolutions = rnd(6);
   ok(norm(Ach.evaluate(s)) === norm(server.evaluate(s)), 'client==server evaluate sample ' + i);
 }
 
 // 4b) server sanitizeIntent clamps forged intent fields to plausible bounds (cosmetic-only trust)
 const sc = { score: 0, wave: 12, secs: 400, kills: 10, level: 5, bosses: 1, runs: 1, difficulty: 'normal' };
-server.sanitizeIntent(sc, { noHitWave: 99, flawlessBoss: 9, peakWeapons: 9, bossKillSecs: 3, cameback: 1 });
+server.sanitizeIntent(sc, { noHitWave: 99, flawlessBoss: 9, peakWeapons: 9, bossKillSecs: 3, cameback: 1, evolutions: 9 });
 ok(sc.noHitWave === 12, 'noHitWave clamped to wave reached');
 ok(sc.flawlessBoss === 1, 'flawlessBoss clamped to bosses felled');
 ok(sc.peakWeapons === 3, 'peakWeapons clamped to min(3, level-1)');
 ok(sc.bossKillSecs === 3, 'bossKillSecs kept (a boss was killed)');
+ok(sc.evolutions === 4, 'evolutions clamped to min(5, level-1)');
 const noBoss = Object.assign({}, sc, { bosses: 0 });
 server.sanitizeIntent(noBoss, { bossKillSecs: 3, flawlessBoss: 2 });
 ok(noBoss.bossKillSecs === 9999 && noBoss.flawlessBoss === 0, 'no boss → no fast/flawless kill');
