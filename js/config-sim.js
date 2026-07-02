@@ -18,10 +18,14 @@ function srng(){
 const srand=(a,b)=>a+srng()*(b-a);         // gameplay analogue of rand() — routed through the seedable stream
 
 /* ========== DIFFICULTY ========== */
+// xp = per-orb XP multiplier (deliberate levelling cadence). Hard spawns fewer enemies (spawn:.68) yet they
+// hit far harder (hp/dmg) — without this the two knobs compound to level Hard SLOWER exactly when the player
+// needs power fastest. xp:1.4 restores Hard's levelling to ~parity with Normal; normal stays 1.0 so the
+// determinism/equiv golden snapshot is byte-identical.
 const DIFFS={
-  easy:  {key:'easy', label:'Easy',   spawn:1.4,  hp:.78, dmg:.65, col:'#54e6b5'},
-  normal:{key:'normal',label:'Normal', spawn:1.0,  hp:1.0,  dmg:1.0,  col:'#ffd95e'},
-  hard:  {key:'hard', label:'Hard',   spawn:.68, hp:1.8,  dmg:2.0,  col:'#ff5fa2'},
+  easy:  {key:'easy', label:'Easy',   spawn:1.4,  hp:.78, dmg:.65, xp:1.0, col:'#54e6b5'},
+  normal:{key:'normal',label:'Normal', spawn:1.0,  hp:1.0,  dmg:1.0,  xp:1.0, col:'#ffd95e'},
+  hard:  {key:'hard', label:'Hard',   spawn:.68, hp:1.8,  dmg:2.0,  xp:1.4, col:'#ff5fa2'},
 };
 let DIFF=DIFFS.normal;
 // Shared boss tunables — base HP/dmg/speed, attack cadence+telegraph, hitbox/i-frames + per-attack params.
