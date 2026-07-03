@@ -25,6 +25,9 @@ const keys={};
 addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;   // let text fields (username) type normally
   const k=e.key.toLowerCase();keys[k]=true;
   if(k==='p'&&(state==='play'||state==='pause'))togglePause();
+  if(k==='escape'){const qc=document.getElementById('quitconfirm');   // Esc = pause/resume alias; first dismisses an open quit-confirm
+    if(qc&&qc.classList.contains('show'))qc.classList.remove('show');
+    else if(state==='play'||state==='pause')togglePause();}
   if(k==='m')Sound.toggle();
   if(k==='f3'){e.preventDefault();togglePerf();}   // dev FPS benchmark overlay
   if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
