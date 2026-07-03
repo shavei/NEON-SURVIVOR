@@ -88,6 +88,9 @@ create table if not exists public.cosmetics_definitions (
   unlock_achievement_id text references public.achievement_defs(id)   -- the GOLD def that grants it
 );
 
+-- DEPRECATED: superseded by user_inventory (the unified all-tier reward inventory below). No reader or
+-- writer remains — api/verify.js stopped writing it and the client's pullInventory reads user_inventory
+-- only. Kept so historical rows survive; do not add new consumers.
 create table if not exists public.cosmetics_inventory (
   player_id    uuid not null,
   cosmetic_id  text not null references public.cosmetics_definitions(id),

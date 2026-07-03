@@ -261,11 +261,10 @@ module.exports = async function handler(req, res) {
           is_unlocked: true, current_progress: driverVal(byId(id)),
         }))),
       });
+      // gold cosmetic ids still ride the response (newCosmetics → the client's local-mirror reconcile),
+      // but the legacy cosmetics_inventory table is DEPRECATED and no longer written — user_inventory
+      // below is the single cloud inventory (the client's pullInventory reads only it; no reader remains).
       const cos = cosmeticsFor(ids);
-      if (cos.length) await sb('cosmetics_inventory', {
-        method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
-        body: JSON.stringify(cos.map(cid => ({ player_id: b.player_id, cosmetic_id: cid }))),
-      });
       // unified reward inventory (skins/trails/tracks, all tiers). Best-effort: a missing user_inventory
       // table must NOT fail the authoritative player_achievements grant above, so swallow its error.
       const rewards = rewardsFor(ids);

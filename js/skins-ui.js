@@ -4,7 +4,7 @@
  * so verify.cjs loads it clean and offline play never throws.
  *
  * Deliberately owns ONLY the display + active-selection side of cosmetics; it never defines or grants skins
- * (that's achievements.js → cosmetics_inventory). It reads ownership live from Ach._load().cosmetics and the
+ * (that's achievements.js / api/verify.js → user_inventory). It reads ownership live from Ach._load().cosmetics and the
  * catalog from COSMETICS, so any skin added later shows up here automatically — no edit to those files needed.
  *
  *   renderGallery()  — equip-cards into #skinlist: owned / locked / equipped states + neon pulse on the active hull.

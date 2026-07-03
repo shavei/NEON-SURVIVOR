@@ -62,7 +62,7 @@ const ACH_CATALOG = [
   { id:'completionist',conds:[['unlockedPct',80]],                    cat:'secret',    difficulty:null, hidden:true, ico:'🧩', title:'The Completionist’s Curse', desc:'Unlock 80% of every other achievement.', tier:'gold', chain:null },
 ];
 
-/* ---- cosmetic rewards: each GOLD achievement drops one skin/trail into cosmetics_inventory (server-granted).
+/* ---- cosmetic rewards: each GOLD achievement drops one skin/trail into user_inventory (server-granted).
  *      Mirrors supabase cosmetics_definitions; the UI reads this to label the showcase. ---- */
 const COSMETICS = [
   { id:'crimson_husk',   kind:'skin',  title:'Crimson Husk',   from:'annihilator',       ico:'🟥' },
@@ -213,14 +213,14 @@ const Ach = {
     return fresh;
   },
 
-  /* optimistic cosmetic mirror: any fresh GOLD unlock drops its mapped cosmetic into the local inventory
-   * and toasts it. The server (api/verify.js) is authoritative — this just makes the reward feel instant. */
+  /* optimistic cosmetic mirror: any fresh GOLD unlock drops its mapped cosmetic into the local inventory.
+   * No toast here — the unlock toast (AchUI.unlockToast) already carries the reward line, ONE toast per
+   * unlock. The server (api/verify.js) is authoritative — this just makes the reward feel instant. */
   _grantCosmetics(s, ids) {
     if (typeof COSMETIC_MAP === 'undefined') return;
     ids.forEach(id => {
       const cid = COSMETIC_MAP[id]; if (!cid || s.cosmetics.indexOf(cid) >= 0) return;
       s.cosmetics.push(cid);
-      if (typeof AchUI !== 'undefined' && AchUI.cosmeticToast) AchUI.cosmeticToast(cid);
     });
   },
 
@@ -263,7 +263,10 @@ const Ach = {
           const cos = (Array.isArray(j.newCosmetics) ? j.newCosmetics : []).filter(c => s.cosmetics.indexOf(c) < 0);
           if (add.length || cos.length) {
             if (add.length) s.unlocked = s.unlocked.concat(add);
-            if (cos.length) { s.cosmetics = s.cosmetics.concat(cos); cos.forEach(c => { if (typeof AchUI !== 'undefined' && AchUI.cosmeticToast) AchUI.cosmeticToast(c); }); }
+            // toast only ORPHAN cosmetics (achievement already owned locally) — fresh ones ride their unlock toast
+            if (cos.length) { s.cosmetics = s.cosmetics.concat(cos);
+              const covered = (typeof COSMETIC_MAP !== 'undefined') ? add.map(a => COSMETIC_MAP[a]).filter(Boolean) : [];
+              cos.forEach(c => { if (covered.indexOf(c) < 0 && typeof AchUI !== 'undefined' && AchUI.cosmeticToast) AchUI.cosmeticToast(c); }); }
             this._save(s); if (add.length) this._notify(add);
           }
         }
