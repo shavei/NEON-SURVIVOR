@@ -405,6 +405,6 @@ function openLevelUp(){
     wrap.appendChild(el);});
   document.getElementById('levelup').classList.add('show');pauseStart=performance.now();
 }
-function gainXP(n){const p=player;if(p.rushT>0)n*=2;p.xp+=n;const lv0=p.level;
+function gainXP(n){const p=player;if(typeof DIFF!=='undefined'&&DIFF.xp)n*=DIFF.xp;if(p.rushT>0)n*=2;p.xp+=n;const lv0=p.level;
   while(p.xp>=p.next){p.xp-=p.next;p.level++;p.next=Math.floor(p.next*1.32+3);pendingLevels++;}
   if(lv0===1&&p.level>1&&typeof Ach!=='undefined')Ach.onLevelUp(wave);}   // intent: objector (stay level 1) tracking

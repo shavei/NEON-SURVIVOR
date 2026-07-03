@@ -74,12 +74,13 @@ function _render(stage) {
   _seterr('');
   // per-stage view config — [title, tag, okLabel, otpLabel|null, toggleLabel|null, {email,pass,code,uname}, focusId]
   const C = {
-    'login':       ['GRID ACCESS', 'Sign in to sync your achievements across every device.', '✔ SIGN IN', '📧 Log in with a code instead', 'New here? Create an account', { email: 1, pass: 1 }, 'authemail'],
-    'signup':      ['CREATE ACCOUNT', 'Set a password, then confirm with the 6-digit code we email you.', '✔ CREATE ACCOUNT', null, 'Have an account? Sign in', { email: 1, pass: 1, uname: 1 }, 'authemail'],
-    'signup-code': ['CONFIRM EMAIL', tr('Enter the 6-digit code sent to') + ' ' + _authEmail + ' ' + tr('to finish creating your account.'), '✔ CONFIRM & ENTER', '↻ Resend code', '← Back', { code: 1 }, 'authcode'],
-    'otp-code':    ['GRID ACCESS', tr('Enter the 6-digit access code sent via secure uplink to') + ' ' + _authEmail + '.', '✔ VERIFY CODE', '↻ Resend code', '← Use password', { code: 1 }, 'authcode'],
-    'local':       ['PICK A CALLSIGN', 'How you show up on the global leaderboard. 3–16 characters.', '✔ CONFIRM', null, null, { uname: 1 }, 'uname'],
-    'callsign':    ['CHOOSE CALLSIGN', 'Pick a callsign for the leaderboard. 3–16 characters.', '✔ ENTER THE GRID', null, null, { uname: 1 }, 'uname'],
+    'login':       ['GRID ACCESS', 'Link up to carry your callsign, achievements and best runs across every device.', '✔ JACK IN', '📧 Send me an access code', 'New operator? Register', { email: 1, pass: 1 }, 'authemail'],
+    'signup':      ['NEW OPERATOR', 'Set a password, then confirm with the 6-digit code we uplink to your email.', '✔ REGISTER', null, 'Already on the grid? Sign in', { email: 1, pass: 1, uname: 1 }, 'authemail'],
+    'signup-code': ['VERIFY UPLINK', tr('Enter the 6-digit code sent to') + ' ' + _authEmail + ' ' + tr('to bring your operator online.'), '✔ CONFIRM & ENTER', '↻ Resend code', '← Back', { code: 1 }, 'authcode'],
+    'otp-code':    ['GRID ACCESS', tr('Enter the 6-digit access code uplinked to') + ' ' + _authEmail + '.', '✔ VERIFY CODE', '↻ Resend code', '← Use password', { code: 1 }, 'authcode'],
+    // 'local' (offline first-run) and 'callsign' (signed-in claim) share ONE copy — same action, same words.
+    'local':       ['CHOOSE CALLSIGN', 'Your handle on the global grid. 3–16 characters.', '✔ ENTER THE GRID', null, null, { uname: 1 }, 'uname'],
+    'callsign':    ['CHOOSE CALLSIGN', 'Your handle on the global grid. 3–16 characters.', '✔ ENTER THE GRID', null, null, { uname: 1 }, 'uname'],
   }[stage] || C_DEFAULT();
   const vis = C[5];
   _setShown(email, !!vis.email); _setShown(pass, !!vis.pass); _setShown(code, !!vis.code); _setShown(uname, !!vis.uname);
@@ -108,7 +109,7 @@ function _finishAuth(r) {
     _close();
     if (typeof Ach !== 'undefined') Ach.renderPanel();
     if (typeof LBSync !== 'undefined') LBSync.syncAll();
-  } else _seterr((r && r.error) || 'Something went wrong.');
+  } else _seterr((r && r.error) || 'Uplink failed — try again.');
 }
 
 /* ----- the single OK handler — dispatches on _stage ----- */
@@ -129,7 +130,7 @@ function confirmUsername() {
         if (typeof savePlayer === 'function') savePlayer(n, id);
         _close(); if (typeof LBSync !== 'undefined') LBSync.syncAll();
         _trace('profile-linked', 'callsign="' + n + '"');
-      }, function () { if (ok) ok.disabled = false; _seterr('Network error.'); });
+      }, function () { if (ok) ok.disabled = false; _seterr('Grid unreachable — try again.'); });
       return;
     }
     if (typeof savePlayer === 'function') savePlayer(n);
@@ -148,7 +149,7 @@ function confirmUsername() {
       if (r && r.taken) { _render('callsign'); _unameState('taken'); _seterr('CALLSIGN ALREADY CLAIMED'); return; }
       if (r && r.ok) _trace('code-verified', 'uid=' + (r.id || '').slice(0, 8) + ' (' + type + ')');
       _finishAuth(r);
-    }, function () { _finishAuth({ ok: false, error: 'Network error.' }); });
+    }, function () { _finishAuth({ ok: false, error: 'Grid unreachable — try again.' }); });
     return;
   }
   // email+password stages: LOGIN or SIGNUP
@@ -170,9 +171,9 @@ function confirmUsername() {
         AchSync._adopt(r.user, _pendingCallsign).then(function (a) {
           if (a && a.taken) { _render('callsign'); _unameState('taken'); _seterr('CALLSIGN ALREADY CLAIMED'); return; }
           _finishAuth(a);
-        }, function () { _finishAuth({ ok: false, error: 'Network error.' }); });
+        }, function () { _finishAuth({ ok: false, error: 'Grid unreachable — try again.' }); });
       } else { _seterr(''); _render('signup-code'); }            // the usual path: collect the emailed code
-    }, function () { if (ok) ok.disabled = false; _seterr('Network error.'); });
+    }, function () { if (ok) ok.disabled = false; _seterr('Grid unreachable — try again.'); });
     return;
   }
   // LOGIN (primary, password)
@@ -180,7 +181,7 @@ function confirmUsername() {
   AchSync.signIn(email, pass).then(function (r) {
     if (r && r.ok) _trace('password-login', 'uid=' + (r.id || '').slice(0, 8));
     _finishAuth(r);
-  }, function () { _finishAuth({ ok: false, error: 'Network error.' }); });
+  }, function () { _finishAuth({ ok: false, error: 'Grid unreachable — try again.' }); });
 }
 
 /* ----- secondary buttons ----- */
@@ -199,7 +200,7 @@ function _startOtpLogin() {
       const msg = (r && r.error) || 'Couldn’t send the code.';
       _seterr(/not allowed|signup|not found|no user|invalid/i.test(msg) ? 'No account for that email — tap “New here? Create an account”.' : msg);
     }
-  }, function () { if (otp) otp.disabled = false; _seterr('Network error.'); });
+  }, function () { if (otp) otp.disabled = false; _seterr('Grid unreachable — try again.'); });
 }
 
 /* resend the code currently in flight (signup confirmation or alternate-login code) */
@@ -207,7 +208,7 @@ function _resend() {
   const otp = _el('authotp'); if (otp) otp.disabled = true; _seterr('Resending…');
   const p = _stage === 'signup-code' ? AchSync.resend(_authEmail, 'signup') : AchSync.otpRequest(_authEmail, false);
   p.then(function (r) { if (otp) otp.disabled = false; _seterr(r && r.ok ? 'Code resent.' : ((r && r.error) || 'Couldn’t resend.')); },
-    function () { if (otp) otp.disabled = false; _seterr('Network error.'); });
+    function () { if (otp) otp.disabled = false; _seterr('Grid unreachable — try again.'); });
 }
 
 /* the toggle link: meaning depends on the stage (create↔signin, or back out of a code stage) */

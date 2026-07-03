@@ -40,6 +40,7 @@ const ACH_CATALOG = [
   { id:'overclocked',       conds:[['peakWeapons',3],['wave',15]],    cat:'skill',     difficulty:null, ico:'🎛️', title:'Overclocked',       desc:'Wield all three weapons at once and reach wave 15.', tier:'silver', chain:null },
   { id:'second_wind',       conds:[['cameback',1]],                   cat:'skill',     difficulty:null, ico:'🫀', title:'Second Wind',       desc:'Survive into a new wave after dropping below 10% HP.', tier:'bronze',chain:null },
   { id:'glass_cannon',      conds:[['glassWave',12]],                 cat:'skill',     difficulty:null, ico:'🔮', title:'Glass Cannon',      desc:'Reach wave 12 without ever raising max HP.',        tier:'silver', chain:null },
+  { id:'weaponsmith',       conds:[['evolutions',1]],                 cat:'skill',     difficulty:null, ico:'🔩', title:'Weaponsmith',       desc:'Evolve a weapon by completing an upgrade pair.',    tier:'silver', chain:null },
 
   // ---- speed (server-derived) ----
   { id:'power_spike',       conds:[['level',10],['secs','<=',90]],    cat:'speed',     difficulty:null, ico:'📈', title:'Power Spike',       desc:'Reach level 10 within 90 seconds.',                 tier:'bronze', chain:null },
@@ -131,7 +132,7 @@ const Ach = {
    * like "highest wave reached without taking a hit" is a single monotonic number, threshold-friendly. */
   onRunStart() {
     this.run = {
-      bosses: 0, dmgTaken: 0, flawlessBoss: 0, peakWeapons: 0, pickups: 0,
+      bosses: 0, dmgTaken: 0, flawlessBoss: 0, peakWeapons: 0, pickups: 0, evolutions: 0,
       firstHitWave: -1, firstWeaponWave: -1, firstLevelWave: -1, firstPickWave: -1, firstMaxhpWave: -1,
       minHpPct: 100, lowWave: -1, bossKillSecs: 9999, _bossDmgMark: 0, _bossSpawnSecs: 0,
     };
@@ -166,6 +167,7 @@ const Ach = {
   },
   onLevelUp(wave) { if (this.run.firstLevelWave < 0) this.run.firstLevelWave = wave | 0; },
   onPickup(wave) { const r = this.run; r.pickups++; if (r.firstPickWave < 0) r.firstPickWave = wave | 0; },
+  onSynergy(id) { this.run.evolutions = (this.run.evolutions | 0) + 1; },     // synergy.js: a weapon evolution was taken
 
   /* fold the run's raw counters + the gameOver bag into the full stats object the catalog evaluates.
    * Milestone markers become "highest wave reached under the constraint" (marker, or final wave if never). */
@@ -178,7 +180,7 @@ const Ach = {
       noHitWave: mark(r.firstHitWave), starterWave: mark(r.firstWeaponWave), soloWave: mark(r.firstLevelWave),
       asceticWave: mark(r.firstPickWave), glassWave: mark(r.firstMaxhpWave),
       flawlessBoss: r.flawlessBoss, peakWeapons: r.peakWeapons, bossKillSecs: r.bossKillSecs,
-      cameback: (r.lowWave >= 0 && fin > r.lowWave) ? 1 : 0,
+      cameback: (r.lowWave >= 0 && fin > r.lowWave) ? 1 : 0, evolutions: r.evolutions | 0,
     };
   },
 
@@ -193,7 +195,7 @@ const Ach = {
 
     const stats = this._runStats(entry);
     if (!life.best) life.best = {};                                        // per-metric best-known (intent metrics) → progress bars
-    ['noHitWave','starterWave','soloWave','asceticWave','glassWave','flawlessBoss','peakWeapons']
+    ['noHitWave','starterWave','soloWave','asceticWave','glassWave','flawlessBoss','peakWeapons','evolutions']
       .forEach(m => { life.best[m] = Math.max(life.best[m] || 0, stats[m] || 0); });
 
     let earned = this.evaluate(stats), fresh = earned.filter(id => s.unlocked.indexOf(id) < 0);
@@ -252,6 +254,7 @@ const Ach = {
           noHitWave: stats.noHitWave, starterWave: stats.starterWave, soloWave: stats.soloWave,
           asceticWave: stats.asceticWave, glassWave: stats.glassWave, flawlessBoss: stats.flawlessBoss,
           peakWeapons: stats.peakWeapons, bossKillSecs: stats.bossKillSecs, cameback: stats.cameback,
+          evolutions: stats.evolutions,
         }),
       }).then(r => r.json()).then(j => {
         this._last = j;

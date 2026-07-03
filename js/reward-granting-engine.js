@@ -45,6 +45,7 @@ const REWARD_MAP = {
   overclocked:       { kind:'music', id:'overclock_toccata',   title:'Overclock Toccata',   ico:'🎹', src:'boss1' },
   second_wind:       { kind:'trail', id:'second_wind_gust',    title:'Second Wind Gust',    ico:'🫀' },
   glass_cannon:      { kind:'skin',  id:'prism_shard',         title:'Prism Shard',         ico:'🔮' },
+  weaponsmith:       { kind:'trail', id:'evolver_arc',         title:'Evolver Arc',         ico:'🔩' },
   // ---- speed ----
   power_spike:       { kind:'trail', id:'spike_trail',         title:'Spike Trail',         ico:'📈' },
   ascendant_rush:    { kind:'music', id:'overdrive_rock',      title:'Overdrive',           ico:'🎸', src:'rock',  genre:'Rock' },
@@ -69,7 +70,7 @@ const TRAIL_COL = {
   first_blood_spark:'#ff3b6b', swarm_pulse:'#ff6b3b', neon_god_trail:'#ffd95e', surge_arc:'#5ec8ff',
   warden_halo:'#b98cff', ghost_streak:'#d6f0ff', phase_trail:'#54e6ff', factory_line:'#9db0ff',
   second_wind_gust:'#54e6b5', spike_trail:'#7cff6b', blitz_streak:'#ffe45e', objector_halo:'#ff9d2e',
-  any_percent_blip:'#ffffff',
+  any_percent_blip:'#ffffff', evolver_arc:'#ff5fd0',
 };
 
 const RewardEngine = {
