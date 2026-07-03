@@ -92,9 +92,11 @@ const AchUI = {
     if (typeof Ach === 'undefined') return;
     const d = Ach.CATALOG.find(x => x.id === id); if (!d) return;
     const tier = (d.tier || 'bronze').toUpperCase(), accent = { BRONZE:'#d9875a', SILVER:'#cfd6e6', GOLD:'#ffd95e' }[tier] || '#ffd95e';
+    // ONE toast per unlock: badge + its reward share a single card (no separate reward/cosmetic toast)
+    const r = (typeof RewardEngine !== 'undefined' && RewardEngine.rewardFor) ? RewardEngine.rewardFor(id) : null;
     this._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>${tr('ACHIEVEMENT UNLOCKED')}</b>` +
-               `<span>${tr(d.title)} · ${tr(tier)}</span></div>`, accent, tier === 'GOLD');
-    // grant hook: the instant is_unlocked flips true, fan out the reward (toast + user_inventory insert).
+               `<span>${tr(d.title)} · ${tr(tier)}${r ? ` · ${r.ico} ${tr(r.title)}` : ''}</span></div>`, accent, tier === 'GOLD');
+    // grant hook: the instant is_unlocked flips true, persist the reward (optimistic user_inventory insert).
     // The local mirror is already written by Ach._grantRewards; this is the cloud-facing side effect.
     if (typeof RewardEngine !== 'undefined' && RewardEngine.onUnlock) RewardEngine.onUnlock(id);
   },

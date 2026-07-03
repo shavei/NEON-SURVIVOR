@@ -83,20 +83,12 @@ const RewardEngine = {
   owns(rewardId) { const s = this._mirror(); return (s.cosmetics || []).indexOf(rewardId) >= 0 || (s.tracks || []).indexOf(rewardId) >= 0; },
 
   /* ---- the granting hook: called from AchUI.unlockToast(id) the instant is_unlocked flips true ----
-   * The local mirror is already written by Ach._grantRewards (data layer) on the SAME _save, so here we
-   * only do the cloud-facing side effects: the reward toast (skipped for gold, which Ach._grantCosmetics
-   * already toasted to avoid a double) + the optimistic user_inventory insert. */
+   * The local mirror is already written by Ach._grantRewards (data layer) on the SAME _save, and the
+   * unlock toast itself now carries the reward line (one toast per unlock) — so the only job left here
+   * is the cloud-facing side effect: the optimistic user_inventory insert. */
   onUnlock(achId) {
     const r = this.rewardFor(achId); if (!r) return;
-    const gold = (typeof COSMETIC_MAP !== 'undefined') && COSMETIC_MAP[achId];   // gold cosmetic already toasted by Ach._grantCosmetics
-    if (!gold) this._toast(r);
     this._insertInventory(r);
-  },
-  _toast(r) {
-    if (typeof AchUI === 'undefined' || !AchUI._push) return;
-    const label = r.kind === 'music' ? '🎵 SOUNDTRACK UNLOCKED' : r.kind === 'palette' ? '🌌 GRID THEME UNLOCKED' : r.kind === 'trail' ? '🎨 TRAIL UNLOCKED' : '🎨 SKIN UNLOCKED';
-    const accent = r.kind === 'music' ? '#b98cff' : r.kind === 'palette' ? '#54e6b5' : '#54e6ff';
-    AchUI._push(`<span class="at-ico">${r.ico}</span><div class="at-text"><b>${tr(label)}</b><span>${tr(r.title)}</span></div>`, accent);
   },
 
   /* optimistic cloud mirror: drop the reward into user_inventory. Best-effort & RLS-guarded exactly like
