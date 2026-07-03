@@ -188,7 +188,7 @@ function spawnBoss(){
     dmg:BOSS.contactDmg*DIFF.dmg,xp:35,sc:400+tier*100,hit:0,scd:0,cdmg:0,dead:false,
     type:'boss',boss:true,bt,seq:B.seq,si:0,bossT:BOSS.cdBase,tele:0,atk:B.seq[0],dashT:0,dvx:0,dvy:0,spin:0,spinA:0,name:B.name+' '+tier});
   bossOn=true;if(typeof Ach!=='undefined')Ach.onBossSpawn(elapsed);   // intent: snapshot damage + clock for flawless/fast-kill
-  Fx.toast('💀','BOSS — '+B.name+' '+tier,B.col);
+  Fx.toast('💀',tr('BOSS')+' — '+tr(B.name)+' '+tier,B.col);
   Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss',bt);   // bt selects this archetype's epic theme
 }
 // cooldown till the next telegraph, tightening with tier
@@ -276,15 +276,15 @@ function killEnemy(e,col){
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Fx.music('exitBoss');   // next boss 50s after this one falls; music back to normal track
     breatherT=900;   // 15 s (900 ticks) breather: spawns drop to 0.2× so the arena clears for a beat
-    if(typeof Reward!=='undefined')Reward.pulse('#54e6b5');floatText(e.x,e.y-54,'CLEARED','#54e6b5');   // neon CLEARED announcement (banner driven by breatherT in updateHUD)
+    if(typeof Reward!=='undefined')Reward.pulse('#54e6b5');floatText(e.x,e.y-54,tr('CLEARED'),'#54e6b5');   // neon CLEARED announcement (banner driven by breatherT in updateHUD)
     if(typeof Ach!=='undefined')Ach.onBossKill((now-t0)/1000);   // achievements: count Wardens + flawless/fast-kill intent
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
     shake=Math.min(shake+18,24);Fx.sfx('boom');Fx.flash();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
-    floatText(e.x,e.y-30,'BOSS DOWN  +'+e.sc,'#ffd95e');
+    floatText(e.x,e.y-30,tr('BOSS DOWN')+'  +'+e.sc,'#ffd95e');
     for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-40,40),y:e.y+srand(-40,40),r:4,xp:1,col:'#54e6b5'});
     const it=ITEMS[Math.floor(srand(0,ITEMS.length))];     // guaranteed reward drop
     items.push({id:++_iid,x:e.x,y:e.y,type:it.id,ico:it.ico,col:it.col,label:it.label,r:16,life:900,bob:rand(0,7)});
-    Fx.toast(it.ico,it.label+' (boss drop)',it.col);
+    Fx.toast(it.ico,tr(it.label)+' '+tr('(boss drop)'),it.col);
     if(typeof Nav!=='undefined')Nav.onBossDown(e.elite);   // boss fell → raise the branching map after the slow-mo beat
     return;
   }
@@ -307,19 +307,19 @@ function spawnItem(){const t=ITEMS[Math.floor(srand(0,ITEMS.length))];
   const ang=srand(0,6.283),d=srand(Math.min(W,H)/VIEW*.35,Math.min(W,H)/VIEW*.35+520);   // /VIEW scales loot ring with zoom (== *.35 on desktop)
   const x=clamp(player.x+Math.cos(ang)*d,90,WORLD.w-90),y=clamp(player.y+Math.sin(ang)*d,90,WORLD.h-90);
   items.push({id:++_iid,x,y,type:t.id,ico:t.ico,col:t.col,label:t.label,r:16,life:900,bob:rand(0,7)});
-  Fx.toast(t.ico,t.label,t.col);}
+  Fx.toast(t.ico,tr(t.label),t.col);}
 function showToast(ico,label,col){const el=document.getElementById('toast');
   el.style.setProperty('--tc',col);el.style.color=col;
-  el.innerHTML=`<span class="tico">${ico}</span><span>${label}<br><small>appeared on the map</small></span>`;
+  el.innerHTML=`<span class="tico">${ico}</span><span>${label}<br><small>${tr('appeared on the map')}</small></span>`;
   el.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
 function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
   if(typeof Ach!=='undefined')Ach.onPickup(wave);   // intent: ascetic (zero-pickup) tracking
-  if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Fx.sfx('heal');}
+  if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,tr('+25 HP'),'#ff5fa2');Fx.sfx('heal');}
   else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
-    shake=Math.min(shake+18,22);Fx.sfx('boom');burst(p.x,p.y,'#ffd95e',46,9);Fx.flash();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
+    shake=Math.min(shake+18,22);Fx.sfx('boom');burst(p.x,p.y,'#ffd95e',46,9);Fx.flash();floatText(p.x,p.y-22,tr('NUKE!'),'#ffd95e');}
   else if(it.type==='magnet'){p.rushT=600;   // 10s of 2x XP + tractor every orb (current and future) for the whole window; magnet stat untouched (handled in sim tractor via rushT)
-    Fx.sfx('pickup');floatText(p.x,p.y-22,'XP RUSH x2','#54e6b5');}
-  else if(it.type==='rage'){p.rageT=540;Fx.sfx('rage');floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
+    Fx.sfx('pickup');floatText(p.x,p.y-22,tr('XP RUSH x2'),'#54e6b5');}
+  else if(it.type==='rage'){p.rageT=540;Fx.sfx('rage');floatText(p.x,p.y-22,tr('OVERDRIVE'),'#d97757');}
 }
 
 /* ========== WEAPON ARCHETYPES ========== */
@@ -380,8 +380,8 @@ function renderLoadout(){
   const evo=player.evo||{};
   const w=[['missile','🚀','Missiles',player.missile],['shield','🛡️','Shield',player.shield],['chain','🌩️','Lightning',player.chain]];
   for(const[id,ic,nm,lv]of w)if(lv>0){const d=document.createElement('div');d.className='wpip';
-    const ev=evo[id]?` <b style="color:#ffd95e">⚡EVO</b>`:'';   // evolved weapons read distinct in the loadout
-    d.innerHTML=`<i>${ic}</i> ${nm} <b>Lv${lv}</b>${ev}`;box.appendChild(d);}
+    const ev=evo[id]?` <b style="color:#ffd95e">${tr('⚡EVO')}</b>`:'';   // evolved weapons read distinct in the loadout
+    d.innerHTML=`<i>${ic}</i> ${tr(nm)} <b>${tr('Lv')}${lv}</b>${ev}`;box.appendChild(d);}
 }
 function openLevelUp(){
   state='levelup';needsDraw=true;
@@ -392,15 +392,15 @@ function openLevelUp(){
   const close=()=>{document.getElementById('levelup').classList.remove('show');state='play';t0+=performance.now()-pauseStart;};
   if(evoReady){   // explicit EVOLVE card — take the evolution, or pick a stat upgrade instead; it stays offered until taken
     const el=document.createElement('div');el.className='upg evocard';el.style.setProperty('--c',evoReady.col);
-    el.innerHTML=`<div class="evo">⚡ EVOLVE</div><div class="uico">${evoReady.ico}</div><h3>${evoReady.name}</h3><p>${evoReady.desc}</p>`;
+    el.innerHTML=`<div class="evo">⚡ ${tr('EVOLVE')}</div><div class="uico">${evoReady.ico}</div><h3>${tr(evoReady.name)}</h3><p>${tr(evoReady.desc)}</p>`;
     el.onclick=()=>{Synergy.transformToEvolved(evoReady);close();};
     wrap.appendChild(el);}
   const show=evoReady?pool.slice(0,2):pool;   // evo card takes one slot → screen stays at 3 cards
   show.forEach(u=>{const el=document.createElement('div');el.className='upg';el.style.setProperty('--c',u.c);
     const owned=Up[u.id]||0;
-    const corner=u.weapon&&!owned?`<div class="new">NEW</div>`:owned?`<div class="lvl">Lv ${owned+1}</div>`:'';
+    const corner=u.weapon&&!owned?`<div class="new">${tr('NEW')}</div>`:owned?`<div class="lvl">${tr('Lv')} ${owned+1}</div>`:'';
     const label=u.getLabel(owned+1);   // level-aware description for the level this pick would reach
-    el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${u.name}</h3><p>${label}</p>`;
+    el.innerHTML=`${corner}<div class="uico">${u.ico}</div><h3>${tr(u.name)}</h3><p>${label}</p>`;
     el.onclick=()=>{applyUpgrade(u.id);close();};
     wrap.appendChild(el);});
   document.getElementById('levelup').classList.add('show');pauseStart=performance.now();
