@@ -173,6 +173,7 @@ const LANG_HE={
 'Unlocked':'נפתחו','Owned':'ברשותכם','▶ Preview':'▶ האזנה','✓ EQUIPPED':'✓ מופעל','EQUIP':'הפעלה',
 'from:':'מתוך:','locked':'נעול','track':'רצועה','grid':'רשת','trail':'שביל','skin':'סקין',
 'Orchestral score':'פסקול תזמורתי','Achievement reward':'פרס הישג','Map colour theme':'ערכת צבעים למפה',
+'Orchestral':'תזמורתי','Unlock:':'לפתיחה:',
 'Projectile trail':'שביל קליעים','Stock neon hull':'גוף הניאון המקורי','Hull cosmetic':'קוסמטיקת גוף',
 'Gold-tier reward':'פרס דרגת זהב','Cosmic Nebula':'ערפילית קוסמית','No Trail':'בלי שביל','Default Hull':'גוף ברירת מחדל',
 'Jazz':'ג׳אז','Pop':'פופ','Rock':'רוק','Rap':'ראפ',

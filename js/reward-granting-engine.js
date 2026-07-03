@@ -181,16 +181,20 @@ const RewardEngine = {
       host.querySelectorAll('[data-equipm]').forEach(function (b) { b.onclick = function () { self.equipMusic(b.dataset.equipm); }; });
     }
   },
+  // the achievement a track unlocks from (title/desc) so a LOCKED card can name the genre + the exact goal
+  _unlockAch(id) { try { if (typeof Ach !== 'undefined' && Ach.CATALOG) return Ach.CATALOG.find(function (x) { return x.id === id; }) || null; } catch (e) {} return null; },
   _trackCardHTML(d, eq) {
     const owned = this.owns(d.id), isEq = owned && d.id === eq;
     const cls = ['track-card', owned ? 'owned' : 'locked', isEq ? 'equipped' : ''].join(' ').trim();
+    const ach = owned ? null : this._unlockAch(d.from), genre = d.genre || 'Orchestral';
+    // show the genre emoji + name even when locked, so players can pick a favourite genre and work toward it
     const foot = owned
       ? `<div class="track-btns"><button class="track-btn prev" data-prev="${d.id}">${tr('▶ Preview')}</button>` +
         (isEq ? `<span class="track-badge">${tr('✓ EQUIPPED')}</span>` : `<button class="track-btn equip" data-equipm="${d.id}">${tr('EQUIP')}</button>`) + `</div>`
-      : `<span class="skin-lock">🔒 ${tr('from:')} ${d.from}</span>`;
+      : `<span class="skin-lock">🔒 ${ach ? tr(ach.desc) : (tr('from:') + ' ' + d.from)}</span>`;
     return `<div class="${cls}">` +
-             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">${tr('track')}</span></div>` +
-             `<div class="skin-card-body"><b>${owned ? tr(d.title) : '???'}</b><span>${owned ? (d.genre ? tr(d.genre) + ' ' + tr('track') : tr('Orchestral score')) : tr('Achievement reward')}</span></div>` +
+             `<div class="skin-card-head"><span class="skin-ico">${d.ico}</span><span class="skin-tag">${tr('track')}</span></div>` +
+             `<div class="skin-card-body"><b>${owned ? tr(d.title) : tr(genre)}</b><span>${owned ? (d.genre ? tr(d.genre) + ' ' + tr('track') : tr('Orchestral score')) : (ach ? tr('Unlock:') + ' ' + tr(ach.title) : tr('Achievement reward'))}</span></div>` +
              foot + `</div>`;
   },
 
