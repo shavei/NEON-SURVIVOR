@@ -314,12 +314,12 @@ function showToast(ico,label,col){const el=document.getElementById('toast');
   el.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
 function pickItem(it){const p=player;burst(it.x,it.y,it.col,16,4);
   if(typeof Ach!=='undefined')Ach.onPickup(wave);   // intent: ascetic (zero-pickup) tracking
-  if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Fx.sfx('tone',440,900,.25,'sine',.09);}
+  if(it.type==='heal'){p.hp=Math.min(p.maxhp,p.hp+25);floatText(p.x,p.y-22,'+25 HP','#ff5fa2');Fx.sfx('heal');}
   else if(it.type==='bomb'){for(let i=enemies.length-1;i>=0;i--)hitEnemy(enemies[i],150,'#ffd95e');
     shake=Math.min(shake+18,22);Fx.sfx('boom');burst(p.x,p.y,'#ffd95e',46,9);Fx.flash();floatText(p.x,p.y-22,'NUKE!','#ffd95e');}
   else if(it.type==='magnet'){p.rushT=600;   // 10s of 2x XP + tractor every orb (current and future) for the whole window; magnet stat untouched (handled in sim tractor via rushT)
     Fx.sfx('pickup');floatText(p.x,p.y-22,'XP RUSH x2','#54e6b5');}
-  else if(it.type==='rage'){p.rageT=540;Fx.sfx('tone',180,680,.35,'sawtooth',.11);floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
+  else if(it.type==='rage'){p.rageT=540;Fx.sfx('rage');floatText(p.x,p.y-22,'OVERDRIVE','#d97757');}
 }
 
 /* ========== WEAPON ARCHETYPES ========== */
@@ -331,7 +331,7 @@ function fireMissiles(p){p=p||player;
     if(tgt)EXCLUDE_SET.add(tgt);
     const a=srand(0,7);
     spawnMissile(p.x,p.y,Math.cos(a)*3,Math.sin(a)*3,5.2,.18,5,22+p.missile*7,tgt,140);}
-  Fx.sfx('tone',380,520,.12,'triangle',.05);
+  Fx.sfx('launch');
 }
 function explodeMissile(m){
   const cluster=player.evo&&player.evo.missile==='cluster';   // CLUSTER WARHEADS: wider blast + shrapnel ring
@@ -385,7 +385,7 @@ function renderLoadout(){
 }
 function openLevelUp(){
   state='levelup';needsDraw=true;
-  const avail=UPGRADES.filter(u=>!(u.id==='rate'&&player.rate<=6));   // retire maxed Rapid Fire
+  const avail=UPGRADES.filter(u=>!(u.id==='rate'&&player.base.rate*Math.pow(.78,(Up.rate||0)+1)<=6));   // retire Rapid Fire before the final imperceptible (floor-clamped) pick
   const pool=avail.sort(()=>srng()-.5).slice(0,3);   // always draw 3 → seeded peers consume RNG identically
   const evoReady=(typeof Synergy!=='undefined')?Synergy.ready():null; // an earned-but-untaken evolution to offer as a choice
   const wrap=document.getElementById('cards');wrap.innerHTML='';
