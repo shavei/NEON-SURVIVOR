@@ -62,7 +62,7 @@ const ACH_CATALOG = [
   { id:'completionist',conds:[['unlockedPct',80]],                    cat:'secret',    difficulty:null, hidden:true, ico:'🧩', title:'The Completionist’s Curse', desc:'Unlock 80% of every other achievement.', tier:'gold', chain:null },
 ];
 
-/* ---- cosmetic rewards: each GOLD achievement drops one skin/trail into cosmetics_inventory (server-granted).
+/* ---- cosmetic rewards: each GOLD achievement drops one skin/trail into user_inventory (server-granted).
  *      Mirrors supabase cosmetics_definitions; the UI reads this to label the showcase. ---- */
 const COSMETICS = [
   { id:'crimson_husk',   kind:'skin',  title:'Crimson Husk',   from:'annihilator',       ico:'🟥' },
