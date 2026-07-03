@@ -84,7 +84,7 @@ const Skins = {
     this._cloudSync();
     const defs = this.skinDefs(), eq = this.equipped();
     const ownedN = defs.filter(c => this.owns(c.id)).length;
-    const header = `<div class="skin-bar"><div class="skin-n">Owned ${ownedN}/${defs.length}</div></div>`;
+    const header = `<div class="skin-bar"><div class="skin-n">${tr('Owned')} ${ownedN}/${defs.length}</div></div>`;
     // default-hull card first (always available → revert to the stock neon ship), then every catalogued skin
     const cards = [this._cardHTML({ id: '', title: 'Default Hull', ico: '🔺', from: null, _def: true }, eq)]
       .concat(defs.map(c => this._cardHTML(c, eq))).join('');
@@ -97,13 +97,13 @@ const Skins = {
     const isEq = owned && (isDef ? !eq : c.id === eq);
     const accent = this._accent(c.id);
     const cls = ['skin-card', owned ? 'owned' : 'locked', isEq ? 'equipped' : ''].join(' ').trim();
-    const foot = isEq ? `<span class="skin-badge">✓ EQUIPPED</span>`
-               : owned ? `<button class="skin-btn" data-equip="${c.id}">EQUIP</button>`
-               : `<span class="skin-lock">🔒 ${c.from ? 'from: ' + c.from : 'locked'}</span>`;
+    const foot = isEq ? `<span class="skin-badge">${tr('✓ EQUIPPED')}</span>`
+               : owned ? `<button class="skin-btn" data-equip="${c.id}">${tr('EQUIP')}</button>`
+               : `<span class="skin-lock">🔒 ${c.from ? tr('from:') + ' ' + c.from : tr('locked')}</span>`;
     return `<div class="${cls}" style="--skin-accent:${accent}">` +
-             `<div class="skin-card-head"><span class="skin-ico">${owned ? c.ico : '🔒'}</span><span class="skin-tag">skin</span></div>` +
-             `<div class="skin-card-body"><b>${owned ? c.title : '???'}</b>` +
-               `<span>${isDef ? 'Stock neon hull' : (owned ? 'Hull cosmetic' : 'Gold-tier reward')}</span></div>` +
+             `<div class="skin-card-head"><span class="skin-ico">${owned ? c.ico : '🔒'}</span><span class="skin-tag">${tr('skin')}</span></div>` +
+             `<div class="skin-card-body"><b>${owned ? tr(c.title) : '???'}</b>` +
+               `<span>${isDef ? tr('Stock neon hull') : (owned ? tr('Hull cosmetic') : tr('Gold-tier reward'))}</span></div>` +
              foot + `</div>`;
   },
 

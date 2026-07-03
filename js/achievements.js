@@ -300,7 +300,7 @@ const Ach = {
     el.innerHTML = this.CATALOG.map(d => {
       const got = owned.indexOf(d.id) >= 0;
       return `<div class="achrow${got ? ' got' : ''}"><span class="achico">${d.ico}</span>` +
-             `<div class="achtext"><b>${d.title}</b><span>${d.desc}</span></div>` +
+             `<div class="achtext"><b>${tr(d.title)}</b><span>${tr(d.desc)}</span></div>` +
              `<span class="achmark">${got ? '✓' : '🔒'}</span></div>`;
     }).join('');
   },
