@@ -16,11 +16,11 @@ function rankFor(score,rows){
 
 /* feedback message + css class from a score vs a top-10 board (null = board unavailable/offline) */
 function feedbackMsg(score,rows){
-  if(rows===null)return{txt:'Global board offline — your score is saved on this device.',cls:'offline'};
+  if(rows===null)return{txt:tr('Global board offline — your score is saved on this device.'),cls:'offline'};
   const full=rows.length>=10,cutoff=full?(rows[9].score|0):0;
   if(!full||score>=cutoff){const r=rankFor(score,rows);
-    return{txt:'Good job! You made it to the leaderboard!'+(r?' (#'+r+')':''),cls:'qualified'};}
-  return{txt:'You were '+(cutoff-score)+' points away from the leaderboard.',cls:'missed'};}
+    return{txt:tr('Good job! You made it to the leaderboard!')+(r?' (#'+r+')':''),cls:'qualified'};}
+  return{txt:tr('You were')+' '+(cutoff-score)+' '+tr('points away from the leaderboard.'),cls:'missed'};}
 
 function _lbRender(score,rows){
   const el=(typeof document!=='undefined')&&document.getElementById('gofeedback');if(!el)return;

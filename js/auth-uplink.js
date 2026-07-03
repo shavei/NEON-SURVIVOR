@@ -22,7 +22,7 @@ let _pendingCallsign = '';    // callsign chosen on SIGNUP, applied when the sig
 /* ----- tiny DOM + trace helpers ----- */
 const _el = id => document.getElementById(id);
 function _setShown(el, on) { if (el) el.style.display = on ? '' : 'none'; }
-function _seterr(t) { const e = _el('unameerr'); if (e) e.textContent = t || ''; }
+function _seterr(t) { const e = _el('unameerr'); if (e) e.textContent = t ? tr(t) : ''; }   // tr(): unknown strings pass through untranslated
 function _authReady() { try { return typeof AchSync !== 'undefined' && AchSync.enabled() && AchSync.ready(); } catch (e) { return false; } }
 /* Login Debug Trace: opt-in (localStorage.neon_auth_debug=1) log of each state transition, so the
  * Email Sent → Code Verified → Profile Linked flow can be confirmed end-to-end without guessing. */
@@ -76,19 +76,19 @@ function _render(stage) {
   const C = {
     'login':       ['GRID ACCESS', 'Link up to carry your callsign, achievements and best runs across every device.', '✔ JACK IN', '📧 Send me an access code', 'New operator? Register', { email: 1, pass: 1 }, 'authemail'],
     'signup':      ['NEW OPERATOR', 'Set a password, then confirm with the 6-digit code we uplink to your email.', '✔ REGISTER', null, 'Already on the grid? Sign in', { email: 1, pass: 1, uname: 1 }, 'authemail'],
-    'signup-code': ['VERIFY UPLINK', 'Enter the 6-digit code sent to ' + _authEmail + ' to bring your operator online.', '✔ CONFIRM & ENTER', '↻ Resend code', '← Back', { code: 1 }, 'authcode'],
-    'otp-code':    ['GRID ACCESS', 'Enter the 6-digit access code uplinked to ' + _authEmail + '.', '✔ VERIFY CODE', '↻ Resend code', '← Use password', { code: 1 }, 'authcode'],
+    'signup-code': ['VERIFY UPLINK', tr('Enter the 6-digit code sent to') + ' ' + _authEmail + ' ' + tr('to bring your operator online.'), '✔ CONFIRM & ENTER', '↻ Resend code', '← Back', { code: 1 }, 'authcode'],
+    'otp-code':    ['GRID ACCESS', tr('Enter the 6-digit access code uplinked to') + ' ' + _authEmail + '.', '✔ VERIFY CODE', '↻ Resend code', '← Use password', { code: 1 }, 'authcode'],
     // 'local' (offline first-run) and 'callsign' (signed-in claim) share ONE copy — same action, same words.
     'local':       ['CHOOSE CALLSIGN', 'Your handle on the global grid. 3–16 characters.', '✔ ENTER THE GRID', null, null, { uname: 1 }, 'uname'],
     'callsign':    ['CHOOSE CALLSIGN', 'Your handle on the global grid. 3–16 characters.', '✔ ENTER THE GRID', null, null, { uname: 1 }, 'uname'],
   }[stage] || C_DEFAULT();
   const vis = C[5];
   _setShown(email, !!vis.email); _setShown(pass, !!vis.pass); _setShown(code, !!vis.code); _setShown(uname, !!vis.uname);
-  if (title) title.textContent = C[0];
-  const tag = _el('authtag'); if (tag) tag.textContent = C[1];
-  const ok = _el('unameok'); if (ok) { ok.textContent = C[2]; ok.disabled = false; }
-  const otp = _el('authotp'); _setShown(otp, !!C[3]); if (otp && C[3]) { otp.textContent = C[3]; otp.disabled = false; }
-  const toggle = _el('authtoggle'); _setShown(toggle, !!C[4]); if (toggle && C[4]) toggle.textContent = C[4];
+  if (title) title.textContent = tr(C[0]);
+  const tag = _el('authtag'); if (tag) tag.textContent = tr(C[1]);
+  const ok = _el('unameok'); if (ok) { ok.textContent = tr(C[2]); ok.disabled = false; }
+  const otp = _el('authotp'); _setShown(otp, !!C[3]); if (otp && C[3]) { otp.textContent = tr(C[3]); otp.disabled = false; }
+  const toggle = _el('authtoggle'); _setShown(toggle, !!C[4]); if (toggle && C[4]) toggle.textContent = tr(C[4]);
   if (code && vis.code) code.value = '';                          // a fresh code stage always starts empty
   if (uname && vis.uname) { uname.value = ''; _unameState(''); }  // callsign is always typed fresh; clear any prior pulse
   m.classList.remove('hidden'); const s = _el('start'); if (s) s.classList.add('hidden');

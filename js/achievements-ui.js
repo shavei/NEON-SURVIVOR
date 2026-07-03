@@ -31,7 +31,7 @@ const AchUI = {
     const s = Ach._load(), owned = s.unlocked || [], cos = s.cosmetics || [];
 
     const tabs = this.CATS.map(([k, label]) =>
-      `<button class="ach-tab${this.filter === k ? ' on' : ''}" data-cat="${k}">${label}</button>`).join('');
+      `<button class="ach-tab${this.filter === k ? ' on' : ''}" data-cat="${k}">${tr(label)}</button>`).join('');
 
     // show: unlocked achievements, ones already in progress (progress > 0), and ALL secrets as masked
     // '???' placeholders (so hidden goals are discoverable without spoiling them). Difficulty-gated defs
@@ -47,18 +47,18 @@ const AchUI = {
       const tier = d.tier || 'bronze';
       const c = Ach.driverCond ? Ach.driverCond(d) : (d.conds[0] || ['', 0]);
       const op = c.length === 2 ? '>=' : c[1];
-      const label = masked ? 'HIDDEN' : got ? 'UNLOCKED'
-                  : op === '>=' ? Ach.progressValue(d) + ' / ' + (c.length === 2 ? c[1] : c[2]) : 'LOCKED';
+      const label = masked ? tr('HIDDEN') : got ? tr('UNLOCKED')
+                  : op === '>=' ? Ach.progressValue(d) + ' / ' + (c.length === 2 ? c[1] : c[2]) : tr('LOCKED');
       const cls = ['ach-card', 'tier-' + tier, got ? 'got' : 'locked', near ? 'is-near' : '', masked ? 'secret' : ''].join(' ').replace(/ +/g, ' ').trim();
-      const ico = masked ? '🔒' : d.ico, title = masked ? '???' : d.title, desc = masked ? 'Hidden — unlock to reveal.' : d.desc;
+      const ico = masked ? '🔒' : d.ico, title = masked ? '???' : tr(d.title), desc = masked ? tr('Hidden — unlock to reveal.') : tr(d.desc);
       return `<div class="${cls}" data-tier="${tier}">` +
                `<div class="ach-head"><span class="ach-ico">${ico}</span>` +
-                 `<span class="ach-tier">${tier}</span><span class="ach-mark">${got ? '✓' : (near ? '↯' : '🔒')}</span></div>` +
+                 `<span class="ach-tier">${tr(tier)}</span><span class="ach-mark">${got ? '✓' : (near ? '↯' : '🔒')}</span></div>` +
                `<div class="ach-body"><b>${title}</b><span>${desc}</span></div>` +
                `<div class="ach-prog"><div class="ach-prog-fill" style="width:${got ? 100 : pct}%"></div></div>` +
                `<div class="ach-prog-label">${label}</div>` +
              `</div>`;
-    }).join('') : `<div class="ach-empty">${owned.length ? 'Nothing here yet in this category.' : 'No achievements unlocked yet — go play a run!'}</div>`;
+    }).join('') : `<div class="ach-empty">${owned.length ? tr('Nothing here yet in this category.') : tr('No achievements unlocked yet — go play a run!')}</div>`;
 
     const showcase = this._showcaseHTML(cos);
     host.innerHTML = `<div class="ach-tabs">${tabs}</div>${showcase}<div class="ach-grid">${cards}</div>`;
@@ -92,8 +92,8 @@ const AchUI = {
     if (typeof Ach === 'undefined') return;
     const d = Ach.CATALOG.find(x => x.id === id); if (!d) return;
     const tier = (d.tier || 'bronze').toUpperCase(), accent = { BRONZE:'#d9875a', SILVER:'#cfd6e6', GOLD:'#ffd95e' }[tier] || '#ffd95e';
-    this._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>ACHIEVEMENT UNLOCKED</b>` +
-               `<span>${d.title} · ${tier}</span></div>`, accent, tier === 'GOLD');
+    this._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>${tr('ACHIEVEMENT UNLOCKED')}</b>` +
+               `<span>${tr(d.title)} · ${tr(tier)}</span></div>`, accent, tier === 'GOLD');
     // grant hook: the instant is_unlocked flips true, fan out the reward (toast + user_inventory insert).
     // The local mirror is already written by Ach._grantRewards; this is the cloud-facing side effect.
     if (typeof RewardEngine !== 'undefined' && RewardEngine.onUnlock) RewardEngine.onUnlock(id);
@@ -101,8 +101,8 @@ const AchUI = {
   cosmeticToast(cid) {
     if (typeof COSMETICS === 'undefined') return;
     const c = COSMETICS.find(x => x.id === cid); if (!c) return;
-    this._push(`<span class="at-ico">${c.ico}</span><div class="at-text"><b>🎨 COSMETIC UNLOCKED</b>` +
-               `<span>${c.kind === 'skin' ? 'Skin' : 'Trail'}: ${c.title}</span></div>`, '#54e6ff');
+    this._push(`<span class="at-ico">${c.ico}</span><div class="at-text"><b>${tr('🎨 COSMETIC UNLOCKED')}</b>` +
+               `<span>${c.kind === 'skin' ? tr('Skin') : tr('Trail')}: ${tr(c.title)}</span></div>`, '#54e6ff');
   },
 
   /* ----- DEV verification tool (console) -----

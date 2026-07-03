@@ -96,7 +96,7 @@ const RewardEngine = {
     if (typeof AchUI === 'undefined' || !AchUI._push) return;
     const label = r.kind === 'music' ? '🎵 SOUNDTRACK UNLOCKED' : r.kind === 'palette' ? '🌌 GRID THEME UNLOCKED' : r.kind === 'trail' ? '🎨 TRAIL UNLOCKED' : '🎨 SKIN UNLOCKED';
     const accent = r.kind === 'music' ? '#b98cff' : r.kind === 'palette' ? '#54e6b5' : '#54e6ff';
-    AchUI._push(`<span class="at-ico">${r.ico}</span><div class="at-text"><b>${label}</b><span>${r.title}</span></div>`, accent);
+    AchUI._push(`<span class="at-ico">${r.ico}</span><div class="at-text"><b>${tr(label)}</b><span>${tr(r.title)}</span></div>`, accent);
   },
 
   /* optimistic cloud mirror: drop the reward into user_inventory. Best-effort & RLS-guarded exactly like
@@ -161,7 +161,7 @@ const RewardEngine = {
     this.renderTrackGallery();
     if (id && typeof AchUI !== 'undefined' && AchUI._push) {
       const d = this.musicDefs().find(function (m) { return m.id === id; });
-      if (d) AchUI._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>🎵 TRACK EQUIPPED</b><span>${d.title}</span></div>`, '#b98cff');
+      if (d) AchUI._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>${tr('🎵 TRACK EQUIPPED')}</b><span>${tr(d.title)}</span></div>`, '#b98cff');
     }
     return true;
   },
@@ -173,7 +173,7 @@ const RewardEngine = {
     const host = document.getElementById('tracklist'); if (!host) return;
     const defs = this.musicDefs(), eq = this.equippedMusic(), self = this;
     const ownedN = defs.filter(function (d) { return self.owns(d.id); }).length;
-    const header = `<div class="skin-bar"><div class="skin-n">Unlocked ${ownedN}/${defs.length}</div></div>`;
+    const header = `<div class="skin-bar"><div class="skin-n">${tr('Unlocked')} ${ownedN}/${defs.length}</div></div>`;
     const cards = defs.map(function (d) { return self._trackCardHTML(d, eq); }).join('');
     host.innerHTML = header + `<div class="track-grid">${cards}</div>`;
     if (typeof host.querySelectorAll === 'function') {
@@ -185,12 +185,12 @@ const RewardEngine = {
     const owned = this.owns(d.id), isEq = owned && d.id === eq;
     const cls = ['track-card', owned ? 'owned' : 'locked', isEq ? 'equipped' : ''].join(' ').trim();
     const foot = owned
-      ? `<div class="track-btns"><button class="track-btn prev" data-prev="${d.id}">▶ Preview</button>` +
-        (isEq ? `<span class="track-badge">✓ EQUIPPED</span>` : `<button class="track-btn equip" data-equipm="${d.id}">EQUIP</button>`) + `</div>`
-      : `<span class="skin-lock">🔒 from: ${d.from}</span>`;
+      ? `<div class="track-btns"><button class="track-btn prev" data-prev="${d.id}">${tr('▶ Preview')}</button>` +
+        (isEq ? `<span class="track-badge">${tr('✓ EQUIPPED')}</span>` : `<button class="track-btn equip" data-equipm="${d.id}">${tr('EQUIP')}</button>`) + `</div>`
+      : `<span class="skin-lock">🔒 ${tr('from:')} ${d.from}</span>`;
     return `<div class="${cls}">` +
-             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">track</span></div>` +
-             `<div class="skin-card-body"><b>${owned ? d.title : '???'}</b><span>${owned ? (d.genre ? d.genre + ' track' : 'Orchestral score') : 'Achievement reward'}</span></div>` +
+             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">${tr('track')}</span></div>` +
+             `<div class="skin-card-body"><b>${owned ? tr(d.title) : '???'}</b><span>${owned ? (d.genre ? tr(d.genre) + ' ' + tr('track') : tr('Orchestral score')) : tr('Achievement reward')}</span></div>` +
              foot + `</div>`;
   },
 
@@ -208,7 +208,7 @@ const RewardEngine = {
     this.renderGridGallery();
     if (id && typeof AchUI !== 'undefined' && AchUI._push) {
       const d = this.paletteDefs().find(function (m) { return m.id === id; });
-      if (d) AchUI._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>🌌 GRID EQUIPPED</b><span>${d.title}</span></div>`, '#54e6b5');
+      if (d) AchUI._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>${tr('🌌 GRID EQUIPPED')}</b><span>${tr(d.title)}</span></div>`, '#54e6b5');
     }
     return true;
   },
@@ -219,7 +219,7 @@ const RewardEngine = {
     const host = document.getElementById('gridlist'); if (!host) return;
     const defs = this.paletteDefs(), eq = this.equippedPalette(), self = this;
     const ownedN = defs.filter(function (d) { return self.owns(d.id); }).length;
-    const header = `<div class="skin-bar"><div class="skin-n">Unlocked ${ownedN}/${defs.length}</div></div>`;
+    const header = `<div class="skin-bar"><div class="skin-n">${tr('Unlocked')} ${ownedN}/${defs.length}</div></div>`;
     const dfCard = self._gridCardHTML({ id: '', title: 'Cosmic Nebula', ico: '🌌', from: null, free: true }, eq);   // the free default always shows first
     const cards = defs.map(function (d) { return self._gridCardHTML(d, eq); }).join('');
     host.innerHTML = header + `<div class="track-grid">${dfCard}${cards}</div>`;
@@ -231,12 +231,12 @@ const RewardEngine = {
     const cls = ['track-card', owned ? 'owned' : 'locked', isEq ? 'equipped' : ''].join(' ').trim();
     const sw = (typeof Theme !== 'undefined' && Theme.swatch) ? Theme.swatch(d.free ? (Theme.DEFAULT) : d.id) : '';
     const foot = owned
-      ? (isEq ? `<span class="track-badge">✓ EQUIPPED</span>` : `<button class="track-btn equip" data-equipg="${d.id}">EQUIP</button>`)
-      : `<span class="skin-lock">🔒 from: ${d.from}</span>`;
+      ? (isEq ? `<span class="track-badge">${tr('✓ EQUIPPED')}</span>` : `<button class="track-btn equip" data-equipg="${d.id}">${tr('EQUIP')}</button>`)
+      : `<span class="skin-lock">🔒 ${tr('from:')} ${d.from}</span>`;
     return `<div class="${cls}">` +
-             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">grid</span></div>` +
+             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">${tr('grid')}</span></div>` +
              sw +
-             `<div class="skin-card-body"><b>${owned ? d.title : '???'}</b><span>${owned ? 'Map colour theme' : 'Achievement reward'}</span></div>` +
+             `<div class="skin-card-body"><b>${owned ? tr(d.title) : '???'}</b><span>${owned ? tr('Map colour theme') : tr('Achievement reward')}</span></div>` +
              foot + `</div>`;
   },
 
@@ -256,7 +256,7 @@ const RewardEngine = {
     this.renderTrailGallery();
     if (id && typeof AchUI !== 'undefined' && AchUI._push) {
       const d = this.trailDefs().find(function (m) { return m.id === id; });
-      if (d) AchUI._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>🎨 TRAIL EQUIPPED</b><span>${d.title}</span></div>`, '#54e6ff');
+      if (d) AchUI._push(`<span class="at-ico">${d.ico}</span><div class="at-text"><b>${tr('🎨 TRAIL EQUIPPED')}</b><span>${tr(d.title)}</span></div>`, '#54e6ff');
     }
     return true;
   },
@@ -267,7 +267,7 @@ const RewardEngine = {
     const host = document.getElementById('traillist'); if (!host) return;
     const defs = this.trailDefs(), eq = this.equippedTrail(), self = this;
     const ownedN = defs.filter(function (d) { return self.owns(d.id); }).length;
-    const header = `<div class="skin-bar"><div class="skin-n">Unlocked ${ownedN}/${defs.length}</div></div>`;
+    const header = `<div class="skin-bar"><div class="skin-n">${tr('Unlocked')} ${ownedN}/${defs.length}</div></div>`;
     const dfCard = self._trailCardHTML({ id: '', title: 'No Trail', ico: '∅', col: '#7c8cff', from: null, free: true }, eq);   // the free default always shows first
     const cards = defs.map(function (d) { return self._trailCardHTML(d, eq); }).join('');
     host.innerHTML = header + `<div class="track-grid">${dfCard}${cards}</div>`;
@@ -279,12 +279,12 @@ const RewardEngine = {
     const cls = ['track-card', owned ? 'owned' : 'locked', isEq ? 'equipped' : ''].join(' ').trim();
     const sw = owned ? `<div class="trail-swatch" style="--trail-col:${d.col};background:linear-gradient(90deg,transparent,${d.col})"></div>` : '';
     const foot = owned
-      ? (isEq ? `<span class="track-badge">✓ EQUIPPED</span>` : `<button class="track-btn equip" data-equipt="${d.id}">EQUIP</button>`)
-      : `<span class="skin-lock">🔒 from: ${d.from}</span>`;
+      ? (isEq ? `<span class="track-badge">${tr('✓ EQUIPPED')}</span>` : `<button class="track-btn equip" data-equipt="${d.id}">${tr('EQUIP')}</button>`)
+      : `<span class="skin-lock">🔒 ${tr('from:')} ${d.from}</span>`;
     return `<div class="${cls}">` +
-             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">trail</span></div>` +
+             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">${tr('trail')}</span></div>` +
              sw +
-             `<div class="skin-card-body"><b>${owned ? d.title : '???'}</b><span>${owned ? 'Projectile trail' : 'Achievement reward'}</span></div>` +
+             `<div class="skin-card-body"><b>${owned ? tr(d.title) : '???'}</b><span>${owned ? tr('Projectile trail') : tr('Achievement reward')}</span></div>` +
              foot + `</div>`;
   },
 
