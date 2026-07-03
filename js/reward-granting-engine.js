@@ -181,16 +181,20 @@ const RewardEngine = {
       host.querySelectorAll('[data-equipm]').forEach(function (b) { b.onclick = function () { self.equipMusic(b.dataset.equipm); }; });
     }
   },
+  // the achievement a track unlocks from (title/desc) so a LOCKED card can name the genre + the exact goal
+  _unlockAch(id) { try { if (typeof Ach !== 'undefined' && Ach.CATALOG) return Ach.CATALOG.find(function (x) { return x.id === id; }) || null; } catch (e) {} return null; },
   _trackCardHTML(d, eq) {
     const owned = this.owns(d.id), isEq = owned && d.id === eq;
     const cls = ['track-card', owned ? 'owned' : 'locked', isEq ? 'equipped' : ''].join(' ').trim();
+    const ach = owned ? null : this._unlockAch(d.from), genre = d.genre || 'Orchestral';
+    // show the genre emoji + name even when locked, so players can pick a favourite genre and work toward it
     const foot = owned
       ? `<div class="track-btns"><button class="track-btn prev" data-prev="${d.id}">▶ Preview</button>` +
         (isEq ? `<span class="track-badge">✓ EQUIPPED</span>` : `<button class="track-btn equip" data-equipm="${d.id}">EQUIP</button>`) + `</div>`
-      : `<span class="skin-lock">🔒 from: ${d.from}</span>`;
+      : `<span class="skin-lock">🔒 ${ach ? ach.desc : ('from: ' + d.from)}</span>`;
     return `<div class="${cls}">` +
-             `<div class="skin-card-head"><span class="skin-ico">${owned ? d.ico : '🔒'}</span><span class="skin-tag">track</span></div>` +
-             `<div class="skin-card-body"><b>${owned ? d.title : '???'}</b><span>${owned ? (d.genre ? d.genre + ' track' : 'Orchestral score') : 'Achievement reward'}</span></div>` +
+             `<div class="skin-card-head"><span class="skin-ico">${d.ico}</span><span class="skin-tag">${d.genre ? 'genre' : 'score'}</span></div>` +
+             `<div class="skin-card-body"><b>${owned ? d.title : genre}</b><span>${owned ? (d.genre ? d.genre + ' track' : 'Orchestral score') : (ach ? 'Unlock: ' + ach.title : 'Achievement reward')}</span></div>` +
              foot + `</div>`;
   },
 
