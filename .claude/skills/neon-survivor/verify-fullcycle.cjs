@@ -89,7 +89,7 @@ async function runLive() {
 /* ============================== STUB MODE ============================== */
 function runStub() {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]);
+  const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]).filter(s => !/^(https?:)?\/\//.test(s) && !s.startsWith('/'));   // repo files only — skip CDN + platform routes (/_vercel/…)
   const script = srcs.map(s => fs.readFileSync(path.join(ROOT, s), 'utf8')).join('\n;\n');
   try { new vm.Script(script, { filename: 'index.html#script' }); }
   catch (e) { console.error('SYNTAX ERROR:', e.message); process.exit(1); }

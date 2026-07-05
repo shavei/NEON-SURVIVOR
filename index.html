@@ -16,14 +16,15 @@
 <link rel="preconnect" href="https://ukvsnjgysbrmuheibrgv.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://ukvsnjgysbrmuheibrgv.supabase.co">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<!-- fetch the supabase SDK in parallel with the game scripts — net.js injects the same URL and hits this cache, shrinking the #boot Connecting gate -->
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" as="script">
 <link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/achievements.css">
-<link rel="stylesheet" href="css/skins.css">
-<!-- Vercel Speed Insights -->
-<script type="module">
-  import { injectSpeedInsights } from 'https://cdn.jsdelivr.net/npm/@vercel/speed-insights@2.0.0/dist/index.mjs';
-  injectSpeedInsights();
-</script>
+<!-- achievements/skins style only the gallery panels — load async so first paint doesn't wait on them -->
+<link rel="stylesheet" href="css/achievements.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/skins.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="css/achievements.css"><link rel="stylesheet" href="css/skins.css"></noscript>
+<!-- Vercel Speed Insights — first-party route, no third-party CDN on the boot path -->
+<script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
 <canvas id="game"></canvas>

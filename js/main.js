@@ -322,7 +322,8 @@ if(typeof LBSync!=='undefined')LBSync.syncAll();   // kick concurrent prefetch o
 syncGlobalTab(_gdiff);   // light the tab that matches the board we're about to show, so the active tab never disagrees with the rows
 renderGlobal(_gdiff);   // prime the visible tab (skeleton until rows land; offline/empty when unconfigured)
 bootMenu();             // first-run players get the username modal before the menu
-// browsers block autoplay until a gesture: on the first interaction, unlock audio + start the menu theme
-addEventListener('pointerdown',function _au(){ if(typeof Sound!=='undefined'){Sound.init();Sound.resume();} if(typeof Music!=='undefined'&&typeof state!=='undefined'&&state==='start')Music.menu(); },{once:true});
+// browsers block autoplay until a gesture: on the first interaction, unlock audio + start the menu theme.
+// Sound.init/resume stay inside the gesture (autoplay policy); the Music graph build waits one frame so the tap paints first (INP)
+addEventListener('pointerdown',function _au(){ if(typeof Sound!=='undefined'){Sound.init();Sound.resume();} requestAnimationFrame(()=>setTimeout(()=>{ if(typeof Music!=='undefined'&&typeof state!=='undefined'&&state==='start')Music.menu(); },0)); },{once:true});
 generateNebula();   // build the deep-space background tile once at startup
 requestAnimationFrame(loop);
