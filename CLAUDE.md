@@ -61,6 +61,7 @@ Never push until **all three apply**:
 3. changes committed with a conventional message
 
 ## Gotchas
+- `audio/` + `icons/` are browser-cached 30 days (`vercel.json`) — **rename the file** when its content changes, or players keep the stale one; js/css/html stay on revalidate-every-visit so a deploy can't mix script versions.
 - Movement is **per-tick (1/60 s)**, not per-second — `+= v`, never `* dt`.
 - Anything that moves needs `px/py` snapshot + `ix()/iy()` lerp in `draw()`.
 - Collision loops use live `enemies.length` (killEnemy splices mid-scan).
