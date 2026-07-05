@@ -2,7 +2,7 @@
 /* ================= LANG_HE — HEBREW DICTIONARY =================
    Keys are the EXACT English display strings used in index.html / js (see js/i18n.js).
    Register: native gamer Hebrew — status = present-plural (מתחברים…), player = neutral-spelling 2sg past (שרדת).
-   Edit freely — a removed/missing entry simply falls back to English. */
+   Edit freely — a missing entry falls back to English. Live tweak: debugLang('English key','עברית') in the console (see i18n.js). */
 const LANG_HE={
 /* --- start menu --- */
 'Survive the swarm. Your gun auto-fires — you just move, dodge, and choose upgrades. Unlock homing missiles, an orbiting shield, and chain lightning. How long can you last?':'שרדו את הנחיל. הנשק יורה לבד — אתם רק זזים, מתחמקים ובוחרים שדרוגים. תפתחו טילים מתביתים, מגן מקיף וברק משתרשר. כמה זמן תחזיקו?',
@@ -14,7 +14,7 @@ const LANG_HE={
 'EASY':'קל','NORMAL':'רגיל','HARD':'קשה',
 'Easy':'קל','Normal':'רגיל','Hard':'קשה',
 'balanced — recommended for a first run':'מאוזן — מומלץ לריצה ראשונה',
-'▶ PLAY':'▶ מתחברים לרשת',
+'▶ PLAY':'▶ התחל',
 '📱 Get the Android app (APK)':'📱 הורדת אפליקציית אנדרואיד (APK)',
 '⚡ Pickups — found on the map':'⚡ איסופים — פזורים על המפה',
 '🛠 Weapons — unlocked on level-up':'🛠 נשקים — נפתחים בעליית רמה',
@@ -41,9 +41,9 @@ const LANG_HE={
 '📧 Send me an access code':'📧 שלחו לי קוד גישה',
 'New operator? Register':'מפעילים חדשים? הירשמו',
 /* --- game over --- */
-'GAME OVER':'נותקת מהרשת',
+'GAME OVER':'המשחק נגמר',
 'you scored':'צברת',
-'↻ PLAY AGAIN':'↻ עוד סיבוב',
+'↻ PLAY AGAIN':'↻ שחקו שוב',
 '↩ main menu':'↩ תפריט ראשי',
 /* --- level up / boss reward --- */
 'LEVEL UP':'עלית רמה!',

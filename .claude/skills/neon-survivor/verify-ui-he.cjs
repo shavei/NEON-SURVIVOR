@@ -52,13 +52,18 @@ const fails=[];const ok=(cond,label)=>{console.log((cond?'  ✓ ':'  ✗ ')+labe
       const rtlEl=document.querySelector('.diffhint,.tag');
       return{lang:document.documentElement.lang,
         play:(document.getElementById('startbtn').textContent||'').trim(),
+        playExp:tr('▶ PLAY'),
         rtl:rtlEl?getComputedStyle(rtlEl).direction:'none',
         hebBtns:btns.filter(b=>heb(b.textContent)).length,
         clipped:btns.filter(b=>b.scrollWidth>b.clientWidth+1).map(b=>b.textContent.trim().slice(0,30)),
         hscroll:document.documentElement.scrollWidth>window.innerWidth+1};
     });
     ok(menu.lang==='he','<html lang="he">');
-    ok(menu.play==='▶ מתחברים לרשת',`PLAY button = "${menu.play}"`);
+    ok(menu.play===menu.playExp&&/[֐-׿]/.test(menu.play),`PLAY button = "${menu.play}" (matches dictionary, Hebrew)`);
+    const ovOK=await page.evaluate(()=>{const b=document.getElementById('startbtn');
+      debugLang('▶ PLAY','▶ בדיקה');const mid=(b.textContent||'').trim();
+      debugLang('▶ PLAY',null);return mid==='▶ בדיקה'&&(b.textContent||'').trim()===tr('▶ PLAY');});
+    ok(ovOK,'debugLang() live override applies + reverts');
     ok(menu.rtl==='rtl','CSS RTL rule active (direction:rtl)');
     ok(menu.hebBtns>0,`${menu.hebBtns} Hebrew menu buttons rendered`);
     ok(menu.clipped.length===0,'no clipped menu buttons'+(menu.clipped.length?` → ${menu.clipped.join(' | ')}`:''));
@@ -76,7 +81,9 @@ const fails=[];const ok=(cond,label)=>{console.log((cond?'  ✓ ':'  ✗ ')+labe
       const heb=s=>/[֐-׿]/.test(s);
       const cards=[...document.querySelectorAll('#cards .upg')];
       return{head:(document.querySelector('#levelup .luhead').textContent||'').trim(),
+        headExp:tr('LEVEL UP'),
         sub:(document.querySelector('#levelup .lusub').textContent||'').trim(),
+        subExp:tr('choose one upgrade'),
         n:cards.length,
         hebTitles:cards.filter(c=>heb(c.querySelector('h3')?.textContent||'')).length,
         clipped:cards.filter(c=>c.scrollWidth>c.clientWidth+2).map(c=>c.querySelector('h3')?.textContent),
@@ -84,8 +91,8 @@ const fails=[];const ok=(cond,label)=>{console.log((cond?'  ✓ ':'  ✗ ')+labe
         headDir:getComputedStyle(document.querySelector('#levelup .luhead')).direction,
         hscroll:document.documentElement.scrollWidth>window.innerWidth+1};
     });
-    ok(lu.head==='עלית רמה!',`header = "${lu.head}"`);
-    ok(lu.sub==='בוחרים שדרוג אחד',`sub = "${lu.sub}"`);
+    ok(lu.head===lu.headExp&&/[֐-׿]/.test(lu.head),`header = "${lu.head}" (matches dictionary, Hebrew)`);
+    ok(lu.sub===lu.subExp&&/[֐-׿]/.test(lu.sub),`sub = "${lu.sub}" (matches dictionary, Hebrew)`);
     ok(lu.n===3,`${lu.n} upgrade cards offered`);
     ok(lu.hebTitles===lu.n,`${lu.hebTitles}/${lu.n} card titles in Hebrew`);
     ok(lu.subDir==='rtl','modal subtitle direction:rtl');

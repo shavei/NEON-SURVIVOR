@@ -10,7 +10,7 @@ must stay **under 28 KB** (a larger file is silently truncated → tail vanishes
 **Game core:** i18n → lang-he → config → config-sim → core → audio-orchestrator → upgrade-logic → world → sim → render → rewards →
 synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `index.html` markup · `css/style.css` · `css/achievements.css` · `css/skins.css`
-- `js/i18n.js` EN⇄HE layer: `I18N` (lang / localStorage `neon_lang` / `apply()` / `onChange`) + global `tr(s)`; static DOM marked `data-i18n`/`data-i18n-html`/`data-i18n-ph`; `.langbtn` toggles it (start·pause·auth overlays)
+- `js/i18n.js` EN⇄HE layer: `I18N` (lang / localStorage `neon_lang` / `apply()` / `onChange`) + global `tr(s)`; static DOM marked `data-i18n`/`data-i18n-html`/`data-i18n-ph`; `.langbtn` toggles it (start·pause·auth overlays); `window.debugLang(en,he)` live per-string override (localStorage `neon_he_ov`, wins over `LANG_HE`; `debugLang(en,null)` drops, `debugLang()` lists)
 - `js/lang-he.js` `LANG_HE` Hebrew dictionary — **exact English display strings are the keys**; missing entry ⇒ English fallback
 - `js/config.js` public Supabase URL + anon key (empty → local-only) · `js/config-sim.js` `BOSSES`/sim tunables
 - `js/core.js` foundation, sprite cache, DIFFS, BOSS, Sound, SynthMusic
