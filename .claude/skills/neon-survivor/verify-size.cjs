@@ -14,7 +14,7 @@ const WARN  = LIMIT - 1024; // flag the last 1 KB of headroom so a near-full mod
 
 // the authoritative list = exactly the <script src> tags index.html serves (order preserved)
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]).filter(s => s.endsWith('.js'));
+const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]).filter(s => s.endsWith('.js') && !/^(https?:)?\/\//.test(s) && !s.startsWith('/'));   // repo files only — skip CDN + platform routes (/_vercel/…)
 
 let fail = 0, warn = 0;
 console.log('  bytes   / 28672   headroom  module');

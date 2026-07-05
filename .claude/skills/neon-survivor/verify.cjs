@@ -17,7 +17,8 @@ let script;
 if (inline) {
   script = inline[1];
 } else {
-  const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]);
+  const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1])
+    .filter(s => !/^(https?:)?\/\//.test(s) && !s.startsWith('/'));   // repo files only — skip CDN + platform routes (/_vercel/…)
   if (!srcs.length) { console.error('NO SCRIPT FOUND in ' + FILE); process.exit(1); }
   script = srcs.map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
 }

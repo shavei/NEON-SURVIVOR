@@ -8,7 +8,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '../../..');
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]);
+const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]).filter(s => !/^(https?:)?\/\//.test(s) && !s.startsWith('/'));   // repo files only — skip CDN + platform routes (/_vercel/…)
 const script = srcs.map(s => fs.readFileSync(path.join(ROOT, s), 'utf8')).join('\n;\n');
 
 // minimal headless stub (same shape as verify.cjs) — enough to load every game script
