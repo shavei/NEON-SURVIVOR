@@ -41,7 +41,7 @@ const Synergy={
     player.evo=player.evo||{};
     player.evo[s.slot]=s.id;                                           // weapon fns branch on this flag
     if(typeof Reward!=='undefined')
-      Reward.trigger('evolution',{col:s.col,x:player.x,y:player.y,text:tr(s.name),toast:tr(s.name)+' — '+tr('EVOLVED'),ico:s.ico});
+      Reward.trigger('evolution',{col:s.col,x:player.x,y:player.y,text:tr(s.name),toast:tr(s.name)+' — '+tr('COMING ONLINE'),ico:s.ico});
     if(typeof Fx!=='undefined')Fx.music('stingSynergy');               // evolution → orchestral evolution chord
     if(typeof Fx!=='undefined')Fx.loadout&&Fx.loadout();              // refresh weapon pips (shows evolved name)
     if(typeof Ach!=='undefined'&&Ach.onSynergy)Ach.onSynergy(s.id);   // optional achievements hook (safe if absent)

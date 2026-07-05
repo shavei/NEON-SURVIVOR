@@ -72,7 +72,7 @@ const LANG_HE={
 'faster salvos (AoE)':'מטחים מהירים יותר (נזק שטח)',
 'guardian orbs circle you, shredding contact':'כדורי מגן חגים סביבכם וגורסים כל מגע',
 'Periodic bolt that arcs between enemies':'ברק תקופתי שמקפץ בין אויבים','faster, arcs more':'מהיר יותר, מקפץ יותר',
-'Lv':'רמה','NEW':'חדש','EVOLVE':'אבולוציה','EVOLVED':'שודרג','⚡EVO':'⚡משודרג','Pair':'שלבו',
+'Lv':'רמה','NEW':'חדש','EVOLVE':'אבולוציה','EVOLVED':'שודרג','COMING ONLINE':'עולה לרשת','⚡EVO':'⚡משודרג','Pair':'שלבו',
 /* --- weapon merges (synergies) --- */
 'CLUSTER WARHEADS':'ראשי נפץ מתפצלים','missiles fragment into a shrapnel burst on impact':'טילים מתפצלים לרסס רסיסים בפגיעה',
 'TESLA WEB':'רשת טסלה','lightning forks farther and arcs through far more foes':'הברק מתפצל רחוק יותר ומקפץ דרך הרבה יותר אויבים',
