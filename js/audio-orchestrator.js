@@ -84,7 +84,11 @@ const Orchestra = {
     try { const src = Sound.ac.createMediaElementSource(a); const g = Sound.ac.createGain(); g.gain.value = 0; src.connect(g); g.connect(this._g.filter); rec.gain = g; } catch (e) { rec.bad = true; }
     this._jk[key] = rec; return rec;
   },
-  _warm() { ['menu', 'play', 'over'].forEach(k => this._track(k)); },   // preload the common tracks
+  _warm(k) {                                     // warm only the imminent track now — the full trio a beat later, off the tap/bandwidth-critical path
+    if (k) this._track(this._resolve(k));
+    clearTimeout(this._warmT);
+    this._warmT = setTimeout(() => { ['menu', 'play', 'over'].forEach(x => this._track(this._resolve(x))); }, 4000);
+  },
   XFADE: 2.4,                                    // s — equal-power blend between real tracks (longer = gentler, no hard cut)
   _ramp(param, to, dur) {                        // smooth equal-power glide of one gain → `to` over `dur` s (no audible step)
     const ac = Sound.ac; if (!ac) return;
@@ -218,14 +222,14 @@ const Orchestra = {
   menu() {                                       // chill menu theme (or calm procedural bed)
     this.playing = true; this.bossMode = false; this._pending = 'ambient'; this.active = 'ambient';
     if (!Sound || !Sound.ac) { this._go('MENU', 'inert/no-audio'); return; }
-    this._ensure(); this._warm();
+    this._ensure(); this._warm('menu');
     if (!this._playReal('menu')) this._realActive = false;
     this._tick(); this._go('MENU', 'menu theme');
   },
   start() {                                      // gameplay (called on run start)
     this.playing = true;
     if (!Sound || !Sound.ac) { this._go(this.bossMode ? 'BOSS' : 'AMBIENT', 'inert/no-audio'); return; }
-    this._ensure(); this._warm(); this.active = this.bossMode ? 'boss' : 'ambient'; this._pending = null;
+    this._ensure(); this._warm(this.bossMode ? 'boss' + (this._bt % 3) : 'play'); this.active = this.bossMode ? 'boss' : 'ambient'; this._pending = null;
     if (!this._playReal(this.bossMode ? 'boss' + (this._bt % 3) : 'play')) this._realActive = false;
     this._tick(); this._go(this.bossMode ? 'BOSS' : 'AMBIENT', 'start');
   },

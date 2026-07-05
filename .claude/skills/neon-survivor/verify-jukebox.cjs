@@ -9,7 +9,7 @@ const fs = require('fs'), path = require('path');
 const FILE = process.argv[2] || path.resolve(__dirname, '../../../index.html');
 const DIR = path.dirname(FILE);
 const html = fs.readFileSync(FILE, 'utf8');
-const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]);
+const srcs = [...html.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)].map(m => m[1]).filter(s => !/^(https?:)?\/\//.test(s) && !s.startsWith('/'));   // repo files only — skip CDN + platform routes (/_vercel/…)
 const script = srcs.map(s => fs.readFileSync(path.resolve(DIR, s), 'utf8')).join('\n;\n');
 
 // ---- fakes: just enough Web Audio + Audio to exercise the jukebox ----
@@ -43,7 +43,7 @@ const driver = `;(function(){
   Music.exitBoss();
   Music.enterBoss(2); A(Orchestra._real==='boss2','enterBoss(2)-> boss2 (overseer)');
   Music.exitBoss();
-  var over = Orchestra._jk.over; if(over) over.ready = true;
+  var over = Orchestra._track('over'); if(over) over.ready = true;   // simulate the staggered background warm (setTimeout is a no-op here) + full buffer
   Music.die();        A(Orchestra._real==='over','die()       -> gameover track');
   Music.menu();
   var mg = Orchestra._jk.menu.gain.gain.value, pg = Orchestra._jk.play.gain.gain.value;
