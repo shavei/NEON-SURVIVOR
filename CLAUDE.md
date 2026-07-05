@@ -8,7 +8,7 @@ menu/leaderboard, synth + sample music.
 `<script defer>` **classic** scripts (NOT modules) — globals shared across files. Every served `js/*.js`
 must stay **under 28 KB** (a larger file is silently truncated → tail vanishes with no error).
 **Game core:** i18n → lang-he → config → config-sim → core → audio-orchestrator → upgrade-logic → world → sim → render → rewards →
-synergy → map-system → ui-engine → net → main.
+synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `index.html` markup · `css/style.css` · `css/achievements.css` · `css/skins.css`
 - `js/i18n.js` EN⇄HE layer: `I18N` (lang / localStorage `neon_lang` / `apply()` / `onChange`) + global `tr(s)`; static DOM marked `data-i18n`/`data-i18n-html`/`data-i18n-ph`; `.langbtn` toggles it (start·pause·auth overlays)
 - `js/lang-he.js` `LANG_HE` Hebrew dictionary — **exact English display strings are the keys**; missing entry ⇒ English fallback
@@ -20,13 +20,15 @@ synergy → map-system → ui-engine → net → main.
 - `js/sim.js` `update()` (one 1/60 s tick) · `js/render.js` `draw()` (interpolated)
 - `js/rewards.js` `Reward` in-game JUICE facade (shake/pulse) · `js/synergy.js`/`js/map-system.js` evolutions + boss rewards
 - `js/net.js` Supabase scoreboard: `getPlayer`/`savePlayer`/`submitScore`/`fetchTop` (headless/offline-safe, SB=null)
-- `js/main.js` init/wiring, loop, menus, flow, `sanitizeName`, F3 debug overlay
+- `js/debug-overlay.js` F3 dev overlay (`_perf`/`togglePerf`/`perfFrame` — main's loop feeds ticks, typeof-guarded)
+- `js/main.js` init/wiring, loop, menus, flow, `sanitizeName`
 
 **Identity / achievement / reward stack** (loads after net, before main; all headless/offline-safe):
-`achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine`.
+`achievements → achievements-ui → reward-map → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine`.
 - `js/achievements.js` `Ach` catalog + local mirror, `evaluate`, `_grantRewards`, `mockGrant`
 - `js/achievements-ui.js` `AchUI` gallery + non-pausing unlock toasts; `unlockToast(id)` → fires the reward handshake
-- `js/reward-granting-engine.js` `RewardEngine` + `REWARD_MAP` (per-achievement rewards: skin/trail/music/palette); music rewards span orchestral + unlockable **genre** soundtracks (jazz/pop/rock/rap — `genre` field; equipping re-points the gameplay theme, with a per-genre procedural bed when the file is absent); `onUnlock(id)` = grant handshake (toast + optimistic `user_inventory` insert), Soundtrack/Grids galleries, equip/preview
+- `js/reward-map.js` pure DATA: `REWARD_MAP` (per-achievement rewards: skin/trail/music/palette) + `TRAIL_COL` swatches
+- `js/reward-granting-engine.js` `RewardEngine` (reads `REWARD_MAP` from reward-map.js); music rewards span orchestral + unlockable **genre** soundtracks (jazz/pop/rock/rap — `genre` field; equipping re-points the gameplay theme, with a per-genre procedural bed when the file is absent); `onUnlock(id)` = grant handshake (toast + optimistic `user_inventory` insert), Soundtrack/Grids galleries, equip/preview
 - `js/achievement-sync.js` `AchSync` durable identity: signUp/signIn/OTP wrappers, `_adopt`, `_setProfile`, `pull`/`pullInventory`
 - `js/callsign-filter.js` `CallsignFilter` cross-language (EN↔HE) censorship: `normalizeCallsign(text)`→{latin,hebrew} comparison strings, inline canonical blocklist, `window.debugCensor(text)`; auth-uplink gates on `blocked()` before any cloud write
 - `js/auth-uplink.js` `confirmUsername()` GRID ACCESS modal — one overlay, `_stage` machine (login·signup·signup-code·otp-code·local·callsign)
@@ -42,6 +44,7 @@ synergy → map-system → ui-engine → net → main.
 - `node .claude/skills/neon-survivor/verify-otp.cjs` — after auth-uplink / achievement-sync edits (signup-code · otp-code · instant-resume)
 - `node .claude/skills/neon-survivor/verify-censor.cjs` — after callsign-filter / auth-gate edits (cross-language EN↔HE censorship: blocked · allowed · convergence · `debugCensor`)
 - `node .claude/skills/neon-survivor/verify-fullcycle.cjs` — full identity arc: login → unique callsign → unlock → reward → showcase (`--live` for a real Supabase round-trip)
+- `node .claude/skills/neon-survivor/verify-grid.cjs` — 'Grid-Grade' regression: OTP login → Tier-3 synergy juice (shake/pulse/toast/sting) → gold reward → captured `user_inventory` write
 - `node .claude/skills/neon-survivor/verify-size.cjs` — 28 KB silent-truncation guard for every served `js/*.js`
 
 ## Deploy (Vercel)
@@ -71,4 +74,4 @@ Never push until **all three apply**:
 - **i18n:** every NEW player-visible string gets `tr('…')` at its **display** site (never translate ids/keys) plus a
   `LANG_HE` entry in `js/lang-he.js`; static HTML gets `data-i18n` instead. Hebrew reading direction is CSS-only
   (`html[lang=he] …{direction:rtl}` in style.css) — layout stays LTR. Watch `verify-size.cjs`: lang-he.js grows with
-  every entry, and reward-granting-engine/main sit within ~1 KB of the 28 KB cap.
+  every entry, and main.js (~25 KB) / achievements.js / world.js sit within ~3 KB of the 28 KB cap.
