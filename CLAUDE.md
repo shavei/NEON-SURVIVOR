@@ -46,6 +46,7 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `node .claude/skills/neon-survivor/verify-fullcycle.cjs` — full identity arc: login → unique callsign → unlock → reward → showcase (`--live` for a real Supabase round-trip)
 - `node .claude/skills/neon-survivor/verify-grid.cjs` — 'Grid-Grade' regression: OTP login → Tier-3 synergy juice (shake/pulse/toast/sting) → gold reward → captured `user_inventory` write
 - `node .claude/skills/neon-survivor/verify-size.cjs` — 28 KB silent-truncation guard for every served `js/*.js`
+- `node .claude/skills/neon-survivor/verify-ui-he.cjs` — Hebrew UI snapshot test (headless Chromium via global playwright): boots in `he`, asserts menu + level-up strings/RTL/no-clipping, saves PNGs to `$UIHE_OUT` (or tmp) — run after `lang-he.js` or RTL-CSS edits
 
 ## Deploy (Vercel)
 - `vercel` — build a **preview** deployment
