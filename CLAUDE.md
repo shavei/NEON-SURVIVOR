@@ -20,7 +20,8 @@ synergy → map-system → ui-engine → net → main.
 - `js/sim.js` `update()` (one 1/60 s tick) · `js/render.js` `draw()` (interpolated)
 - `js/rewards.js` `Reward` in-game JUICE facade (shake/pulse) · `js/synergy.js`/`js/map-system.js` evolutions + boss rewards
 - `js/net.js` Supabase scoreboard: `getPlayer`/`savePlayer`/`submitScore`/`fetchTop` (headless/offline-safe, SB=null)
-- `js/main.js` init/wiring, loop, menus, flow, `sanitizeName`, F3 debug overlay
+- `js/main.js` init/wiring, loop, menus, flow, `sanitizeName`, `_perf` state (F3 overlay gate)
+- `js/dev-tools.js` (loads last) console diagnostics: `window.stressTest(n)`, F3 perf overlay (`togglePerf`/`perfFrame`), `window.debugAchievement(id,pct)` — kept out of main/reward-granting-engine for 28 KB headroom
 
 **Identity / achievement / reward stack** (loads after net, before main; all headless/offline-safe):
 `achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine`.
@@ -70,4 +71,4 @@ Never push until **all three apply**:
 - **i18n:** every NEW player-visible string gets `tr('…')` at its **display** site (never translate ids/keys) plus a
   `LANG_HE` entry in `js/lang-he.js`; static HTML gets `data-i18n` instead. Hebrew reading direction is CSS-only
   (`html[lang=he] …{direction:rtl}` in style.css) — layout stays LTR. Watch `verify-size.cjs`: lang-he.js grows with
-  every entry, and reward-granting-engine/main sit within ~1 KB of the 28 KB cap.
+  every entry; run verify-size.cjs to see live headroom for every served file.

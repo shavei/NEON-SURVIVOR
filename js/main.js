@@ -29,7 +29,7 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;  
     if(qc&&qc.classList.contains('show'))qc.classList.remove('show');
     else if(state==='play'||state==='pause')togglePause();}
   if(k==='m')Sound.toggle();
-  if(k==='f3'){e.preventDefault();togglePerf();}   // dev FPS benchmark overlay
+  if(k==='f3'){e.preventDefault();if(typeof togglePerf==='function')togglePerf();}   // dev FPS benchmark overlay (dev-tools.js)
   if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();});
 addEventListener('keyup',e=>{if(e.key)keys[e.key.toLowerCase()]=false;});   // guard e.key (undefined on autofill/IME keyups)
@@ -75,40 +75,9 @@ function updateHUD(elapsed){const p=player;
 }
 function flashHit(){const f=document.getElementById('flash');f.style.transition='none';f.style.opacity='.5';
   requestAnimationFrame(()=>{f.style.transition='opacity .4s';f.style.opacity='0';});}
-/* ===== DEV DEBUG OVERLAY (toggle F3) — perf + live boss state + player stats =====
- * Off by default (zero cost), reads globals only (never mutates sim state, so verify-equiv stays identical).
- * Line 1 perf: fps, avg/worst frame-time, sim ticks-per-frame (proves the accumulator catches up: ~1 at
- *   60 Hz, <1 at 144 Hz), live body count. Lines 2-3 (play only): boss FSM + the upgrade-mutated stats. */
+/* F3 DEV DEBUG OVERLAY state — loop writes ticks, audio/LBSync gate their traces on _perf.on.
+ * The overlay itself (togglePerf/perfFrame) lives in dev-tools.js (loaded last, 28 KB headroom). */
 const _perf={on:false,el:null,n:0,sum:0,worst:0,ticks:0,last:0};
-const _ATK=['BURST','DASH','SLAM','SPIRAL','SPREAD','SUMMON','BLINK'];   // mirrors e.atk dispatch in world.js (0-6: all 3 archetypes, MAELSTROM uses 3/4, OVERSEER 5/0/6)
-function togglePerf(){
-  _perf.on=!_perf.on;
-  if(!_perf.el){const d=document.createElement('div');d.id='perfhud';document.body.appendChild(d);_perf.el=d;}
-  _perf.el.style.display=_perf.on?'block':'none';
-  _perf.last=0;_perf.n=0;_perf.sum=0;_perf.worst=0;}
-// boss line: scan for the live boss, report its FSM sub-state (dash > telegraph > cadence), HP, and music layer
-function _bossLine(){
-  for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.boss){
-    const sub=e.dashT>0?'dash '+e.dashT                          // mid-lunge: ticks left
-      :e.tele>0?'tele '+(e.tele/60).toFixed(2)+'s'               // winding up the telegraph
-      :'cd '+Math.max(0,e.bossT/60).toFixed(2)+'s';              // counting down to next attack
-    return `BOSS active · atk=${_ATK[e.atk]} · ${sub} · hp ${Math.ceil(e.hp)}/${Math.round(e.maxhp)} · music=${Music.bossMode?'BOSS':'NORMAL'}`;}}
-  const nx=Math.max(0,nextBoss-(now-t0)/1000);
-  return `BOSS none · next in ${nx.toFixed(1)}s · music=${Music.bossMode?'BOSS':'NORMAL'}`;}
-// stat line: exactly the player fields the 14 upgrades mutate — watch an upgrade land in real time
-function _statLine(){const p=player;
-  return `DMG ${p.dmg.toFixed(1)} · RATE ${p.rate.toFixed(0)}f (${(60/p.rate).toFixed(1)}/s) · MULTI ${p.multi} · PIERCE ${p.pierce} · SPD ${p.speed.toFixed(2)} · `
-    +`HP ${Math.ceil(p.hp)}/${p.maxhp} · MAG ${Math.round(p.magnet)} · REGEN ${p.regenRate} · RUSH ${p.rushT} · LS ${p.lifesteal} · MSL ${p.missile} · SHLD ${p.shield} · CHN ${p.chain} · Lv${p.level}`;}
-function perfFrame(ts){
-  if(!_perf.on)return;
-  if(_perf.last){const d=ts-_perf.last;_perf.sum+=d;if(d>_perf.worst)_perf.worst=d;_perf.n++;}
-  _perf.last=ts;
-  if(_perf.sum>=200){                        // repaint ~5×/s to avoid its own DOM thrash
-    const avg=_perf.sum/_perf.n,ec=player?enemies.length+bullets.length+orbs.length+particles.length+missiles.length+ebullets.length:0;   // body arrays are undefined until reset() — guard so F3 on the menu doesn't throw out of the rAF loop
-    let txt=`${(1000/avg).toFixed(0)} fps · ${avg.toFixed(1)}ms avg · ${_perf.worst.toFixed(1)}ms max · ${_perf.ticks} tick/f · ${ec} bodies`;
-    if(state==='play'&&player)txt+='\n'+_bossLine()+'\n'+_statLine();   // boss/stat lines need a live run (player exists, t0 set)
-    _perf.el.textContent=txt;                // single write — one reflow, not per-field
-    _perf.n=0;_perf.sum=0;_perf.worst=0;}}
 
 let _wasPlaying=null;   // state-change guard: toggle the cursor class only on transition, not every frame
 function loop(ts){now=ts;
@@ -133,7 +102,7 @@ function loop(ts){now=ts;
     lastTs=0;acc=0;                                    // park the clock; resume seamlessly next play frame
     if((state==='levelup'||state==='pause'||state==='map')&&needsDraw){alpha=1;draw();needsDraw=false;}   // static scene: draw once at the settled position
   }
-  perfFrame(ts);
+  if(typeof perfFrame==='function')perfFrame(ts);   // F3 overlay repaint (dev-tools.js; absent in slim harnesses)
   requestAnimationFrame(loop);}
 function startGame(){
   Sound.init();Sound.resume();Music.start();reset();state='play';

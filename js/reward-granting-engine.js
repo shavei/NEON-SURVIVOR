@@ -301,59 +301,7 @@ const RewardEngine = {
   _init() { if (typeof document === 'undefined') return; this._initTabs(); this.renderTrailGallery(); this.renderTrackGallery(); },
 };
 
-/* ----- DEV verification tool (console) : prove a reward end-to-end -----
- *   debugAchievement('wave_master', 100)             → unlock it + confirm the FULL cycle, then report.
- *   debugAchievement('ghost_grid', 80)               → drive the badge bar to 80% (no unlock) — progress UI.
- *   debugAchievement('wave_master', 100, {live:true})→ also re-pull user_inventory from Supabase and log
- *                                                       whether the reward round-tripped back from the cloud.
- * Confirms each stage of the cycle [earned] → [toast] → [sync] → [showcase] and returns a `cycle` checklist
- * (booleans) + a one-line `summary`, alongside the legacy {unlocked,reward,inMirror,selectable,inventory}
- * fields. Mirror-only + optimistic insert by default — the authoritative server grant only happens through a
- * real online run via /api/verify (or verify-fullcycle.cjs --live), so prod data is safe. */
-if (typeof window !== 'undefined') window.debugAchievement = function (id, pct, opts) {
-  if (typeof Ach === 'undefined' || typeof AchUI === 'undefined') return 'no Ach/AchUI';
-  const d = Ach.CATALOG.find(function (x) { return x.id === id; }); if (!d) return 'unknown achievement: ' + id;
-  if (pct == null) pct = 100;
-  const frac = Math.max(0, Math.min(1, pct / 100));
-  AchUI.mock(id, frac);                            // <100 → bar only; ==100 → mockGrant → _notify → onUnlock hook
-  if (frac < 1) return { id: id, progress: Math.round(frac * 100) + '%', unlocked: false, cycle: { earned: false } };
-
-  // ---- full-cycle proof: [earned] → [toast] → [sync] → [showcase] ----
-  const r = RewardEngine.rewardFor(id), s = Ach._load();
-  const earned = Ach.isUnlocked(id);               // STAGE 1 — local mirror flipped (mockGrant)
-  const toast = !!(AchUI && AchUI.unlockToast);     // STAGE 2 — unlock + reward toast fired (mockGrant→_notify→onUnlock)
-  const inMirror = r ? ((r.kind === 'music' ? (s.tracks || []) : (s.cosmetics || [])).indexOf(r.id) >= 0) : false;
-  let pid = null; try { pid = (typeof getPlayer === 'function') && getPlayer() && getPlayer().id; } catch (e) {}
-  const online = !RewardEngine._invOff && typeof SB !== 'undefined' && !!SB && !!pid;   // STAGE 3 — cloud reachable
-  const inventory = online ? 'insert-sent' : 'mirror-only(offline/no-table)';
-
-  let selectable = false;                          // STAGE 4 — pickable in the Showcase
-  if (r) {
-    if (r.kind === 'music') { RewardEngine.equipMusic(r.id); selectable = RewardEngine.equippedMusic() === r.id; }   // prove it's equippable
-    else if (r.kind === 'palette') { RewardEngine.equipPalette(r.id); selectable = RewardEngine.equippedPalette() === r.id; }   // prove the grid theme equips
-    else if (r.kind === 'skin') selectable = (typeof Skins !== 'undefined' && Skins.owns(r.id));
-    else if (r.kind === 'trail') { RewardEngine.equipTrail(r.id); selectable = RewardEngine.equippedTrail() === r.id; }   // prove the trail equips + renders
-    else selectable = inMirror;
-  }
-  if (typeof Skins !== 'undefined' && Skins.renderGallery) Skins.renderGallery();
-  RewardEngine.renderTrailGallery();
-  RewardEngine.renderTrackGallery();
-  RewardEngine.renderGridGallery();
-
-  // opt-in live confirm: re-pull user_inventory from Supabase and assert the reward round-tripped back
-  if (opts && opts.live && r && online && RewardEngine.pullInventory) {
-    Promise.resolve(RewardEngine.pullInventory()).then(function () {
-      const back = (r.kind === 'music' ? (Ach._load().tracks || []) : (Ach._load().cosmetics || [])).indexOf(r.id) >= 0;
-      try { console.log('[debugAchievement] live sync round-trip for ' + r.id + ' → ' + (back ? 'CONFIRMED in cloud' : 'NOT FOUND (insert pending/blocked)')); } catch (e) {}
-    });
-  }
-
-  const cycle = { earned: earned, toast: toast, sync: online, showcase: selectable };
-  const mk = function (b) { return b ? '✓' : '✗'; };
-  const summary = id + '  ' + mk(earned) + 'earned  ' + mk(toast) + 'toast  ' +
-                  (online ? '✓sync' : '·sync[' + inventory + ']') + '  ' + mk(selectable) + 'showcase';
-  return { id: id, unlocked: earned, toast: toast, reward: r && { kind: r.kind, id: r.id, title: r.title },
-           inMirror: inMirror, selectable: selectable, inventory: inventory, cycle: cycle, summary: summary };
-};
+// window.debugAchievement (the console full-cycle prover) lives in dev-tools.js — loaded last, kept
+// out of THIS file so it stays under the 28 KB silent-truncation threshold.
 
 if (typeof document !== 'undefined') RewardEngine._init();
