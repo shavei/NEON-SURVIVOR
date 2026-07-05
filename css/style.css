@@ -125,7 +125,7 @@
   html[lang=he] .lusub,html[lang=he] .upg p,html[lang=he] .pevorow,html[lang=he] .none,
   html[lang=he] .quitconfirm p,html[lang=he] #toast span,html[lang=he] .pchip,html[lang=he] .pstat,
   html[lang=he] .ach-body,html[lang=he] .achtext,html[lang=he] .skin-card-body,html[lang=he] .unameerr,
-  html[lang=he] #gofeedback,html[lang=he] #authtag,html[lang=he] #cleared{direction:rtl}
+  html[lang=he] #gofeedback,html[lang=he] #authtag,html[lang=he] #cleared,html[lang=he] .luhead{direction:rtl}
   /* achievements grid (main-menu panel) — locked rows dimmed, unlocked glow gold */
   .achlist{display:flex;flex-direction:column;gap:9px;max-height:240px;overflow-y:auto;padding-right:4px}
   .achrow{display:flex;align-items:center;gap:10px;opacity:.4;transition:opacity .2s}
