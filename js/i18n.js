@@ -8,9 +8,10 @@
    then re-translates on every language switch and notifies onChange subscribers. */
 const I18N={
   lang:(function(){try{return localStorage.getItem('neon_lang')==='he'?'he':'en'}catch(e){return 'en'}})(),
+  ov:(function(){try{return JSON.parse(localStorage.getItem('neon_he_ov'))||{}}catch(e){return {}}})(),   // live per-string tweaks (debugLang) — win over LANG_HE
   _subs:[],
   onChange(f){I18N._subs.push(f);},
-  t(s){return (I18N.lang==='he'&&typeof LANG_HE!=='undefined'&&LANG_HE[s])||s;},
+  t(s){return (I18N.lang==='he'&&(I18N.ov[s]||(typeof LANG_HE!=='undefined'&&LANG_HE[s])))||s;},
   setLang(l){ I18N.lang=l==='he'?'he':'en'; try{localStorage.setItem('neon_lang',I18N.lang)}catch(e){} I18N.apply(); },
   toggle(){I18N.setLang(I18N.lang==='he'?'en':'he');},
   apply(){
@@ -30,4 +31,11 @@ const I18N={
   }
 };
 const tr=s=>I18N.t(s);
+/* debugLang() → list live overrides · debugLang('English key','עברית') → try a translation in place (persists
+   in this browser via localStorage) · debugLang('English key',null) → drop it. Permanent edits go in lang-he.js. */
+if(typeof window!=='undefined')window.debugLang=function(en,he){
+  if(en===undefined)return I18N.ov;
+  if(he==null)delete I18N.ov[en];else I18N.ov[en]=String(he);
+  try{localStorage.setItem('neon_he_ov',JSON.stringify(I18N.ov))}catch(e){}
+  I18N.apply();return I18N.ov;};
 document.querySelectorAll('.langbtn').forEach(b=>b.addEventListener('click',()=>I18N.toggle()));

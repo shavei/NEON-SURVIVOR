@@ -10,7 +10,7 @@ must stay **under 28 KB** (a larger file is silently truncated → tail vanishes
 **Game core:** i18n → lang-he → config → config-sim → core → audio-orchestrator → upgrade-logic → world → sim → render → rewards →
 synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `index.html` markup · `css/style.css` · `css/achievements.css` · `css/skins.css`
-- `js/i18n.js` EN⇄HE layer: `I18N` (lang / localStorage `neon_lang` / `apply()` / `onChange`) + global `tr(s)`; static DOM marked `data-i18n`/`data-i18n-html`/`data-i18n-ph`; `.langbtn` toggles it (start·pause·auth overlays)
+- `js/i18n.js` EN⇄HE layer: `I18N` (lang / localStorage `neon_lang` / `apply()` / `onChange`) + global `tr(s)`; static DOM marked `data-i18n`/`data-i18n-html`/`data-i18n-ph`; `.langbtn` toggles it (start·pause·auth overlays); `window.debugLang(en,he)` live per-string override (localStorage `neon_he_ov`, wins over `LANG_HE`; `debugLang(en,null)` drops, `debugLang()` lists)
 - `js/lang-he.js` `LANG_HE` Hebrew dictionary — **exact English display strings are the keys**; missing entry ⇒ English fallback
 - `js/config.js` public Supabase URL + anon key (empty → local-only) · `js/config-sim.js` `BOSSES`/sim tunables
 - `js/core.js` foundation, sprite cache, DIFFS, BOSS, Sound, SynthMusic
@@ -46,6 +46,7 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `node .claude/skills/neon-survivor/verify-fullcycle.cjs` — full identity arc: login → unique callsign → unlock → reward → showcase (`--live` for a real Supabase round-trip)
 - `node .claude/skills/neon-survivor/verify-grid.cjs` — 'Grid-Grade' regression: OTP login → Tier-3 synergy juice (shake/pulse/toast/sting) → gold reward → captured `user_inventory` write
 - `node .claude/skills/neon-survivor/verify-size.cjs` — 28 KB silent-truncation guard for every served `js/*.js`
+- `node .claude/skills/neon-survivor/verify-ui-he.cjs` — Hebrew UI snapshot test (headless Chromium via global playwright): boots in `he`, asserts menu + level-up strings/RTL/no-clipping, saves PNGs to `$UIHE_OUT` (or tmp) — run after `lang-he.js` or RTL-CSS edits
 
 ## Deploy (Vercel)
 - `vercel` — build a **preview** deployment
