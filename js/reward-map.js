@@ -3,8 +3,10 @@
  * so the engine stays under the 28 KB silent-truncation threshold, same data-file pattern as config.js/
  * config-sim.js. Headless-safe: two const tables, zero DOM/SB/localStorage touches. */
 
-/* achievement id → reward. kind ∈ skin | trail | music | palette. For music, `src` is the audio-orchestrator
- * JUKE key previewed/equipped; for palette, `id` is a Theme.PALETTES key (the unlockable map colour scheme).
+/* achievement id → reward. kind ∈ skin | trail | music | palette. For music, `src` is the JUKE key (built
+ * from AUDIO_MANIFEST in audio-manifest.js) previewed/equipped, and `genre` names the AUDIO_MANIFEST genre
+ * the track unlocks (Total Genre Conversion — owning any track of a genre unlocks that whole genre).
+ * For palette, `id` is a Theme.PALETTES key (the unlockable map colour scheme).
  * The 8 gold ids reuse their existing COSMETICS ids byte-for-byte so nothing already granted breaks. MUST stay
  * in lockstep with REWARD_MAP in api/verify.js — verify-achievements.cjs cross-checks the {kind,id,src}
  * projection is identical. title/ico are client-only UI metadata. */
@@ -18,7 +20,7 @@ const REWARD_MAP = {
   high_scorer:       { kind:'palette', id:'aurora_drift',      title:'Aurora Drift',        ico:'🌌' },
   score_legend:      { kind:'skin',  id:'regent',              title:'Regent',              ico:'🟨' },
   neon_god:          { kind:'trail', id:'neon_god_trail',      title:'Neon God Trail',      ico:'✨' },
-  wave_rider:        { kind:'music', id:'midnight_jazz',       title:'Midnight Jazz',       ico:'🎷', src:'jazz',  genre:'Jazz' },
+  wave_rider:        { kind:'music', id:'midnight_jazz',       title:'Midnight Jazz',       ico:'🎷', src:'acoustic', genre:'Acoustic' },
   wave_master:       { kind:'music', id:'maelstrom_waltz',     title:'Maelstrom Waltz',     ico:'🎶', src:'boss1' },
   abyss_walker:      { kind:'skin',  id:'void_warden',         title:'Void Warden',         ico:'🟪' },
   power_surge:       { kind:'trail', id:'surge_arc',           title:'Surge Arc',           ico:'⚡' },
@@ -40,7 +42,7 @@ const REWARD_MAP = {
   weaponsmith:       { kind:'trail', id:'evolver_arc',         title:'Evolver Arc',         ico:'🔩' },
   // ---- speed ----
   power_spike:       { kind:'trail', id:'spike_trail',         title:'Spike Trail',         ico:'📈' },
-  ascendant_rush:    { kind:'music', id:'overdrive_rock',      title:'Overdrive',           ico:'🎸', src:'rock',  genre:'Rock' },
+  ascendant_rush:    { kind:'music', id:'overdrive_rock',      title:'Overdrive',           ico:'🎸', src:'metal', genre:'Metal' },
   blitz:             { kind:'trail', id:'blitz_streak',        title:'Blitz Streak',        ico:'⏱️' },
   killer_instinct:   { kind:'skin',  id:'predator',            title:'Predator',            ico:'🎯' },
   massacre_clock:    { kind:'music', id:'breakbeat_rap',       title:'Breakbeat',           ico:'🎧', src:'rap',   genre:'Rap'  },
@@ -48,8 +50,8 @@ const REWARD_MAP = {
   objector:          { kind:'trail', id:'objector_halo',       title:'Objector Halo',       ico:'✋' },
   pacifist_protocol: { kind:'skin',  id:'radiant_aura',        title:'Radiant Aura',        ico:'☀️' },
   minimalist:        { kind:'skin',  id:'monoline',            title:'Monoline',            ico:'➖' },
-  ascetic:           { kind:'music', id:'ascetic_nocturne',    title:'Ascetic Nocturne',    ico:'🧘', src:'menu'  },
-  bare_bones:        { kind:'music', id:'acoustic_grid',       title:'Acoustic Grid',       ico:'🎵', src:'menu'  },
+  ascetic:           { kind:'music', id:'ascetic_nocturne',    title:'Ascetic Nocturne',    ico:'🎹', src:'classical', genre:'Classical' },
+  bare_bones:        { kind:'music', id:'acoustic_grid',       title:'Acoustic Grid',       ico:'🪕', src:'acoustic',  genre:'Acoustic'  },
   // ---- secret ----
   any_percent:       { kind:'trail', id:'any_percent_blip',    title:'Any% Blip',           ico:'🏁' },
   leet:              { kind:'skin',  id:'leet_chrome',         title:'1337 Chrome',         ico:'😎' },

@@ -18,18 +18,19 @@
 #   boss-overseer  Mussorgsky — Night on Bald Mountain      (dark swarm — OVERSEER)
 #   gameover       Chopin  — Marche funèbre (Funeral March) (somber)
 #
-# Unlockable GENRE soundtracks (achievement rewards — equipping one re-points the gameplay theme):
-#   jazz  Original Dixieland Jass Band — Livery Stable Blues (1917, PD)  → audio/genres/jazz.ogg
-#   pop   public-domain / CC0 upbeat instrumental                       → audio/genres/pop.ogg
-#   rock  public-domain / CC0 driving instrumental                      → audio/genres/rock.ogg
-#   rap   public-domain / CC0 boom-bap / hip-hop instrumental           → audio/genres/rap.ogg
-# PD/CC0 pop/rock/rap is sparse on Wikimedia Commons, so those queries may print "no match" — that's
-# expected. Drop your own CC0 file at the target path (e.g. audio/genres/rock.ogg) from a CC0 library
-# (Pixabay Music, Free Music Archive's CC0 set, ccMixter) and the engine will use it.
+# Unlockable GENRE soundtracks (achievement rewards — Total Genre Conversion). Each genre lives in
+# audio/genres/<genre>/ with slots wave · menu · boss-revenant · boss-maelstrom · boss-overseer (see
+# js/audio-manifest.js, THE registry — its paths end .mp3; if you drop .ogg, update the manifest path):
+#   acoustic/wave   Original Dixieland Jass Band — Livery Stable Blues (1917, PD)
+#   classical/wave  Chopin — Nocturne (calm PD piano)
+#   pop/wave · metal/wave · rap/wave   public-domain / CC0 instrumentals
+# PD/CC0 pop/metal/rap is sparse on Wikimedia Commons, so those queries may print "no match" — that's
+# expected. Drop your own CC0 file at the target path (e.g. audio/genres/metal/wave.mp3) from a CC0
+# library (Pixabay Music, Free Music Archive's CC0 set, ccMixter) and the engine will use it.
 #
 # Don't like a pick? Edit the search query in PIECES/GENRES below, or just drop your own PD/CC0 file at
 # the target path (e.g. audio/orchestral/menu.ogg) and the engine will use it. Missing files fall back to
-# the built-in procedural bed (orchestral, or a per-genre swing/pop/rock/rap bed), so the game always has music.
+# the built-in procedural bed (orchestral, or the per-genre beds in js/audio-manifest.js), so the game always has music.
 
 set -uo pipefail
 cd "$(dirname "$0")"
@@ -49,12 +50,13 @@ PIECES=(
   "gameover|Chopin Funeral March marche funebre"
 )
 
-# unlockable genre soundtracks → audio/genres/<name>.ogg  (PD/CC0 only; sparse → may need a manual drop)
+# unlockable genre soundtracks → audio/genres/<genre>/<slot>.ogg  (PD/CC0 only; sparse → may need a manual drop)
 GENRES=(
-  "jazz|Original Dixieland Jass Band Livery Stable Blues"
-  "pop|public domain pop instrumental"
-  "rock|public domain rock instrumental"
-  "rap|public domain hip hop instrumental beat"
+  "acoustic/wave|Original Dixieland Jass Band Livery Stable Blues"
+  "classical/wave|Chopin Nocturne piano"
+  "pop/wave|public domain pop instrumental"
+  "metal/wave|public domain rock instrumental"
+  "rap/wave|public domain hip hop instrumental beat"
 )
 
 fetch_one() {
@@ -75,6 +77,7 @@ fetch_one() {
     | (.[0] | "\(.url) \(.lic|gsub(" ";"_")) \(.title|gsub(" ";"_"))") // "NONE NONE NONE"')
   [ "$url" = "NONE" ] && { echo "   ! no PD/CC0 audio match — edit the query or supply $dir/$name.ogg by hand"; return 1; }
   echo "   ✓ $title  [$lic]"
+  mkdir -p "$dir/$(dirname "$name")"   # per-genre subfolders (name may be e.g. acoustic/wave)
   local tmp; tmp=$(mktemp); curl -fsSL -A "$UA" "$url" -o "$tmp" || { echo "   ! download failed"; rm -f "$tmp"; return 1; }
   # transcode → loudness-normalized stereo OGG Vorbis (~128 kbps); normalize so tracks sit at even volume
   ffmpeg -y -loglevel error -i "$tmp" -ac 2 -ar 44100 -c:a libvorbis -qscale:a 4 \

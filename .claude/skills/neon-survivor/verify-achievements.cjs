@@ -23,7 +23,7 @@ g.setInterval = () => 1; g.clearInterval = () => {}; g.setTimeout = () => 1; g.c
 g.performance = { now: () => 0 }; g.devicePixelRatio = 1; g.innerWidth = 800; g.innerHeight = 600;
 g.AudioContext = function () { return any; }; g.webkitAudioContext = g.AudioContext; g.matchMedia = () => ({ matches: false, addEventListener() {} });
 
-try { eval(script + ';globalThis.Ach=Ach;globalThis.COSMETIC_MAP=COSMETIC_MAP;globalThis.COSMETICS=COSMETICS;globalThis.REWARD_MAP=REWARD_MAP;'); }
+try { eval(script + ';globalThis.Ach=Ach;globalThis.COSMETIC_MAP=COSMETIC_MAP;globalThis.COSMETICS=COSMETICS;globalThis.REWARD_MAP=REWARD_MAP;globalThis.Orchestra=Orchestra;'); }
 catch (e) { console.error('LOAD ERROR:', e.message); process.exit(1); }
 const server = require(path.join(ROOT, 'api/verify.js'));
 const Ach = g.Ach;
@@ -141,7 +141,7 @@ if (RM && sRM) {
     if (r) {
       ok(['skin', 'trail', 'music', 'palette'].includes(r.kind), 'valid reward kind for ' + d.id);
       ok(!rseen[r.id], 'unique reward id ' + r.id + ' (' + d.id + ')'); rseen[r.id] = 1;
-      if (r.kind === 'music') ok(['menu', 'play', 'boss0', 'boss1', 'boss2', 'over', 'jazz', 'pop', 'rock', 'rap'].includes(r.src), 'valid music src for ' + d.id);
+      if (r.kind === 'music') ok(!!(g.Orchestra && g.Orchestra.JUKE[r.src]), 'valid music src for ' + d.id + ' (JUKE key from AUDIO_MANIFEST)');
     }
   });
   // 7b) no orphan reward keys (every REWARD_MAP key is a real achievement)
