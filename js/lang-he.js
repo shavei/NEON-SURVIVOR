@@ -177,9 +177,9 @@ const LANG_HE={
 'Orchestral':'תזמורתי','Unlock:':'לפתיחה:',
 'Projectile trail':'שביל קליעים','Stock neon hull':'גוף הניאון המקורי','Hull cosmetic':'קוסמטיקת גוף',
 'Gold-tier reward':'פרס דרגת זהב','Cosmic Nebula':'ערפילית קוסמית','No Trail':'בלי שביל','Default Hull':'גוף ברירת מחדל',
-'Jazz':'ג׳אז','Pop':'פופ','Rock':'רוק','Rap':'ראפ',
+'Pop':'פופ','Rap':'ראפ','Classical':'קלאסי','Metal':'מטאל','Acoustic':'אקוסטי','Music Sync':'סנכרון מוזיקלי',
 /* --- Total Genre Conversion: Warden titles + Full Sync retheme toast --- */
-'WARDEN PROTOCOL':'פרוטוקול השומר','MIDNIGHT SET':'סט של חצות','HEADLINER':'כוכב ראשי','MAIN STAGE':'הבמה הראשית','FINAL VERSE':'הבית האחרון',
+'WARDEN PROTOCOL':'פרוטוקול השומר','MIDNIGHT SET':'סט של חצות','HEADLINER':'כוכב ראשי','MAIN STAGE':'הבמה הראשית','FINAL VERSE':'הבית האחרון','GRAND RECITAL':'רסיטל גדול',
 '⚡ FULL SYNC':'⚡ סנכרון מלא','grid conversion':'המרת רשת',
 /* --- cosmetic / track titles --- */
 'First Blood Spark':'ניצוץ דם ראשון','Swarm Pulse':'פעימת נחיל','Legionnaire':'לגיונר','Crimson Husk':'קליפה ארגמנית',

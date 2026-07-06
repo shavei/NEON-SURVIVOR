@@ -73,6 +73,10 @@
   .diff:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
   .diff.on{color:#0b0c12;background:var(--dc,#ffd95e);border-color:var(--dc,#ffd95e)}
   .diffhint{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:13px;min-height:16px}
+  /* Music Sync readout — active genre on the start menu + pause overlay (filled by GenreOrchestrator.syncUI) */
+  .genresync{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--muted);margin-top:10px;min-height:15px}
+  .genresync b{color:#54e6ff;font-weight:700}
+  .genresync .gs-ico{filter:saturate(1.4)}
 
   /* main-menu info panels */
   #start .title{font-size:clamp(1.7rem,5.5vw,3.4rem)}
