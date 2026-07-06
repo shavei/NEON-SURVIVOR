@@ -880,7 +880,7 @@ const Music = {
 /* ========== STATE ENGINE ========== */
 let state='start';
 let player,enemies,bullets,orbs,particles,floats,missiles,bolts,items,ebullets;
-let nextBoss=60,bossOn=false,_test=false;   // _test: Test Mode (one-hit bosses, manual spawn — key B)
+let nextBoss=60,bossOn=false,bossN=0,_test=false;   // _test: Test Mode (one-hit bosses, manual spawn — key B)
 let t0,now,score,wave,spawnTimer,itemTimer,shake,frame,kills,pauseStart=0,pendingLevels=0;
 let best=+(localStorage.getItem('neon_best')||0);
 let _eid=0;   // monotonically rising enemy id (stable handle for each spawned body)
@@ -1006,7 +1006,7 @@ function reset(){
   enemies=[];bullets=[];orbs=[];particles=[];floats=[];missiles=[];bolts=[];items=[];ebullets=[];
   for(const k in Up)delete Up[k];           // clear upgrade tracker so PLAY AGAIN starts fresh
   score=0;wave=1;spawnTimer=0;itemTimer=900;shake=0;frame=0;kills=0;pendingLevels=0;t0=performance.now();
-  nextBoss=60;bossOn=false;
+  nextBoss=60;bossOn=false;bossN=0;
   Fx.music('reset');   // clear boss track (real + synth) if last run died mid-fight
 
   cam.x=clamp(player.x-W/2,0,Math.max(0,WORLD.w-W));
@@ -1037,7 +1037,7 @@ function spawnEnemy(fType,fx,fy){
     spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type});
 }
 function spawnBoss(){
-  const elapsed=(now-t0)/1000,tier=Math.max(1,Math.round(elapsed/60));
+  const elapsed=(now-t0)/1000,tier=++bossN;
   const bt=(tier-1)%BOSSES.length,B=BOSSES[bt];        // archetype rotates each wave: REVENANT → MAELSTROM → OVERSEER → …
   const A=spawnAnchor();
   const ang=srand(0,6.283),d=Math.max(W,H)*.62;
@@ -1052,13 +1052,13 @@ function spawnBoss(){
   Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss');
 }
 // cooldown till the next telegraph, tightening with tier
-function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-Math.floor((now-t0)/1000/60)*8);}
+function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-bossN*8);}
 // advance to the next move in this boss's looping sequence + reset the cadence. Instant attacks call this
 // inline; multi-tick ones (dash/spiral) call it when their state expires in the sim.js movement loop.
 function bossNext(e){e.si=(e.si+1)%e.seq.length;e.atk=e.seq[e.si];e.bossT=bossCD();}
 // fired when the telegraph (e.tele) expires — dispatch by e.atk (id table in config-sim.js BOSS).
 function bossAttack(e){
-  const tier=Math.max(1,Math.round((now-t0)/1000/60));
+  const tier=Math.max(1,bossN);
   if(e.atk===0){                                   // 0) BURST — aimed radial ring
     const n=10+Math.min(10,tier*2),base=Math.atan2(player.y-e.y,player.x-e.x);
     for(let k=0;k<n;k++){const a=base+k/n*6.283;

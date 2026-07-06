@@ -59,9 +59,9 @@ function update(){
 
   const elapsed=(now-t0)/1000;
   // Enemy spawning — fixed difficulty curve: interval tightens over time, batch size grows with elapsed minutes.
-  if(breatherT>0)breatherT--;const breath=breatherT>0?5:1;   // post-boss breather: 0.2× spawn rate ⇒ 5× interval
-  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1)*breath;
-  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)*(breatherT>0?0.2:1)));
+  if(breatherT>0)breatherT--;const bf=breatherT>0?breatherT/BOSS.breatherT:0;   // post-boss ramp fraction: 1 at kill → 0 over 30 s (spawns ease back in, no instant flood)
+  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1)*(1+bf*5);
+  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)*(1-bf*.8)));
     for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
   if(!bossOn&&elapsed>=nextBoss)spawnBoss();   // boss waves (first at 60s)
 
