@@ -5,8 +5,8 @@
 /* ========== STATE ENGINE ========== */
 let state='start';
 let player,enemies,bullets,orbs,particles,floats,missiles,bolts,items,ebullets;
-let nextBoss=60,bossOn=false,_test=false;   // _test: Test Mode (one-hit bosses, manual spawn — key B)
-let breatherT=0;   // post-boss "breather": ticks remaining of throttled (0.2×) spawning after a boss falls
+let nextBoss=60,bossOn=false,bossN=0,_test=false;   // bossN: sequential boss counter (drives tier/archetype) · _test: Test Mode (one-hit bosses, manual spawn — key B)
+let breatherT=0;   // post-boss "breather": ticks left of the spawn ramp-back (heavy throttle at kill, easing to normal)
 let t0,now,score,wave,spawnTimer,itemTimer,shake,frame,kills,pauseStart=0,pendingLevels=0;
 let best=+(localStorage.getItem('neon_best')||0);
 let _eid=0;   // monotonically rising enemy id (stable handle for each spawned body)
@@ -143,7 +143,7 @@ function reset(){
   enemies=[];bullets=[];orbs=[];particles=[];floats=[];missiles=[];bolts=[];items=[];ebullets=[];
   for(const k in Up)delete Up[k];           // clear upgrade tracker so PLAY AGAIN starts fresh
   score=0;wave=1;spawnTimer=0;itemTimer=900;shake=0;frame=0;kills=0;pendingLevels=0;t0=performance.now();
-  nextBoss=60;bossOn=false;breatherT=0;
+  nextBoss=60;bossOn=false;bossN=0;breatherT=0;
   player.evo={};                                   // clear evolved-weapon flags so PLAY AGAIN starts fresh
   if(typeof Nav!=='undefined')Nav.reset();         // drop any pending map from a run that ended mid-beat
   Fx.music('reset');   // clear boss track (real + synth) if last run died mid-fight
@@ -177,7 +177,7 @@ function spawnEnemy(fType,fx,fy){
     spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type});
 }
 function spawnBoss(){
-  const elapsed=(now-t0)/1000,tier=Math.max(1,Math.round(elapsed/60));
+  const elapsed=(now-t0)/1000,tier=++bossN;            // sequential counter — time-derived tiers skipped/repeated archetypes when fights ran long
   const bt=(tier-1)%BOSSES.length,B=BOSSES[bt];        // archetype rotates each wave: REVENANT → MAELSTROM → OVERSEER → …
   const A=spawnAnchor();
   const ang=srand(0,6.283),d=Math.max(W,H)/VIEW*.62;   // /VIEW keeps boss spawn off-screen when zoomed out
@@ -192,13 +192,13 @@ function spawnBoss(){
   Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss',bt);   // bt selects this archetype's epic theme
 }
 // cooldown till the next telegraph, tightening with tier
-function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-Math.floor((now-t0)/1000/60)*8);}
+function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-bossN*8);}
 // advance to the next move in this boss's looping sequence + reset the cadence. Instant attacks call this
 // inline; multi-tick ones (dash/spiral) call it when their state expires in the sim.js movement loop.
 function bossNext(e){e.si=(e.si+1)%e.seq.length;e.atk=e.seq[e.si];e.bossT=bossCD();}
 // fired when the telegraph (e.tele) expires — dispatch by e.atk (id table in config-sim.js BOSS).
 function bossAttack(e){
-  const tier=Math.max(1,Math.round((now-t0)/1000/60));
+  const tier=Math.max(1,bossN);
   if(e.atk===0){                                   // 0) BURST — aimed radial ring
     const n=10+Math.min(10,tier*2),base=Math.atan2(player.y-e.y,player.x-e.x);
     for(let k=0;k<n;k++){const a=base+k/n*6.283;
@@ -275,7 +275,7 @@ function killEnemy(e,col){
   score+=e.sc;kills++;
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Fx.music('exitBoss');   // next boss 50s after this one falls; music back to normal track
-    breatherT=900;   // 15 s (900 ticks) breather: spawns drop to 0.2× so the arena clears for a beat
+    breatherT=BOSS.breatherT;   // 30 s ramp: spawns start at 0.2× and ease linearly back to full so the arena clears for a beat
     if(typeof Reward!=='undefined')Reward.pulse('#54e6b5');floatText(e.x,e.y-54,tr('CLEARED'),'#54e6b5');   // neon CLEARED announcement (banner driven by breatherT in updateHUD)
     if(typeof Ach!=='undefined')Ach.onBossKill((now-t0)/1000);   // achievements: count Wardens + flawless/fast-kill intent
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);

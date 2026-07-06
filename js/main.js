@@ -69,8 +69,8 @@ function updateHUD(elapsed){const p=player;
   if(frac<.35){const sev=Math.round((0.35-frac)/0.35*10)/10;
     if(_hud.low!==sev){HUD.lowhp.style.setProperty('--sev',sev);HUD.lowhp.classList.add('danger');_hud.low=sev;}}
   else if(_hud.low!==-1){HUD.lowhp.classList.remove('danger');HUD.lowhp.style.opacity='';_hud.low=-1;}
-  // post-boss CLEARED banner: visible exactly while the breather window is open (toggle only on change)
-  const onB=(typeof breatherT!=='undefined')&&breatherT>0;
+  // post-boss CLEARED banner: first 15 s of the ramp only — the tail of the 30 s ease-back shouldn't keep it up (toggle only on change)
+  const onB=(typeof breatherT!=='undefined')&&breatherT>((typeof BOSS!=='undefined'?BOSS.breatherT:1800)-900);
   if(onB!==_hud.cleared){if(HUD.cleared)HUD.cleared.classList.toggle('show',onB);_hud.cleared=onB;}
 }
 function flashHit(){const f=document.getElementById('flash');f.style.transition='none';f.style.opacity='.5';

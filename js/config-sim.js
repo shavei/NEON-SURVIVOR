@@ -37,7 +37,9 @@ const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedB
   spiralTicks:48,spiralRot:.3,spiralSpd:3.2,spreadN:7,spreadArc:.95,spreadSpd:4.4,   // MAELSTROM: rotating storm + aimed cone
   summonN:6,blinkDist:240,                                            // OVERSEER: drone warp-in count + blink range
   // spawn throttle while a boss is alive: much longer interval + smaller batches (focus the fight on the boss)
-  spawnMul:5,spawnCountMul:0.3};
+  spawnMul:5,spawnCountMul:0.3,
+  // post-boss breather: ticks of the linear spawn ramp-back (heavy throttle at kill → normal rate at 0)
+  breatherT:1800};
 // Three distinct boss archetypes, cycled by tier ((tier-1)%3). Each has its own colour, polygon, HP/speed
 // scaling and a looping attack sequence (atk ids above) — REVENANT brawls, MAELSTROM zones, OVERSEER swarms.
 const BOSSES=[
