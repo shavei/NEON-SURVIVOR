@@ -224,7 +224,8 @@ function renderGlobal(diff){_gdiff=diff;
 /* leaderboard-sync.js calls this when any difficulty's rows land → repaint only if it's the visible tab */
 function onLeaderboardUpdate(diff){if(diff===_gdiff)renderGlobal(diff);}
 function onSupabaseReady(){if(typeof LBSync!=='undefined')LBSync.syncAll(true);renderGlobal(_gdiff);   // SDK connected → re-warm every board
-  if(typeof AchSync!=='undefined'&&AchSync.enabled())AchSync.resolveSession();}   // …and resolve the auth session (restore identity + pull achievements)
+  if(typeof AchSync!=='undefined'&&AchSync.enabled())AchSync.resolveSession();   // …and resolve the auth session (restore identity + pull achievements)
+  if(state==='play'&&typeof Ach!=='undefined'&&Ach.openToken)Ach.openToken();}   // …and if the SDK connected mid-run, anchor the token so THIS run still reaches the cloud
 document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.remove('on'));b.classList.add('on');
   renderGlobal(b.dataset.d);});
@@ -256,6 +257,7 @@ function showMenu(){
   dismissToasts();   // and any in-flight toast
   _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
   syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);   // re-warm stale boards; instant if fresh
+  if(typeof AchSync!=='undefined'&&AchSync.ready&&AchSync.ready())AchSync.pull();   // re-pull cloud achievements earned on another device (cross-device freshness without a restart)
   if(typeof Music!=='undefined')Music.menu();}   // chill menu theme (audio must already be unlocked by a prior gesture)
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';   // showMenu() swaps to the chill menu theme
