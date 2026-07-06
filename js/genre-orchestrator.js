@@ -25,10 +25,10 @@ const GENRE_BOSS_JUKE = {
 /* …and the procedural boss bed each falls back to when its file is absent — darker/faster twist on that
  * genre's wave bed (same TRACKS schema: bpm + chord prog + bass roots (MIDI) + drive/ostinato). */
 const GENRE_BOSS_BEDS = {
-  bossjazz:{ bpm:148, prog:[[55,58,62,65],[53,56,60,63],[51,55,58,62],[50,53,57,60]], bass:[31,29,27,26], drive:true,  ostinato:false },  // frantic minor-7th bebop chase
-  bosspop: { bpm:138, prog:[[57,60,64],[53,57,60],[55,59,62],[52,55,59]],             bass:[33,29,31,28], drive:true,  ostinato:true  },  // minor-key anthem drop
-  bossrock:{ bpm:168, prog:[[52,59,64],[50,57,62],[51,58,63],[48,55,60]],             bass:[28,26,27,24], drive:true,  ostinato:true  },  // thrash power-chord descent
-  bossrap: { bpm:98,  prog:[[53,56,60],[51,55,58],[50,53,57],[48,51,55]],             bass:[29,27,26,24], drive:false, ostinato:true  },  // menacing half-time low end
+  bossjazz:{ bpm:160, prog:[[55,58,62,65],[53,56,60,63],[51,55,58,62],[50,53,57,60]], bass:[31,29,27,26], drive:true,  ostinato:true  },  // frantic minor-7th bebop chase, walking-bass sprint
+  bosspop: { bpm:150, prog:[[57,60,64],[53,57,60],[55,59,62],[52,55,59]],             bass:[33,29,31,28], drive:true,  ostinato:true  },  // minor-key anthem drop, full-tilt
+  bossrock:{ bpm:184, prog:[[52,59,64],[50,57,62],[51,58,63],[48,55,60]],             bass:[28,26,27,24], drive:true,  ostinato:true  },  // thrash power-chord descent, blast tempo
+  bossrap: { bpm:104, prog:[[53,56,60],[51,55,58],[50,53,57],[48,51,55]],             bass:[29,27,26,24], drive:false, ostinato:true  },  // menacing half-time low end, pushed
 };
 if(typeof Orchestra!=='undefined'){Object.assign(Orchestra.JUKE,GENRE_BOSS_JUKE);Object.assign(Orchestra.TRACKS,GENRE_BOSS_BEDS);}   // register the boss slots with the jukebox + composer
 

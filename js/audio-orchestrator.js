@@ -40,11 +40,11 @@ const Orchestra = {
   },
   // intensity i(0..1) + danger + boss → section gain (procedural vertical remix). Tune here, not the loop.
   MIX: {
-    strings: (i, d, b) => 0.85 + 0.15 * i,
+    strings: (i, d, b) => b ? 1 : 0.85 + 0.15 * i,
     winds:   (i, d, b) => clamp((i - 0.20) / 0.40, 0, 1),
     brass:   (i, d, b) => b ? 0.70 + 0.30 * i : clamp((i - 0.55) / 0.35, 0, 1),
     timpani: (i, d, b) => b ? 1 : clamp((i - 0.45) / 0.40, 0, 1),
-    choir:   (i, d, b) => d ? 0.90 : clamp((i - 0.75) / 0.25, 0, 1) * 0.5,
+    choir:   (i, d, b) => (b || d) ? 0.90 : clamp((i - 0.75) / 0.25, 0, 1) * 0.5,
   },
   LAYERS: ['strings', 'winds', 'brass', 'timpani', 'choir'],
 
@@ -65,7 +65,7 @@ const Orchestra = {
   _intensity() {
     const en = (typeof enemies !== 'undefined' && enemies) ? enemies.length : 0;
     let i = clamp(en / 25, 0, 1);
-    if (this.active === 'boss') i = Math.max(i, 0.85);
+    if (this.active === 'boss') i = 1;   // boss overdrive: every section at full throttle for the whole fight
     const lowhp = (typeof player !== 'undefined' && player && typeof state !== 'undefined' && state !== 'start') ? clamp(1 - player.hp / player.maxhp, 0, 1) : 0;
     return { i, danger: lowhp > 0.7 };
   },
@@ -199,6 +199,8 @@ const Orchestra = {
       if (T.drive ? idx % 2 === 0 : idx === 0) { this._v('brass', this._mtof(set[0] + 12), t, stepDur * 2.2, 'sawtooth', 0.05, 0.06); this._v('brass', this._mtof(set[2] + 12), t, stepDur * 2.2, 'square', 0.028, 0.07); }
       if (idx === 0 || idx === 4) this._timp('timpani', t, root - 12, 0.6);
       if (T.ostinato && (idx === 2 || idx === 6)) this._timp('timpani', t, root - 12, 0.4);
+      if (this.active === 'boss' && !this._realActive) { if (idx % 2 === 1) this._timp('timpani', t, root - 12, 0.35);   // boss overdrive: 8th-note war drums…
+        this._v('brass', this._mtof(set[idx % set.length] + 24), t, stepDur * 0.7, 'square', 0.022, 0.008); }            // …+ shrill top-octave stab on every step
       if (idx === 0) this._v('choir', this._mtof(set[set.length - 1] + 12), t, stepDur * 16, 'sine', 0.05, 0.55);
       this.step = (this.step + 1) % 64; this.nextTime += stepDur;
     }
@@ -208,7 +210,7 @@ const Orchestra = {
     const ac = Sound.ac, { i, danger } = this._intensity(); this._i = i; const boss = this.active === 'boss';
     const mute = this._realActive ? 0 : 1;       // silence the procedural bed under a live real track
     for (const L of this.LAYERS) { const tgt = clamp((this.MIX[L] || (() => 1))(i, danger, boss), 0, 1) * 0.9 * mute; g.layers[L].gain.setTargetAtTime(tgt, ac.currentTime, 0.5); }
-    const cut = this._realActive ? (danger ? 900 : 8000) : (danger ? 700 : (boss ? 1500 : 1100) + i * 3000);   // real mix stays open except on danger
+    const cut = this._realActive ? (danger ? 900 : 8000) : (danger ? 700 : (boss ? 2600 : 1100) + i * 3000);   // real mix stays open except on danger; boss bed runs bright + aggressive
     g.filter.frequency.setTargetAtTime(cut, ac.currentTime, 0.35);
   },
   _sting(kind) {                                 // one-shot orchestral overlay on the sting bus; no state change
