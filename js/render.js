@@ -67,7 +67,7 @@ function draw(){
   const trailCol=(typeof RewardEngine!=='undefined'&&RewardEngine.equippedTrailColor)?RewardEngine.equippedTrailColor():null;
   if(trailCol){ctx.lineCap='round';ctx.shadowColor=trailCol;ctx.shadowBlur=12;
     for(let i=0;i<bLen;i++){const b=bullets[i];const sp=Math.hypot(b.vx,b.vy)||1;
-      const bx=ix(b),by=iy(b),tl=Math.min(b.r*7+sp*1.6,Math.hypot(bx-b.sx,by-b.sy));   // clamp streak to distance flown so the tail never reaches back into the ship at the muzzle
+      const bx=ix(b),by=iy(b),tl=Math.min(b.r*10.5+sp*2.4,Math.hypot(bx-b.sx,by-b.sy));   // clamp streak to distance flown so the tail never reaches back into the ship at the muzzle
       if(tl<1)continue;                                                                  // freshly-fired bolt sits on the player → no streak yet (this blob was flashing the ship)
       const tx=bx-b.vx/sp*tl,ty=by-b.vy/sp*tl;
       const grd=ctx.createLinearGradient(tx,ty,bx,by);grd.addColorStop(0,'transparent');grd.addColorStop(1,trailCol);   // fade from tail → bullet
@@ -146,7 +146,7 @@ function draw(){
     ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(ix(near)-ipx,iy(near)-ipy);ctx.stroke();ctx.setLineDash([]);}
   const sp=Math.hypot(p.vx,p.vy);
   if(sp>.4){const ta=Math.atan2(p.vy,p.vx)+Math.PI;ctx.save();ctx.rotate(ta);
-    const fl=9+sp*3+Math.sin(frame*.7)*3;ctx.shadowBlur=16;ctx.shadowColor='#ffb04f';
+    const fl=13.5+sp*4.5+Math.sin(frame*.7)*3;ctx.shadowBlur=16;ctx.shadowColor='#ffb04f';
     const fg=ctx.createLinearGradient(p.r-2,0,p.r-2+fl+6,0);fg.addColorStop(0,'rgba(255,225,120,.95)');fg.addColorStop(1,'rgba(255,90,60,0)');
     ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(p.r-3,5);ctx.lineTo(p.r-3+fl+6,0);ctx.lineTo(p.r-3,-5);ctx.closePath();ctx.fill();ctx.restore();ctx.shadowBlur=0;}
   ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r,typeof Skins!=='undefined'?Skins.equipped():null);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
