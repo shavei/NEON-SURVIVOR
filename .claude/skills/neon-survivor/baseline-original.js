@@ -1356,7 +1356,7 @@ function update(){
         ebullets.push({x:e.x,y:e.y,vx:Math.cos(a)*BOSS.spiralSpd,vy:Math.sin(a)*BOSS.spiralSpd,r:7,dmg:e.dmg*BOSS.projDmg,life:200});}
       e.spinA+=BOSS.spiralRot;if(--e.spin<=0)bossNext(e);}        // storm done → advance sequence
     else{e.x+=ux*e.spd;e.y+=uy*e.spd;
-      if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%2===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
+      if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
         particles.push({x:e.px,y:e.py,vx:-ux*.3,vy:-uy*.3,r:rand(1.4,2.6),life:rand(10,18),col:'#ff9d2e'});
       if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}      // telegraph expired → dispatch attack[e.atk]
         else if(--e.bossT<=0){e.tele=BOSS.teleT;Fx.sfx('ping');}}}   // cadence elapsed → start wind-up telegraph
