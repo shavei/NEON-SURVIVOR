@@ -24,10 +24,11 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `js/main.js` init/wiring, loop, menus, flow, `sanitizeName`
 
 **Identity / achievement / reward stack** (loads after net, before main; all headless/offline-safe):
-`achievements → achievements-ui → reward-map → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine`.
+`achievements → achievements-ui → reward-map → genre-orchestrator → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine`.
 - `js/achievements.js` `Ach` catalog + local mirror, `evaluate`, `_grantRewards`, `mockGrant`
 - `js/achievements-ui.js` `AchUI` gallery + non-pausing unlock toasts; `unlockToast(id)` → fires the reward handshake
 - `js/reward-map.js` pure DATA: `REWARD_MAP` (per-achievement rewards: skin/trail/music/palette) + `TRAIL_COL` swatches
+- `js/genre-orchestrator.js` Total Genre Conversion 'Director': `GENRE_MAP` (genre → menu/wave/boss JUKE keys + Warden title the boss toast shows), per-genre BOSS jukebox slots (`audio/genres/<g>-boss.mp3`, absent → per-genre procedural boss bed; both merged into `Orchestra` at load), `rethemeGrid()` live retheme (fired by `equipMusic`; broadcasts a `rethemeGrid` CustomEvent), `window.debugGenre(id)` thematic-swap audit; `Orchestra._resolve`/`_bed` delegate here (null = legacy path)
 - `js/reward-granting-engine.js` `RewardEngine` (reads `REWARD_MAP` from reward-map.js); music rewards span orchestral + unlockable **genre** soundtracks (jazz/pop/rock/rap — `genre` field; equipping re-points the gameplay theme, with a per-genre procedural bed when the file is absent); `onUnlock(id)` = grant handshake (toast + optimistic `user_inventory` insert), Soundtrack/Grids galleries, equip/preview
 - `js/achievement-sync.js` `AchSync` durable identity: signUp/signIn/OTP wrappers, `_adopt`, `_setProfile`, `pull`/`pullInventory`
 - `js/callsign-filter.js` `CallsignFilter` cross-language (EN↔HE) censorship: `normalizeCallsign(text)`→{latin,hebrew} comparison strings, inline canonical blocklist, `window.debugCensor(text)`; auth-uplink gates on `blocked()` before any cloud write

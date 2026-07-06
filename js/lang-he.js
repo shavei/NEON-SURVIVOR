@@ -178,6 +178,9 @@ const LANG_HE={
 'Projectile trail':'שביל קליעים','Stock neon hull':'גוף הניאון המקורי','Hull cosmetic':'קוסמטיקת גוף',
 'Gold-tier reward':'פרס דרגת זהב','Cosmic Nebula':'ערפילית קוסמית','No Trail':'בלי שביל','Default Hull':'גוף ברירת מחדל',
 'Jazz':'ג׳אז','Pop':'פופ','Rock':'רוק','Rap':'ראפ',
+/* --- Total Genre Conversion: Warden titles + Full Sync retheme toast --- */
+'WARDEN PROTOCOL':'פרוטוקול השומר','MIDNIGHT SET':'סט של חצות','HEADLINER':'כוכב ראשי','MAIN STAGE':'הבמה הראשית','FINAL VERSE':'הבית האחרון',
+'⚡ FULL SYNC':'⚡ סנכרון מלא','grid conversion':'המרת רשת',
 /* --- cosmetic / track titles --- */
 'First Blood Spark':'ניצוץ דם ראשון','Swarm Pulse':'פעימת נחיל','Legionnaire':'לגיונר','Crimson Husk':'קליפה ארגמנית',
 'Aurora Drift':'סחף זוהר','Regent':'עוצר','Neon God Trail':'שביל אל הניאון','Midnight Jazz':'ג׳אז של חצות',
