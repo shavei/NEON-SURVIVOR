@@ -87,7 +87,8 @@ const RewardEngine = {
   equipMusic(id) {
     if (id && !this.owns(id)) return false;                  // can't equip what you don't own (id '' = default theme)
     try { if (id) localStorage.setItem(this._trackKey(), id); else localStorage.removeItem(this._trackKey()); } catch (e) {}
-    if (typeof Music !== 'undefined' && Music.stopPreview) Music.stopPreview();   // hush any preview; the new theme applies on the next start/reset
+    if (typeof Music !== 'undefined' && Music.stopPreview) Music.stopPreview();   // hush any preview before the retheme crossfade
+    if (typeof GenreOrchestrator !== 'undefined' && GenreOrchestrator.rethemeGrid) GenreOrchestrator.rethemeGrid();   // Total Genre Conversion: retheme the live audio + broadcast 'rethemeGrid' instantly
     this.renderTrackGallery();
     if (id && typeof AchUI !== 'undefined' && AchUI._push) {
       const d = this.musicDefs().find(function (m) { return m.id === id; });

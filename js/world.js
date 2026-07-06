@@ -188,7 +188,7 @@ function spawnBoss(){
     dmg:BOSS.contactDmg*DIFF.dmg,xp:35,sc:400+tier*100,hit:0,scd:0,cdmg:0,dead:false,
     type:'boss',boss:true,bt,seq:B.seq,si:0,bossT:BOSS.cdBase,tele:0,atk:B.seq[0],dashT:0,dvx:0,dvy:0,spin:0,spinA:0,name:B.name+' '+tier});
   bossOn=true;if(typeof Ach!=='undefined')Ach.onBossSpawn(elapsed);   // intent: snapshot damage + clock for flawless/fast-kill
-  Fx.toast('💀',tr('BOSS')+' — '+tr(B.name)+' '+tier,B.col);
+  Fx.toast('💀',tr(typeof GenreOrchestrator!=='undefined'?GenreOrchestrator.wardenTitle():'BOSS')+' — '+tr(B.name)+' '+tier,B.col);   // genre-themed Warden title (orchestral = WARDEN PROTOCOL)
   Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss',bt);   // bt selects this archetype's epic theme
 }
 // cooldown till the next telegraph, tightening with tier

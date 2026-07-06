@@ -292,5 +292,6 @@ bootMenu();             // first-run players get the username modal before the m
 // browsers block autoplay until a gesture: on the first interaction, unlock audio + start the menu theme.
 // Sound.init/resume stay inside the gesture (autoplay policy); the Music graph build waits one frame so the tap paints first (INP)
 addEventListener('pointerdown',function _au(){ if(typeof Sound!=='undefined'){Sound.init();Sound.resume();} requestAnimationFrame(()=>setTimeout(()=>{ if(typeof Music!=='undefined'&&typeof state!=='undefined'&&state==='start')Music.menu(); },0)); },{once:true});
+addEventListener('rethemeGrid',function(){needsDraw=true;});   // Total Genre Conversion broadcast → repaint menu chrome next frame (audio already rethemed by GenreOrchestrator)
 generateNebula();   // build the deep-space background tile once at startup
 requestAnimationFrame(loop);

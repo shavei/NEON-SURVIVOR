@@ -116,8 +116,10 @@ const Orchestra = {
   _stopReal() { for (const k in this._jk) { const r = this._jk[k]; if (r.gain) try { r.gain.gain.value = 0; } catch (e) {} try { r.a.pause(); } catch (e) {} } this._real = null; this._realActive = false; },
 
   // a player-equipped Soundtrack reward (RewardEngine) re-points the gameplay 'play' theme at its JUKE key.
-  // Boss / menu / gameover keep their own tracks. No reward / unknown src ⇒ the requested key, unchanged.
+  // GenreOrchestrator (Total Genre Conversion) resolves menu/wave/boss keys through the equipped genre's
+  // GENRE_MAP first (null = no opinion → legacy path). No reward / unknown src ⇒ the requested key, unchanged.
   _resolve(key) {
+    if (typeof GenreOrchestrator !== 'undefined' && GenreOrchestrator.resolveKey) { const k = GenreOrchestrator.resolveKey(key); if (k && this.JUKE[k]) return k; }
     if (key !== 'play' || typeof RewardEngine === 'undefined' || !RewardEngine.equippedMusic) return key;
     const eq = RewardEngine.equippedMusic();
     const m = eq && RewardEngine.musicDefs && RewardEngine.musicDefs().find(d => d.id === eq);
@@ -127,7 +129,11 @@ const Orchestra = {
   // which procedural bed the composer renders: boss bed under a boss; else an equipped GENRE bed (jazz/pop/rock/rap)
   // when its real file is absent — so unlocked genres sound distinct offline; otherwise the default ambient bed.
   _bed() {
-    if (this.active === 'boss') return 'boss';
+    if (this.active === 'boss') {   // under a boss: the equipped genre's boss bed (GenreOrchestrator data), else the orchestral one
+      if (typeof GenreOrchestrator !== 'undefined' && GenreOrchestrator.bossBed) { const k = GenreOrchestrator.bossBed(); if (this.TRACKS[k]) return k; }
+      return 'boss'; }
+    if (!this._realActive && typeof GenreOrchestrator !== 'undefined' && GenreOrchestrator.resolveKey) {   // genre wave bed (covers the debugGenre override too, which owns no track)
+      const k = GenreOrchestrator.resolveKey('play'); if (k && this.TRACKS[k]) return k; }
     if (!this._realActive && typeof RewardEngine !== 'undefined' && RewardEngine.equippedMusic) {
       const eq = RewardEngine.equippedMusic();
       const m = eq && RewardEngine.musicDefs && RewardEngine.musicDefs().find(d => d.id === eq);
