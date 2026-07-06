@@ -57,9 +57,9 @@ function generateNebula() {
     ctx.beginPath(); ctx.arc(x, y, radius, 0, 7); ctx.fill();
   }
   for (let i = 0; i < 7; i++) {
-    drawCloud(rand(0, S), rand(0, S), rand(130, 240), _np.clouds[0], 0.045);
-    drawCloud(rand(0, S), rand(0, S), rand(120, 210), _np.clouds[1], 0.04);
-    drawCloud(rand(0, S), rand(0, S), rand(150, 280), _np.clouds[2], 0.05);
+    drawCloud(rand(0, S), rand(0, S), rand(150, 270), _np.clouds[0], 0.14);
+    drawCloud(rand(0, S), rand(0, S), rand(140, 240), _np.clouds[1], 0.12);
+    drawCloud(rand(0, S), rand(0, S), rand(170, 310), _np.clouds[2], 0.16);
   }
 
   // ambient star cluster
@@ -67,7 +67,7 @@ function generateNebula() {
   for (let i = 0; i < 520; i++) {
     const x = rand(0, S), y = rand(0, S), r = rand(0.4, 1.3);
     ctx.fillStyle = _np.stars[Math.floor(rand(0, _np.stars.length))];
-    ctx.globalAlpha = rand(0.08, 0.55);
+    ctx.globalAlpha = rand(0.2, 0.8);
     ctx.fillRect(x, y, r, r);
   }
 
@@ -97,8 +97,8 @@ function initStars() {
     STAR_FIELD.push({
       x: rand(0, 3200),
       y: rand(0, 3200),
-      r: rand(0.6, 2.2), // Size dictates depth perception
-      alpha: rand(0.2, 0.85),
+      r: rand(0.8, 2.6), // Size dictates depth perception
+      alpha: rand(0.4, 1),
       col: _sp[Math.floor(rand(0, _sp.length))]
     });
   }
