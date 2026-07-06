@@ -14,7 +14,7 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `js/lang-he.js` `LANG_HE` Hebrew dictionary — **exact English display strings are the keys**; missing entry ⇒ English fallback
 - `js/config.js` public Supabase URL + anon key (empty → local-only) · `js/config-sim.js` `BOSSES`/sim tunables
 - `js/core.js` foundation, sprite cache, DIFFS, BOSS, Sound, SynthMusic
-- `js/audio-orchestrator.js` SampleKit→RealMusic→SynthMusic, `Music` facade
+- `js/audio-orchestrator.js` SampleKit→RealMusic→SynthMusic, `Music` facade; boss overdrive — under any boss the procedural bed pins intensity to 1 (full-throttle `MIX`, 8th-note war drums + top-octave stabs in `sched()`, brighter filter) while the equipped genre's boss bed keeps the character
 - `js/upgrade-logic.js` `UPGRADES` registry — each item's `applyLogic(p,level)` (absolute stat recalc from `p.base`×scalar) + `getLabel(level)` (dynamic card text); `window.debugUpgrade(id,level)` stat/desc audit
 - `js/world.js` state globals, reset, spawning, combat, weapons, `applyUpgrade`/`openLevelUp` (delegate to `UPGRADES`), gainXP
 - `js/sim.js` `update()` (one 1/60 s tick) · `js/render.js` `draw()` (interpolated)
