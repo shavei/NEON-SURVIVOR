@@ -28,6 +28,30 @@ function _authReady() { try { return typeof AchSync !== 'undefined' && AchSync.e
  * Email Sent → Code Verified → Profile Linked flow can be confirmed end-to-end without guessing. */
 function _trace(stage, detail) { try { if (typeof localStorage !== 'undefined' && localStorage.getItem('neon_auth_debug')) console.log('[UPLINK] ' + stage + (detail ? '  → ' + detail : '')); } catch (e) {} }
 
+/* ----- ONLINE / OFFLINE identity badge (#netstatus on the menu, #gonet on the death screen) -----
+ * Makes it unmistakable whether a run will reach the GLOBAL leaderboard: the cloud write needs both the
+ * SDK connected (a run token can open + /api/verify is reachable) AND a live browser connection. `_signedIn`
+ * is latched by the auth hooks below (true = durable cloud account). Headless/offline-safe: DOM-guarded. */
+let _signedIn = false;
+function _netEsc(s) { return String(s || '').replace(/[&<>]/g, function (c) { return c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'; }); }
+function _netOnline() { try { return (typeof SB !== 'undefined' && !!SB) && (typeof navigator === 'undefined' || navigator.onLine !== false); } catch (e) { return false; } }
+function renderNetStatus() {
+  if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+  const on = _netOnline(), nm = ((typeof getPlayer === 'function' && getPlayer()) || {}).name || '';
+  const main = on ? (_signedIn && nm ? tr('ONLINE — logged in as') + ' ' + _netEsc(nm) : tr('ONLINE'))
+                  : tr('OFFLINE — this device only');
+  const sub = on ? tr('Your runs post to the global leaderboard.')
+                 : tr('No connection — runs are saved here but won’t reach the leaderboard.');
+  const html = '<span class="nsdot"></span><span><b>' + main + '</b><span class="nssub">' + sub + '</span></span>';
+  ['netstatus', 'gonet'].forEach(function (id) {
+    const el = _el(id); if (!el) return;
+    el.className = 'netstatus' + (id === 'gonet' ? ' netstatus--go' : '') + ' ' + (on ? 'on' : 'off');
+    el.innerHTML = html;
+  });
+}
+/* auth hooks call this to latch the durable-account flag, then repaint the badge */
+function _setSignedIn(v) { _signedIn = !!v; renderNetStatus(); }
+
 /* callsign input border feedback: '' neutral · 'ok' green pulse (available) · 'taken' red pulse (claimed) */
 function _unameState(s) { const u = _el('uname'); if (!u || !u.classList) return; u.classList.remove('ok', 'taken'); if (s) u.classList.add(s); }
 /* cross-language censorship gate (js/callsign-filter.js). Fires the red/orange alarm pulse + 'SYSTEM ACCESS
@@ -106,6 +130,7 @@ function _finishAuth(r) {
   const ok = _el('unameok'); if (ok) ok.disabled = false;
   if (r && r.ok) {
     _trace('profile-linked', 'name="' + (r.name || '') + '" id=' + (r.id || '').slice(0, 8));
+    _setSignedIn(true);                                            // durable cloud account is live
     _close();
     if (typeof Ach !== 'undefined') Ach.renderPanel();
     if (typeof LBSync !== 'undefined') LBSync.syncAll();
@@ -128,12 +153,14 @@ function confirmUsername() {
         if (r && r.taken) { _unameState('taken'); _seterr('CALLSIGN ALREADY CLAIMED'); return; }
         if (!r || !r.ok) { _seterr('Couldn’t save the callsign — try again.'); return; }
         if (typeof savePlayer === 'function') savePlayer(n, id);
+        _setSignedIn(true);                                        // signed in + callsign now claimed
         _close(); if (typeof LBSync !== 'undefined') LBSync.syncAll();
         _trace('profile-linked', 'callsign="' + n + '"');
       }, function () { if (ok) ok.disabled = false; _seterr('Grid unreachable — try again.'); });
       return;
     }
     if (typeof savePlayer === 'function') savePlayer(n);
+    _setSignedIn(false);                                           // local-only name (no cloud account)
     _close(); if (typeof LBSync !== 'undefined') LBSync.syncAll();
     _trace('profile-linked', 'callsign="' + n + '"');
     return;
@@ -221,9 +248,9 @@ function _authToggle() {
 
 /* ----- AchSync → UI hooks (fired via AchSync._fire / globalThis lookup) ----- */
 function _hideBoot() { const b = _el('boot'); if (b) b.classList.add('hidden'); }
-function onAuthResolved() { _hideBoot(); _close(); if (typeof Ach !== 'undefined') Ach.renderPanel(); if (typeof LBSync !== 'undefined') LBSync.syncAll(); _trace('instant-resume', 'session restored'); }
-function onAuthRequired() { _hideBoot(); showAuth('login'); }                       // SDK up, no session → ask to sign in
-function onAuthOffline() { _hideBoot(); if (typeof getPlayer === 'function' && !getPlayer()) showAuth('local'); else { const s = _el('start'); if (s) s.classList.remove('hidden'); } }
+function onAuthResolved() { _hideBoot(); _setSignedIn(true); _close(); if (typeof Ach !== 'undefined') Ach.renderPanel(); if (typeof LBSync !== 'undefined') LBSync.syncAll(); _trace('instant-resume', 'session restored'); }
+function onAuthRequired() { _hideBoot(); _setSignedIn(false); showAuth('login'); }   // SDK up, no session → ask to sign in
+function onAuthOffline() { _hideBoot(); _setSignedIn(false); if (typeof getPlayer === 'function' && !getPlayer()) showAuth('local'); else { const s = _el('start'); if (s) s.classList.remove('hidden'); } }
 
 /* ----- self-wiring (keeps main.js untouched / under the 28 KB line) ----- */
 if (typeof _isBrowser !== 'undefined' && _isBrowser) {
@@ -234,4 +261,7 @@ if (typeof _isBrowser !== 'undefined' && _isBrowser) {
     const inp = _el(id); if (inp && inp.addEventListener) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') confirmUsername(); });
   });
   const un = _el('uname'); if (un && un.addEventListener) un.addEventListener('input', _checkCallsign);   // live callsign availability
+  // a mid-session network drop must flip the badge to OFFLINE even without an auth event
+  if (typeof addEventListener === 'function') { addEventListener('online', renderNetStatus); addEventListener('offline', renderNetStatus); }
+  renderNetStatus();   // paint the initial (pre-connect) state so the badge is never blank
 }
