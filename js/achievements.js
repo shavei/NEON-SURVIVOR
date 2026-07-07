@@ -137,6 +137,16 @@ const Ach = {
       minHpPct: 100, lowWave: -1, bossKillSecs: 9999, _bossDmgMark: 0, _bossSpawnSecs: 0,
     };
     this._token = null; this._last = null;
+    this.openToken();                                                      // anchor a server run token (retried on SDK connect)
+  },
+
+  /* open the /api/verify run token that anchors EVERY cloud write (leaderboard + achievements). Idempotent:
+   * no-ops once a token exists. If SB isn't ready yet (the supabase SDK is a late async CDN inject, so a
+   * cold start — e.g. the app's WebView — can begin a run before it connects), onSupabaseReady() calls this
+   * again mid-run, so a slow client still anchors a token instead of silently dropping the whole run. The
+   * ≤5 s grace in api/verify.js' time check tolerates the small started_at skew of a just-connected retry. */
+  openToken() {
+    if (this._token) return;
     const p = (typeof getPlayer === 'function') && getPlayer();
     const diff = (typeof DIFF !== 'undefined' && DIFF.key) || 'normal';
     if (!p || typeof SB === 'undefined' || !SB) return;                    // offline / headless → local-only
@@ -241,7 +251,8 @@ const Ach = {
   /* POST the run to the server validator; reconcile any server-granted ids the client missed */
   _submit(entry, stats) {
     const p = (typeof getPlayer === 'function') && getPlayer();
-    if (!p || !this._token || typeof fetch !== 'function') return;         // offline / headless → skip
+    if (!p || !this._token || typeof fetch !== 'function') {               // offline / SDK-not-ready → local-only, no cloud write
+      this._last = { accepted:false, reason:this._token ? 'no_identity' : 'no_run_token' }; return; }
     const base = (typeof SUPA_FUNCTIONS_URL === 'string' && SUPA_FUNCTIONS_URL) || '';
     try {
       fetch(base + '/api/verify', {
