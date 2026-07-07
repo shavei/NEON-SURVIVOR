@@ -112,6 +112,11 @@ function draw(){
       ctx.strokeStyle='rgba(141,255,61,'+(.25+.55*tl)+')';ctx.lineWidth=2+2*tl;
       ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(aa)*(70+tl*90),ey+Math.sin(aa)*(70+tl*90));ctx.stroke();
       ctx.beginPath();ctx.arc(ex,ey,e.r+4+tl*6,0,7);ctx.stroke();}
+    if(e.type==='fast'&&e.tele>0){const tl=1-e.tele/LUNGE.teleT,aa=Math.atan2(player.y-ey,player.x-ex);   // lunge wind-up: amber charge-line along the locked path
+      ctx.strokeStyle='rgba(255,157,46,'+(.3+.55*tl)+')';ctx.lineWidth=2+3*tl;
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(aa)*(60+tl*120),ey+Math.sin(aa)*(60+tl*120));ctx.stroke();}
+    if(e.type==='fast'&&e.dashT>0){ctx.strokeStyle='rgba(255,157,46,.55)';ctx.lineWidth=3;   // lunge motion streak
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-e.dvx*4,ey-e.dvy*4);ctx.stroke();}
     if(e.boss&&e.tele>0){const tl=1-e.tele/BOSS.teleT,a=e.atk;          // attack wind-up telegraph, colour/shape per attack id
       if(a===1){const aa=Math.atan2(player.y-ey,player.x-ex),L=120+tl*170;   // dash: directional lunge line (amber)
         ctx.strokeStyle='rgba(255,157,46,'+(.25+.55*tl)+')';ctx.lineWidth=3+5*tl;

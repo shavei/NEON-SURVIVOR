@@ -180,7 +180,7 @@ function spawnEnemy(fType,fx,fy){
   const dmg=base.dmg*(1+elapsed/130+late*late*0.00006)*DIFF.dmg;
   enemies.push({id:++_eid,x,y,r:base.r,hp:base.hp*hpScale,maxhp:base.hp*hpScale,
     spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type,
-    tele:0,fcd:type==='spitter'?SPIT.cd:0});   // tele/fcd: caster telegraph + fire cadence (0/idle for melee types)
+    tele:0,fcd:type==='spitter'?SPIT.cd:0,lcd:type==='fast'?LUNGE.cd:0,dashT:0});   // tele/fcd/lcd: caster + fast-lunge telegraph/cadence (0/idle otherwise)
 }
 function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=++bossN;            // sequential counter — time-derived tiers skipped/repeated archetypes when fights ran long

@@ -124,13 +124,18 @@ function update(){
       else{e.x-=uy*e.spd*.6;e.y+=ux*e.spd*.6;}                   // in-band → strafe (orbit) so it never sits still
       if(e.tele>0){if(--e.tele<=0)spitFire(e,ux,uy);}            // wind-up done → volley
       else if(--e.fcd<=0){e.tele=SPIT.teleT;Fx.sfx('ping');}}    // cadence elapsed → start the readable telegraph
+    else if(e.type==='fast'&&e.dashT>0){e.x+=e.dvx;e.y+=e.dvy;   // mid-LUNGE: commit to the locked line (dodge it like an aimed bolt), then recover
+      if(--e.dashT<=0)e.lcd=Math.max(LUNGE.cdFloor,LUNGE.cd-elapsed*LUNGE.ramp);}
     else{e.x+=ux*e.spd;e.y+=uy*e.spd;
-      if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
-        spawnParticle(e.px,e.py,-ux*.3,-uy*.3,rand(1.4,2.6),rand(10,18),'#ff9d2e');
+      if(e.type==='fast'){if((e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
+          spawnParticle(e.px,e.py,-ux*.3,-uy*.3,rand(1.4,2.6),rand(10,18),'#ff9d2e');
+        if(e.tele>0){if(--e.tele<=0){e.dvx=ux*LUNGE.spd;e.dvy=uy*LUNGE.spd;e.dashT=LUNGE.dashT;}}   // wind-up done → fire the lunge along the telegraphed aim
+        else if(dp<LUNGE.range&&dp>LUNGE.min&&--e.lcd<=0){e.tele=LUNGE.teleT;Fx.sfx('ping');}}       // in band + cadence elapsed → readable telegraph
       if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}      // telegraph expired → dispatch attack[e.atk]
         else if(--e.bossT<=0){e.tele=BOSS.teleT;Fx.sfx('ping');}}}   // cadence elapsed → start wind-up telegraph
-    // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger)
-    if(p.inv<=0&&e.cdmg<=0){const cdx=p.x-e.x,cdy=p.y-e.y,combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;   // recompute post-move: a dashing boss closes the gap this tick, stale pre-move dp misses the lunge
+    // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger). Body hits the reduced
+    // PHIT.body radius (not the full sprite) → you can weave a swarm; same tiny-core fairness as bolts.
+    if(p.inv<=0&&e.cdmg<=0){const cdx=p.x-e.x,cdy=p.y-e.y,combR=(e.boss?e.r*BOSS.hitRMul:e.r)+PHIT.body;   // recompute post-move: a dashing boss/lunger closes the gap this tick, stale pre-move dp misses the lunge
       if(cdx*cdx+cdy*cdy<combR*combR){
         p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);Fx.flash();Fx.sfx('hurt');Fx.buzz(30);   // sharp jolt on contact
         if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking

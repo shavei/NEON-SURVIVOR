@@ -50,7 +50,11 @@ const SPIT={teleT:26,cd:170,cdFloor:80,cdRamp:.55,spd:2.7,r:6,dmg:9,n:3,nMax:5,a
 // with enemy BODIES still uses the full sprite radius (r:14). Grazing a bolt (passing within PHIT.graze of the
 // core but not hitting it) sparks a flare + a little score — leaning into the storm is rewarded, the way a
 // proper bullet-hell should feel. This is what lets the density go "insane" while staying fair.
-const PHIT={core:6,graze:24,grazeScore:2};
+const PHIT={core:6,body:10,graze:24,grazeScore:2};
+// Melee LUNGE — the same fairness for bodies: `fast` rushers don't just home, they wind up a readable telegraph
+// (teleT) then COMMIT to a straight dash you dodge like an aimed bolt, then recover. Cadence (cd) tightens with
+// elapsed toward cdFloor → escalating pressure that stays fair (every lunge is telegraphed + on a locked line).
+const LUNGE={teleT:22,cd:150,cdFloor:70,ramp:.5,dashT:16,spd:5.2,range:340,min:70};
 // Three distinct boss archetypes, cycled by tier ((tier-1)%3). Each has its own colour, polygon, HP/speed
 // scaling and a looping attack sequence (atk ids above) — REVENANT brawls, MAELSTROM zones, OVERSEER swarms.
 const BOSSES=[
