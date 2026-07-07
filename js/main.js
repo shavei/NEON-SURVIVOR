@@ -125,6 +125,7 @@ function gameOver(){state='over';Music.die();
   if(typeof Skins!=='undefined')Skins.renderGallery();                        // refresh the Skins panel (new skins may have unlocked)
   if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();      // refresh the Soundtrack tab (new tracks may have unlocked)
   dismissToasts();   // clear mid-run AND run-end-fired toasts (reportRun above can unlock) so none bleed behind the game-over overlay
+  if(typeof renderNetStatus==='function')renderNetStatus();   // show, on the death screen, whether this run reached the global board
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`${tr('survived')} ${m}:${String(s).padStart(2,'0')} · ${tr('wave')} ${wave} · ${tr('Lv')} ${player.level} · ${tr(DIFF.label)}`;
   document.getElementById('hibest').textContent=newBest?tr('★ NEW BEST!'):tr('best:')+' '+best;
@@ -227,6 +228,7 @@ function renderGlobal(diff){_gdiff=diff;
 function onLeaderboardUpdate(diff){if(diff===_gdiff)renderGlobal(diff);}
 function onSupabaseReady(){if(typeof LBSync!=='undefined')LBSync.syncAll(true);renderGlobal(_gdiff);   // SDK connected → re-warm every board
   if(typeof AchSync!=='undefined'&&AchSync.enabled())AchSync.resolveSession();   // …and resolve the auth session (restore identity + pull achievements)
+  if(typeof renderNetStatus==='function')renderNetStatus();   // SDK connected → flip the ONLINE/OFFLINE badge
   if(state==='play'&&typeof Ach!=='undefined'&&Ach.openToken)Ach.openToken();}   // …and if the SDK connected mid-run, anchor the token so THIS run still reaches the cloud
 document.querySelectorAll('#gtabs .gtab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#gtabs .gtab').forEach(z=>z.classList.remove('on'));b.classList.add('on');
@@ -261,6 +263,7 @@ function showMenu(){
   _gdiff=(typeof DIFF!=='undefined'&&DIFF.key)||'normal';   // open on the difficulty you just played
   syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);   // re-warm stale boards; instant if fresh
   if(typeof AchSync!=='undefined'&&AchSync.ready&&AchSync.ready())AchSync.pull();   // re-pull cloud achievements earned on another device (cross-device freshness without a restart)
+  if(typeof renderNetStatus==='function')renderNetStatus();   // refresh the ONLINE/OFFLINE badge on the menu
   if(typeof Music!=='undefined')Music.menu();}   // chill menu theme (audio must already be unlocked by a prior gesture)
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';   // showMenu() swaps to the chill menu theme
@@ -286,6 +289,7 @@ if(typeof I18N!=='undefined')I18N.onChange(()=>{renderLegends();updDiffHint();re
   if(typeof Ach!=='undefined')Ach.renderPanel();
   if(typeof Skins!=='undefined')Skins.renderGallery();
   if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();
+  if(typeof renderNetStatus==='function')renderNetStatus();
   if(state==='pause')showPause();});
 if(typeof Ach!=='undefined')Ach.renderPanel();   // paint the achievements grid from the local mirror
 if(typeof Skins!=='undefined')Skins.renderGallery();   // paint the separate Skins panel from the local mirror

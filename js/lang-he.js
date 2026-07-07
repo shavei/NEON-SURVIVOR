@@ -121,6 +121,12 @@ const LANG_HE={
 'Global board offline — your score is saved on this device.':'הלוח העולמי לא זמין — הניקוד נשמר במכשיר הזה.',
 'Good job! You made it to the leaderboard!':'כבוד! נכנסת ללוח העולמי!',
 'You were':'עוד','points away from the leaderboard.':'נקודות והיית בלוח העולמי.',
+/* --- ONLINE/OFFLINE identity badge (menu #netstatus + death-screen #gonet) --- */
+'ONLINE — logged in as':'מחובר — מזוהה כ',
+'ONLINE':'מחובר',
+'OFFLINE — this device only':'לא מקוון — במכשיר זה בלבד',
+'Your runs post to the global leaderboard.':'הריצות שלך נרשמות בטבלת השיאים העולמית.',
+'No connection — runs are saved here but won’t reach the leaderboard.':'אין חיבור — הריצות נשמרות כאן אך לא יגיעו לטבלת השיאים.',
 /* --- achievements UI chrome --- */
 'All':'הכול','Combat':'קרב','Boss':'בוסים','Skill':'מיומנות','Speed':'מהירות','Challenge':'אתגר','Secret':'סודי',
 'HIDDEN':'מוסתר','UNLOCKED':'נפתח','LOCKED':'נעול',
