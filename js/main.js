@@ -43,6 +43,7 @@ cv.addEventListener('touchmove',e=>{if(!touch)return;const t=e.touches[0];touch.
     joyNub.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;}},{passive:true});
 cv.addEventListener('touchend',()=>{touch=null;if(joyEl)joyEl.hidden=true;});
 document.getElementById('sound').onclick=()=>Sound.toggle();
+(()=>{const hb=document.getElementById('haptics');if(hb&&typeof Haptics!=='undefined'){hb.textContent=Haptics.label();hb.onclick=()=>Haptics.toggle();}})();   // vibration toggle: init label + bind tap
 const mpauseBtn=document.getElementById('mpause');   // touch pause (P is unreachable on a phone)
 if(mpauseBtn)mpauseBtn.onclick=()=>{if(state==='play'||state==='pause')togglePause();};
 
@@ -108,6 +109,7 @@ function startGame(){
   if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');
+  const hb=document.getElementById('haptics');if(hb)hb.classList.add('show');   // reveal vibration toggle (CSS gates it to mobile)
   const mp=document.getElementById('mpause');if(mp)mp.hidden=false;}   // reveal touch-pause for the run (CSS gates it to mobile)
 function playAgain(){startGame();}
 function dismissToasts(){const t=document.getElementById('toast');if(t)t.classList.remove('show');   // drop lingering map/boss + achievement toasts so they can't bleed behind the game-over/menu overlay
@@ -251,6 +253,7 @@ function showMenu(){
   document.getElementById('over').classList.add('hidden');
   document.getElementById('pause').classList.add('hidden');
   document.getElementById('sound').classList.remove('show');
+  const hb=document.getElementById('haptics');if(hb)hb.classList.remove('show');   // re-stow vibration toggle when leaving the run
   const mp=document.getElementById('mpause');if(mp)mp.hidden=true;   // re-stow touch-pause when leaving the run
   document.getElementById('start').classList.remove('hidden');
   if(typeof drawBackdrop==='function')drawBackdrop();   // wipe any frozen run frame so it can't bleed behind the menu
@@ -279,6 +282,7 @@ renderLegends();updDiffHint();
 if(typeof I18N!=='undefined')I18N.onChange(()=>{renderLegends();updDiffHint();renderGlobal(_gdiff);
   if(typeof DIFF!=='undefined'&&HUD.diff)HUD.diff.textContent=tr(DIFF.label.toUpperCase());
   const sn=document.getElementById('sound');if(sn&&typeof Sound!=='undefined')sn.textContent=Sound.muted?tr('🔇 muted'):tr('🔊 sound');
+  const hb=document.getElementById('haptics');if(hb&&typeof Haptics!=='undefined')hb.textContent=Haptics.label();
   if(typeof Ach!=='undefined')Ach.renderPanel();
   if(typeof Skins!=='undefined')Skins.renderGallery();
   if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();

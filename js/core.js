@@ -109,6 +109,20 @@ const Sound={
 };
 let lastShootSnd=0,lastPingSnd=0;
 
+/* ========== HAPTICS (mobile vibration; on/off, persisted in localStorage `neon_haptics`) ==========
+ * Web Vibration API — real feedback only on supporting mobile browsers (Android Chrome); a no-op where
+ * navigator.vibrate is absent (iOS Safari / desktop) or the player turned it off. The sim never calls this
+ * directly: it goes through Fx.buzz (below), which typeof-guards so headless/offline builds stay clean. */
+const Haptics={
+  on:!(typeof localStorage!=='undefined'&&localStorage.getItem('neon_haptics')==='0'),   // default ON; only an explicit '0' disables
+  ok(){return this.on&&typeof navigator!=='undefined'&&typeof navigator.vibrate==='function';},
+  buzz(p){if(this.ok()){try{navigator.vibrate(p);}catch(e){}}},   // p = ms, or an [on,off,on,…] pattern
+  label(){return this.on?tr('📳 vibrate'):tr('📴 vibrate');},
+  toggle(){this.on=!this.on;if(typeof localStorage!=='undefined')localStorage.setItem('neon_haptics',this.on?'1':'0');
+    if(this.on)this.buzz(20);else if(typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(0);   // on → confirm buzz; off → cancel any ongoing
+    const b=document.getElementById('haptics');if(b)b.textContent=this.label();},
+};
+
 /* ========== PRESENTATION PORT (Fx) ==========
  * The single seam between the SIMULATION (world.js/sim.js) and the CLIENT-only presentation layer
  * (audio + DOM). The sim never names Sound/Music/showToast/flashHit/updateHUD/renderLoadout directly —
@@ -119,6 +133,7 @@ let lastShootSnd=0,lastPingSnd=0;
  * determinism/equiv hashes — so routing through this port changes zero gameplay state. */
 const Fx={
   sfx(n,...a){ if(typeof Sound!=='undefined'&&Sound[n])Sound[n](...a); },           // one-shot SFX by name
+  buzz(...a){ if(typeof Haptics!=='undefined')Haptics.buzz(...a); },                 // mobile vibration (Haptics no-ops off/unsupported)
   music(n,...a){ if(typeof Music!=='undefined'&&Music[n])Music[n](...a); },         // music facade event by name
   toast(...a){ if(typeof showToast==='function')showToast(...a); },                 // map toast (DOM)
   flash(){ if(typeof flashHit==='function')flashHit(); },                           // red hit flash (DOM)

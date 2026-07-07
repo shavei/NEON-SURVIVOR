@@ -27,6 +27,7 @@ const LANG_HE={
 /* --- HUD --- */
 'SCORE':'ניקוד','WAVE':'גל','MODE':'מצב','TIME':'זמן','LVL':'רמה',
 '🔊 sound':'🔊 צליל',
+'📳 vibrate':'📳 רטט','📴 vibrate':'📴 רטט',
 'CLEARED':'השטח נקי',
 'arena breather — spawns throttled':'הפוגה — הנחיל נרגע לרגע',
 /* --- boot / auth --- */

@@ -189,7 +189,7 @@ function spawnBoss(){
     type:'boss',boss:true,bt,seq:B.seq,si:0,bossT:BOSS.cdBase,tele:0,atk:B.seq[0],dashT:0,dvx:0,dvy:0,spin:0,spinA:0,name:B.name+' '+tier});
   bossOn=true;if(typeof Ach!=='undefined')Ach.onBossSpawn(elapsed);   // intent: snapshot damage + clock for flawless/fast-kill
   Fx.toast('💀',tr(typeof GenreOrchestrator!=='undefined'?GenreOrchestrator.wardenTitle():'BOSS')+' — '+tr(B.name)+' '+tier,B.col);   // genre-themed Warden title (orchestral = WARDEN PROTOCOL)
-  Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.music('enterBoss',bt);   // bt selects this archetype's epic theme
+  Fx.sfx('boom');shake=Math.min(shake+10,16);Fx.buzz([0,50,80,50]);Fx.music('enterBoss',bt);   // bt selects this archetype's epic theme; ominous double buzz on arrival
 }
 // cooldown till the next telegraph, tightening with tier
 function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-bossN*8);}
@@ -279,7 +279,7 @@ function killEnemy(e,col){
     if(typeof Reward!=='undefined')Reward.pulse('#54e6b5');floatText(e.x,e.y-54,tr('CLEARED'),'#54e6b5');   // neon CLEARED announcement (banner driven by breatherT in updateHUD)
     if(typeof Ach!=='undefined')Ach.onBossKill((now-t0)/1000);   // achievements: count Wardens + flawless/fast-kill intent
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
-    shake=Math.min(shake+18,24);Fx.sfx('boom');Fx.flash();slowmo=Math.max(slowmo,340);   // dramatic slow-mo on the kill
+    shake=Math.min(shake+18,24);Fx.sfx('boom');Fx.flash();Fx.buzz([0,60,40,60,40,120]);slowmo=Math.max(slowmo,340);   // dramatic slow-mo + triumphant triple buzz on the kill
     floatText(e.x,e.y-30,tr('BOSS DOWN')+'  +'+e.sc,'#ffd95e');
     for(let k=0;k<e.xp;k++)orbs.push({id:++_oid,x:e.x+srand(-40,40),y:e.y+srand(-40,40),r:4,xp:1,col:'#54e6b5'});
     const it=ITEMS[Math.floor(srand(0,ITEMS.length))];     // guaranteed reward drop
