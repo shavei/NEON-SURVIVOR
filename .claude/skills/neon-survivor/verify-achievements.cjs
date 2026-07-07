@@ -110,6 +110,14 @@ ok(!server.validateRun(run, { score: 10, wave: 20, kills: 2, secs: 80, level: 5,
 ok(!server.validateRun(Object.assign({}, run, { verified: true }), { score: 10, wave: 1, kills: 0, secs: 1, level: 1, difficulty: 'normal' }).ok, 'already-verified rejected');
 ok(!server.validateRun(null, { score: 10, wave: 1, kills: 0, secs: 1, level: 1, difficulty: 'normal' }).ok, 'unknown run rejected');
 
+// 5b) C1 regression — kills anchored to the wall clock so they can't inflate the score ceiling (red-team C1)
+const hardRun = { started_at: new Date(now - 60000).toISOString(), difficulty: 'hard', verified: false };
+const c1 = server.validateRun(hardRun, { score: 2000000000, wave: 2, kills: 14000000, secs: 1, level: 1, difficulty: 'hard' });
+ok(!c1.ok && c1.reason === 'kills_impossible', 'C1: inflated kills (14e6 in 1s) → kills_impossible, no 2-billion-pt row');
+const longRun = { started_at: new Date(now - 300000).toISOString(), difficulty: 'normal', verified: false };
+ok(server.validateRun(longRun, { score: 40000, wave: 12, kills: 1200, secs: 250, level: 18, difficulty: 'normal' }).ok, 'C1: legit long run (1200 kills / 250s) still accepted');
+ok(server.killsCeil(1) < 400 && server.killsCeil(600) > 20000, 'C1: killsCeil tight for short runs, generous for long runs');
+
 // 6) tier/chain integrity + gold→cosmetic mapping (client COSMETIC_MAP === server COSMETIC_MAP, all gold)
 const C = g.COSMETIC_MAP, COS = g.COSMETICS;
 ok(JSON.stringify(C) === JSON.stringify(server.COSMETIC_MAP), 'client and server COSMETIC_MAP identical');
