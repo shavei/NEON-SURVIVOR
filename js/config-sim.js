@@ -34,7 +34,7 @@ const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedB
   cdBase:120,cdFloor:75,teleT:45,hitRMul:.85,invProj:30,invContact:12,
   // attack params (atk id → 0 burst · 1 dash · 2 slam · 3 spiral · 4 spread · 5 summon · 6 blink)
   dashSpd:6.4,dashT:24,slamN:24,slamR:200,slamSpd:2.4,                 // REVENANT: dash lunge + AOE shockwave ring
-  spiralTicks:48,spiralRot:.3,spiralSpd:3.2,spreadN:7,spreadArc:.95,spreadSpd:4.4,   // MAELSTROM: rotating storm + aimed cone
+  spiralTicks:48,spiralRot:.3,spiralSpd:3.2,spreadN:9,spreadArc:.95,spreadSpd:4.4,   // MAELSTROM: rotating storm + aimed cone
   summonN:6,blinkDist:240,                                            // OVERSEER: drone warp-in count + blink range
   // spawn throttle while a boss is alive: much longer interval + smaller batches (focus the fight on the boss)
   spawnMul:5,spawnCountMul:0.3,
@@ -44,7 +44,13 @@ const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedB
 // than a wall: slow readable bolts (spd), a wind-up telegraph (teleT) before every volley, standoff kiting so
 // it fights at range (stand/near), and a hard on-screen bolt CAP so density never buries the player. Fire
 // cadence (cd) eases tighter with elapsed minutes toward cdFloor. dmg scales gently with time in spitFire().
-const SPIT={teleT:26,cd:170,cdFloor:80,cdRamp:.55,spd:2.7,r:6,dmg:9,n:3,arc:.52,stand:300,near:200,cap:130};
+const SPIT={teleT:26,cd:170,cdFloor:80,cdRamp:.55,spd:2.7,r:6,dmg:9,n:3,nMax:5,arc:.52,arcMax:.9,stand:300,near:200,cap:130};
+// BULLET-HELL FAIRNESS — later waves fill the screen with bolts, but only a TINY core takes PROJECTILE hits
+// (PHIT.core — the glowing dot at the ship's centre), so threading a dense pattern is skill, not luck. Contact
+// with enemy BODIES still uses the full sprite radius (r:14). Grazing a bolt (passing within PHIT.graze of the
+// core but not hitting it) sparks a flare + a little score — leaning into the storm is rewarded, the way a
+// proper bullet-hell should feel. This is what lets the density go "insane" while staying fair.
+const PHIT={core:6,graze:24,grazeScore:2};
 // Three distinct boss archetypes, cycled by tier ((tier-1)%3). Each has its own colour, polygon, HP/speed
 // scaling and a looping attack sequence (atk ids above) — REVENANT brawls, MAELSTROM zones, OVERSEER swarms.
 const BOSSES=[

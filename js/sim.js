@@ -41,6 +41,7 @@ function update(){
 
   if(p.rageT>0)p.rageT--;
   if(p.rushT>0)p.rushT--;
+  if(p.grazeT>0)p.grazeT--;   // core-flare timer: brief cyan pulse after a near-miss (render reads it)
   p.cool--;if(p.cool<=0){fire();p.cool=p.rageT>0?p.rate*.5:p.rate;}
   if(p.missile>0){p.missileCool--;if(p.missileCool<=0){fireMissiles();p.missileCool=Math.max(40,150-p.missile*14);}}
   if(p.chain>0){p.chainCool--;if(p.chainCool<=0){castChain();p.chainCool=Math.max(34,120-p.chain*12);}}
@@ -136,14 +137,16 @@ function update(){
         burst(p.x,p.y,'#ff5fa2',14,5);e.x-=ux*12;e.y-=uy*12;
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
-  // Boss projectiles
+  // Enemy projectiles — hit only the TINY core (PHIT.core) so dense storms stay dodgeable (bullet-hell fairness);
+  // a bolt that threads the core but crosses the graze band sparks + scores instead (see graze()).
   for(let i=ebullets.length-1;i>=0;i--){const b=ebullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
     if(b.life<=0){poolRelease('ebullets',b);ebullets.splice(i,1);continue;}
-    if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,rr=b.r+p.r;
-      if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');Fx.buzz(30);   // sharp jolt on projectile hit
+    if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,d2=dx*dx+dy*dy,rr=b.r+PHIT.core;
+      if(d2<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');Fx.buzz(30);   // sharp jolt on projectile hit
         if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff3b6b',10,5);poolRelease('ebullets',b);ebullets.splice(i,1);
-        if(p.hp<=0){p.hp=0;return gameOver();}}}}
+        if(p.hp<=0){p.hp=0;return gameOver();}}
+      else if(!b.grazed){const gr=b.r+PHIT.graze;if(d2<gr*gr)graze(b);}}}   // near-miss → reward, once per bolt
 
   // Energy Core / XP Orbs Tractor Pull Matrix Optimization — magnet each orb toward the player; collect → XP.
   for(let i=orbs.length-1;i>=0;i--){const o=orbs[i];

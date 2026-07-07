@@ -154,8 +154,9 @@ function draw(){
     const fg=ctx.createLinearGradient(p.r-2,0,p.r-2+fl+6,0);fg.addColorStop(0,'rgba(255,225,120,.95)');fg.addColorStop(1,'rgba(255,90,60,0)');
     ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(p.r-3,5);ctx.lineTo(p.r-3+fl+6,0);ctx.lineTo(p.r-3,-5);ctx.closePath();ctx.fill();ctx.restore();ctx.shadowBlur=0;}
   ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r,typeof Skins!=='undefined'?Skins.equipped():null);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
-  const pr=3+Math.sin(frame*.15)*1.2;ctx.shadowBlur=14;ctx.shadowColor=rage?'#ffd95e':'#7c8cff';
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();ctx.shadowBlur=0;
+  // core dot = the true projectile hitbox (PHIT.core); flares cyan on a graze so the tiny hitbox reads at a glance
+  const gz=p.grazeT>0,pr=(gz?4.4:3)+Math.sin(frame*.15)*1.2;ctx.shadowBlur=gz?22:14;ctx.shadowColor=gz?'#9ad0ff':(rage?'#ffd95e':'#7c8cff');
+  ctx.fillStyle=gz?'#d6f0ff':'#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();ctx.shadowBlur=0;
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // 12. Deflector Energy Shield Matrices
