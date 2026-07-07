@@ -164,17 +164,23 @@ function spawnEnemy(fType,fx,fy){
   const ang=srand(0,6.283),d=Math.max(W,H)/VIEW*.62+srand(0,160);   // /VIEW keeps spawns off-screen when zoomed out (== *.62 on desktop)
   const x=fx!=null?fx:clamp(A.x+Math.cos(ang)*d,24,WORLD.w-24),y=fy!=null?fy:clamp(A.y+Math.sin(ang)*d,24,WORLD.h-24);
   const roll=srng();let type=fType||'grunt';
-  if(!fType){if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';}
+  if(!fType){if(elapsed>42&&roll<.12)type='tank';                        // heavy bruiser
+    else if(elapsed>90&&!bossOn&&roll<.30)type='spitter';               // late-wave ranged caster — the bullet-storm layer
+    else if(elapsed>24&&roll<.50)type='fast';}                          // amber rusher
   const base={
     grunt:{r:12,hp:20,spd:1.15,col:'#7c8cff',dmg:8,xp:1,sc:5},
     fast:{r:9,hp:12,spd:2.25,col:'#ff9d2e',dmg:6,xp:1,sc:7},
     tank:{r:22,hp:90,spd:.7,col:'#ff5fa2',dmg:18,xp:4,sc:20},
+    spitter:{r:13,hp:30,spd:.9,col:'#8dff3d',dmg:7,xp:3,sc:14},   // ranged caster: low HP, low contact — the danger is its bolts
   }[type];
   const late=Math.max(0,elapsed-180);            // super-linear pressure past 3 min
-  const hpScale=(1+elapsed/75+late*late*0.00012)*DIFF.hp;
+  // softened the very-late HP sponge (0.00012→0.0001): with casters now adding readable bolt pressure, the
+  // late-wave challenge should come from DODGING density, not from bullet-sponge grunts that drag fights out.
+  const hpScale=(1+elapsed/75+late*late*0.0001)*DIFF.hp;
   const dmg=base.dmg*(1+elapsed/130+late*late*0.00006)*DIFF.dmg;
   enemies.push({id:++_eid,x,y,r:base.r,hp:base.hp*hpScale,maxhp:base.hp*hpScale,
-    spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type});
+    spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type,
+    tele:0,fcd:type==='spitter'?SPIT.cd:0});   // tele/fcd: caster telegraph + fire cadence (0/idle for melee types)
 }
 function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=++bossN;            // sequential counter — time-derived tiers skipped/repeated archetypes when fights ran long
@@ -196,6 +202,16 @@ function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-bossN*8);}
 // advance to the next move in this boss's looping sequence + reset the cadence. Instant attacks call this
 // inline; multi-tick ones (dash/spiral) call it when their state expires in the sim.js movement loop.
 function bossNext(e){e.si=(e.si+1)%e.seq.length;e.atk=e.seq[e.si];e.bossT=bossCD();}
+// caster volley — fired when a spitter's telegraph expires: a narrow AIMED spread of slow bolts. (ux,uy) is the
+// current unit vector to the player. Cadence eases tighter with elapsed minutes; skipped when the screen already
+// holds SPIT.cap bolts so the storm stays readable/fair. dmg ramps gently so late casters still matter.
+function spitFire(e,ux,uy){
+  const t=(now-t0)/1000;e.fcd=Math.max(SPIT.cdFloor,SPIT.cd-t*SPIT.cdRamp);
+  if(ebullets.length>SPIT.cap)return;
+  const base=Math.atan2(uy,ux),dmg=SPIT.dmg*(1+t/220)*DIFF.dmg;
+  for(let k=0;k<SPIT.n;k++){const a=base+(k/(SPIT.n-1)-.5)*SPIT.arc;
+    spawnEbullet(e.x,e.y,Math.cos(a)*SPIT.spd,Math.sin(a)*SPIT.spd,SPIT.r,dmg,240);}
+  Fx.sfx('spit');}
 // fired when the telegraph (e.tele) expires — dispatch by e.atk (id table in config-sim.js BOSS).
 function bossAttack(e){
   const tier=Math.max(1,bossN);

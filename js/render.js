@@ -108,6 +108,10 @@ function draw(){
       ctx.closePath();ctx.fill();}
     if(e.type==='tank'&&!e.elite){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(ex,ey,e.r+5,-1.57,-1.57+6.28*(e.hp/e.maxhp));ctx.stroke();}
+    if(e.type==='spitter'&&e.tele>0){const tl=1-e.tele/SPIT.teleT,aa=Math.atan2(player.y-ey,player.x-ex);   // caster wind-up: acid aim line + charging core ring
+      ctx.strokeStyle='rgba(141,255,61,'+(.25+.55*tl)+')';ctx.lineWidth=2+2*tl;
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(aa)*(70+tl*90),ey+Math.sin(aa)*(70+tl*90));ctx.stroke();
+      ctx.beginPath();ctx.arc(ex,ey,e.r+4+tl*6,0,7);ctx.stroke();}
     if(e.boss&&e.tele>0){const tl=1-e.tele/BOSS.teleT,a=e.atk;          // attack wind-up telegraph, colour/shape per attack id
       if(a===1){const aa=Math.atan2(player.y-ey,player.x-ex),L=120+tl*170;   // dash: directional lunge line (amber)
         ctx.strokeStyle='rgba(255,157,46,'+(.25+.55*tl)+')';ctx.lineWidth=3+5*tl;

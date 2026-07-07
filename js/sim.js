@@ -60,7 +60,11 @@ function update(){
   const elapsed=(now-t0)/1000;
   // Enemy spawning — fixed difficulty curve: interval tightens over time, batch size grows with elapsed minutes.
   if(breatherT>0)breatherT--;const bf=breatherT>0?breatherT/BOSS.breatherT:0;   // post-boss ramp fraction: 1 at kill → 0 over 30 s (spawns ease back in, no instant flood)
-  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1)*(1+bf*5);
+  // WAVE RHYTHM (late game, ≥90 s — switches on with the casters) — off-boss, modulate the interval on a slow
+  // sine so pressure breathes in crescendo→lull cycles (~18 s period) instead of a flat grind: surges tighten
+  // spawns to .68×, lulls give a beat to reposition. Early game (<90 s) keeps the original clean ramp.
+  const surge=(bossOn||bf>0||elapsed<90)?1:1-.32*Math.max(0,Math.sin(elapsed*.35));
+  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*surge*(bossOn?BOSS.spawnMul:1)*(1+bf*5);
   if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)*(1-bf*.8)));
     for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
   if(!bossOn&&elapsed>=nextBoss)spawnBoss();   // boss waves (first at 60s)
@@ -113,6 +117,12 @@ function update(){
       for(let s=0;s<2;s++){const a=e.spinA+s*3.1416;
         spawnEbullet(e.x,e.y,Math.cos(a)*BOSS.spiralSpd,Math.sin(a)*BOSS.spiralSpd,7,e.dmg*BOSS.projDmg,200);}
       e.spinA+=BOSS.spiralRot;if(--e.spin<=0)bossNext(e);}        // storm done → advance sequence
+    else if(e.type==='spitter'){                                 // ranged caster: kite to a standoff band, telegraph, then spit slow aimed bolts
+      if(dp>SPIT.stand){e.x+=ux*e.spd;e.y+=uy*e.spd;}            // too far → close in
+      else if(dp<SPIT.near){e.x-=ux*e.spd;e.y-=uy*e.spd;}        // too close → back off
+      else{e.x-=uy*e.spd*.6;e.y+=ux*e.spd*.6;}                   // in-band → strafe (orbit) so it never sits still
+      if(e.tele>0){if(--e.tele<=0)spitFire(e,ux,uy);}            // wind-up done → volley
+      else if(--e.fcd<=0){e.tele=SPIT.teleT;Fx.sfx('ping');}}    // cadence elapsed → start the readable telegraph
     else{e.x+=ux*e.spd;e.y+=uy*e.spd;
       if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
         spawnParticle(e.px,e.py,-ux*.3,-uy*.3,rand(1.4,2.6),rand(10,18),'#ff9d2e');

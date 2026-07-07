@@ -12,7 +12,7 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `index.html` markup · `css/style.css` · `css/achievements.css` · `css/skins.css`
 - `js/i18n.js` EN⇄HE layer: `I18N` (lang / localStorage `neon_lang` / `apply()` / `onChange`) + global `tr(s)`; static DOM marked `data-i18n`/`data-i18n-html`/`data-i18n-ph`; `.langbtn` toggles it (start·pause·auth overlays); `window.debugLang(en,he)` live per-string override (localStorage `neon_he_ov`, wins over `LANG_HE`; `debugLang(en,null)` drops, `debugLang()` lists)
 - `js/lang-he.js` `LANG_HE` Hebrew dictionary — **exact English display strings are the keys**; missing entry ⇒ English fallback
-- `js/config.js` public Supabase URL + anon key (empty → local-only) · `js/config-sim.js` `BOSSES`/sim tunables
+- `js/config.js` public Supabase URL + anon key (empty → local-only) · `js/config-sim.js` `BOSSES`/`SPIT` (ranged caster)/sim tunables
 - `js/core.js` foundation, sprite cache, DIFFS, BOSS, Sound, SynthMusic
 - `js/audio-orchestrator.js` SampleKit→RealMusic→SynthMusic, `Music` facade; boss overdrive — under any boss the procedural bed pins intensity to 1 (full-throttle `MIX`, 8th-note war drums + top-octave stabs in `sched()`, brighter filter) while the equipped genre's boss bed keeps the character
 - `js/upgrade-logic.js` `UPGRADES` registry — each item's `applyLogic(p,level)` (absolute stat recalc from `p.base`×scalar) + `getLabel(level)` (dynamic card text); `window.debugUpgrade(id,level)` stat/desc audit
@@ -71,6 +71,8 @@ Never push until **all three apply**:
 - Anything that moves needs `px/py` snapshot + `ix()/iy()` lerp in `draw()`.
 - Collision loops use live `enemies.length` (killEnemy splices mid-scan).
 - Tune boss/difficulty in the `BOSS`/`BOSSES`/`DIFFS` config objects, not hot loops.
+- Enemy roster (`spawnEnemy` base table, world.js): `grunt`·`fast`·`tank` (all melee) + **`spitter`** — a late-wave (elapsed>90 s, off-boss) ranged **caster** that kites to a standoff band and fires slow, telegraphed aimed bolt-spreads (`spitFire`, tuned in `SPIT`; `e.tele`/`e.fcd` = wind-up + cadence, mirrors the boss telegraph). `SPIT.cap` hard-limits on-screen bolts so the storm stays fair. This is the non-boss "bullet-storm" layer.
+- **Wave rhythm** (sim.js spawn block): past 90 s and off-boss, the spawn interval is sine-modulated (`surge`) into ~18 s crescendo→lull cycles so late waves *breathe* instead of grinding flat. Early game (<90 s) keeps the original clean ramp — this also keeps the `verify-equiv` golden run (first ~15 s) byte-identical. Very-late HP super-linear term softened (0.00012→0.0001) so difficulty rides on readable density, not bullet-sponges.
 - 3 boss archetypes in `BOSSES` (config-sim.js), cycled by tier `(tier-1)%3`: **REVENANT** (crimson brawler — dash/slam), **MAELSTROM** (cyan zoner — rotating bullet-storm + aimed spread), **OVERSEER** (violet swarm-lord — summons drones + blink). Each boss has a looping `seq` of attack ids (0 burst·1 dash·2 slam·3 spiral·4 spread·5 summon·6 blink); `bossNext()` advances the sequence. Per-type sprite via `bossSprite(bt)`.
 - Edit by unique anchor string; keep the terse one-liner style.
 - **i18n:** every NEW player-visible string gets `tr('…')` at its **display** site (never translate ids/keys) plus a

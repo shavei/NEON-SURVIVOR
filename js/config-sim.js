@@ -40,6 +40,11 @@ const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedB
   spawnMul:5,spawnCountMul:0.3,
   // post-boss breather: ticks of the linear spawn ramp-back (heavy throttle at kill → normal rate at 0)
   breatherT:1800};
+// Ranged 'CASTER' (spitter) tunables — the late-wave BULLET-STORM layer. What makes the storm *fair* rather
+// than a wall: slow readable bolts (spd), a wind-up telegraph (teleT) before every volley, standoff kiting so
+// it fights at range (stand/near), and a hard on-screen bolt CAP so density never buries the player. Fire
+// cadence (cd) eases tighter with elapsed minutes toward cdFloor. dmg scales gently with time in spitFire().
+const SPIT={teleT:26,cd:170,cdFloor:80,cdRamp:.55,spd:2.7,r:6,dmg:9,n:3,arc:.52,stand:300,near:200,cap:130};
 // Three distinct boss archetypes, cycled by tier ((tier-1)%3). Each has its own colour, polygon, HP/speed
 // scaling and a looping attack sequence (atk ids above) — REVENANT brawls, MAELSTROM zones, OVERSEER swarms.
 const BOSSES=[
