@@ -183,6 +183,14 @@ const RATE = {
  * relentless — even a 24-kill pacifist scores far under its capped allowance). */
 const KILL_SECS = 3;
 
+/* Kills can't outrun the wall clock. Wave spawns grow ~linearly with elapsed time (batch size rises with
+ * the minute), so the CUMULATIVE kill count a real run can reach grows ~quadratically in `secs`. killsCeil()
+ * is that curve with a wide safety margin (≥3.7× the actual spawn model at every run length / difficulty),
+ * so it never rejects real play — but it anchors `kills` to the clock. Without it, `kills` had NO upper
+ * bound tied to the wall clock, so a `secs:1` claim with `kills:14e6` lifted the score ceiling to ~2 billion
+ * points (red-team C1). Bounding kills also caps the kill-count badge grants (annihilator/massacre_clock). */
+function killsCeil(secs) { return secs * 8 + secs * secs * 0.07 + 300; }
+
 /* pure, server-authoritative run check. runRow = the trusted `runs` row; c = the client claim. */
 function validateRun(runRow, c) {
   if (!runRow) return { ok:false, reason:'unknown_run' };
@@ -192,6 +200,7 @@ function validateRun(runRow, c) {
     return { ok:false, reason:'bad_range' };
   const elapsed = (Date.now() - new Date(runRow.started_at).getTime()) / 1000;
   if (c.secs > elapsed + 5) return { ok:false, reason:'time_impossible' };       // can't survive longer than the wall clock
+  if (c.kills > killsCeil(c.secs)) return { ok:false, reason:'kills_impossible' }; // kills anchored to the clock → can't inflate the score ceiling below
   const r = RATE[c.difficulty] || RATE.normal;
   const earnedSecs = Math.min(c.secs, c.kills * KILL_SECS);                       // idle time (no kills) banks no score
   if (c.score > c.kills * r.kill + earnedSecs * r.sec + 500) return { ok:false, reason:'score_impossible' };
@@ -324,6 +333,7 @@ module.exports.evaluate = evaluate;
 module.exports.meets = meets;
 module.exports.sanitizeIntent = sanitizeIntent;
 module.exports.validateRun = validateRun;
+module.exports.killsCeil = killsCeil;
 module.exports.RATE = RATE;
 module.exports.COSMETIC_MAP = COSMETIC_MAP;
 module.exports.cosmeticsFor = cosmeticsFor;
