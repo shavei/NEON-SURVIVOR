@@ -121,7 +121,7 @@ function update(){
     // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger)
     if(p.inv<=0&&e.cdmg<=0){const cdx=p.x-e.x,cdy=p.y-e.y,combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;   // recompute post-move: a dashing boss closes the gap this tick, stale pre-move dp misses the lunge
       if(cdx*cdx+cdy*cdy<combR*combR){
-        p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);Fx.flash();Fx.sfx('hurt');
+        p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);Fx.flash();Fx.sfx('hurt');Fx.buzz(30);   // sharp jolt on contact
         if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff5fa2',14,5);e.x-=ux*12;e.y-=uy*12;
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
@@ -130,7 +130,7 @@ function update(){
   for(let i=ebullets.length-1;i>=0;i--){const b=ebullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
     if(b.life<=0){poolRelease('ebullets',b);ebullets.splice(i,1);continue;}
     if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,rr=b.r+p.r;
-      if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');
+      if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');Fx.buzz(30);   // sharp jolt on projectile hit
         if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff3b6b',10,5);poolRelease('ebullets',b);ebullets.splice(i,1);
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
@@ -149,7 +149,7 @@ function update(){
   for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.y+=f.vy;f.life--;if(f.life<=0)floats.splice(i,1);}
   for(let i=bolts.length-1;i>=0;i--){if(--bolts[i].life<=0)bolts.splice(i,1);}
   if(shake>0)shake*=.85;
-  if(pendingLevels>0&&state==='play'){pendingLevels--;Fx.sfx('level');Fx.music('stingLevelUp');Fx.levelUp();}
+  if(pendingLevels>0&&state==='play'){pendingLevels--;Fx.sfx('level');Fx.music('stingLevelUp');Fx.buzz([0,25,45,25]);Fx.levelUp();}   // double-pulse on level-up
   if(typeof Nav!=='undefined')Nav.tick();   // boss-kill → raise the branching map once the slow-mo beat ends
   Fx.hud(elapsed);
 }
