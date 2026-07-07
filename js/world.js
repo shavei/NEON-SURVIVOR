@@ -124,7 +124,7 @@ function makeAvatar(x,y){
   const p={
     x,y,vx:0,vy:0,r:14,angle:0,hp:100,maxhp:100,speed:4.1,accel:.16,
     rate:34,cool:0,dmg:10,multi:1,pierce:0,bulletSpd:7.5,magnet:90,magnetSq:8100,
-    xp:0,level:1,next:8,regenRate:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,rushT:0,
+    xp:0,level:1,next:8,regenRate:0,regenAcc:0,inv:0,lifesteal:0,lsCd:0,near:null,rageT:0,rushT:0,grazeT:0,grazes:0,
     missile:0,missileCool:0,shield:0,shieldAng:0,chain:0,chainCool:0,px:x,py:y};
   // base snapshot — single source of base truth for UpgradeRegistry.applyLogic() absolute recalc
   p.base={dmg:p.dmg,rate:p.rate,speed:p.speed,multi:p.multi,pierce:p.pierce,bulletSpd:p.bulletSpd,
@@ -164,17 +164,23 @@ function spawnEnemy(fType,fx,fy){
   const ang=srand(0,6.283),d=Math.max(W,H)/VIEW*.62+srand(0,160);   // /VIEW keeps spawns off-screen when zoomed out (== *.62 on desktop)
   const x=fx!=null?fx:clamp(A.x+Math.cos(ang)*d,24,WORLD.w-24),y=fy!=null?fy:clamp(A.y+Math.sin(ang)*d,24,WORLD.h-24);
   const roll=srng();let type=fType||'grunt';
-  if(!fType){if(elapsed>42&&roll<.12)type='tank';else if(elapsed>24&&roll<.30)type='fast';}
+  if(!fType){if(elapsed>42&&roll<.12)type='tank';                        // heavy bruiser
+    else if(elapsed>90&&!bossOn&&roll<.30)type='spitter';               // late-wave ranged caster — the bullet-storm layer
+    else if(elapsed>24&&roll<.50)type='fast';}                          // amber rusher
   const base={
     grunt:{r:12,hp:20,spd:1.15,col:'#7c8cff',dmg:8,xp:1,sc:5},
     fast:{r:9,hp:12,spd:2.25,col:'#ff9d2e',dmg:6,xp:1,sc:7},
     tank:{r:22,hp:90,spd:.7,col:'#ff5fa2',dmg:18,xp:4,sc:20},
+    spitter:{r:13,hp:30,spd:.9,col:'#8dff3d',dmg:7,xp:3,sc:14},   // ranged caster: low HP, low contact — the danger is its bolts
   }[type];
   const late=Math.max(0,elapsed-180);            // super-linear pressure past 3 min
-  const hpScale=(1+elapsed/75+late*late*0.00012)*DIFF.hp;
+  // softened the very-late HP sponge (0.00012→0.0001): with casters now adding readable bolt pressure, the
+  // late-wave challenge should come from DODGING density, not from bullet-sponge grunts that drag fights out.
+  const hpScale=(1+elapsed/75+late*late*0.0001)*DIFF.hp;
   const dmg=base.dmg*(1+elapsed/130+late*late*0.00006)*DIFF.dmg;
   enemies.push({id:++_eid,x,y,r:base.r,hp:base.hp*hpScale,maxhp:base.hp*hpScale,
-    spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type});
+    spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type,
+    tele:0,fcd:type==='spitter'?SPIT.cd:0,lcd:type==='fast'?LUNGE.cd:0,dashT:0});   // tele/fcd/lcd: caster + fast-lunge telegraph/cadence (0/idle otherwise)
 }
 function spawnBoss(){
   const elapsed=(now-t0)/1000,tier=++bossN;            // sequential counter — time-derived tiers skipped/repeated archetypes when fights ran long
@@ -196,13 +202,25 @@ function bossCD(){return Math.max(BOSS.cdFloor,BOSS.cdBase-bossN*8);}
 // advance to the next move in this boss's looping sequence + reset the cadence. Instant attacks call this
 // inline; multi-tick ones (dash/spiral) call it when their state expires in the sim.js movement loop.
 function bossNext(e){e.si=(e.si+1)%e.seq.length;e.atk=e.seq[e.si];e.bossT=bossCD();}
+// caster volley (telegraph expired): a narrow AIMED spread of slow bolts, (ux,uy)=unit vector to player. Cadence
+// tightens with elapsed; skipped past SPIT.cap on-screen bolts (readable/fair); dmg ramps gently over the run.
+function spitFire(e,ux,uy){
+  const t=(now-t0)/1000;e.fcd=Math.max(SPIT.cdFloor,SPIT.cd-t*SPIT.cdRamp);
+  if(ebullets.length>SPIT.cap)return;
+  const n=Math.min(SPIT.nMax,SPIT.n+Math.floor(Math.max(0,t-120)/90)),arc=Math.min(SPIT.arcMax,SPIT.arc+(n-SPIT.n)*.19);   // fan widens over the run: 3→5 bolts
+  const base=Math.atan2(uy,ux),dmg=SPIT.dmg*(1+t/220)*DIFF.dmg;
+  for(let k=0;k<n;k++){const a=base+(k/(n-1)-.5)*arc;
+    spawnEbullet(e.x,e.y,Math.cos(a)*SPIT.spd,Math.sin(a)*SPIT.spd,SPIT.r,dmg,240);}
+  Fx.sfx('spit');}
 // fired when the telegraph (e.tele) expires — dispatch by e.atk (id table in config-sim.js BOSS).
 function bossAttack(e){
   const tier=Math.max(1,bossN);
-  if(e.atk===0){                                   // 0) BURST — aimed radial ring
+  if(e.atk===0){                                   // 0) BURST — aimed radial ring (+ a slower half-offset gap-filling ring past tier 1 → a storm wall)
     const n=10+Math.min(10,tier*2),base=Math.atan2(player.y-e.y,player.x-e.x);
     for(let k=0;k<n;k++){const a=base+k/n*6.283;
       spawnEbullet(e.x,e.y,Math.cos(a)*3.3,Math.sin(a)*3.3,7,e.dmg*BOSS.projDmg,220);}
+    if(tier>=2)for(let k=0;k<n;k++){const a=base+3.14159/n+k/n*6.283;   // tier≥2: slower half-offset ring fills the gaps → storm wall
+      spawnEbullet(e.x,e.y,Math.cos(a)*2.2,Math.sin(a)*2.2,7,e.dmg*BOSS.projDmg,260);}
     Fx.sfx('zap');bossNext(e);
   }else if(e.atk===1){                             // 1) DASH — lunge along a locked vector (ends in sim loop)
     const a=Math.atan2(player.y-e.y,player.x-e.x);
@@ -245,7 +263,10 @@ function spawnBullet(x,y,vx,vy,r,dmg,pierce,life){const b=poolAcquire('bullets')
   b.x=b.px=x;b.y=b.py=y;b.sx=x;b.sy=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.pierce=pierce;b.life=life;
   b.hitIds=b.hitIds||[];b.hitIds.length=0;bullets.push(b);return b;}   // hitIds: enemy ids this bullet already tagged → pierce never re-hits the same enemy (clear on reuse)   // seed px/py so a recycled bullet doesn't streak from its last death pos on frame 1; sx/sy = muzzle origin so the trail can't reach back into the ship
 function spawnEbullet(x,y,vx,vy,r,dmg,life){const b=poolAcquire('ebullets');
-  b.x=b.px=x;b.y=b.py=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.life=life;ebullets.push(b);return b;}
+  b.x=b.px=x;b.y=b.py=y;b.vx=vx;b.vy=vy;b.r=r;b.dmg=dmg;b.life=life;b.grazed=false;ebullets.push(b);return b;}
+// near-miss reward (once per bolt): flare the core + tally + tick score + spark. Deterministic (no rand) → stays RNG-locked with the equiv golden run.
+function graze(b){const p=player;b.grazed=true;p.grazeT=10;p.grazes=(p.grazes||0)+1;score+=PHIT.grazeScore;
+  spawnParticle(p.x,p.y,(b.x-p.x)*.04,(b.y-p.y)*.04,2,12,'#9ad0ff');}
 function spawnMissile(x,y,vx,vy,spd,turn,r,dmg,target,life){const m=poolAcquire('missiles');
   m.x=m.px=x;m.y=m.py=y;m.vx=vx;m.vy=vy;m.spd=spd;m.turn=turn;m.r=r;m.dmg=dmg;m.target=target;m.life=life;missiles.push(m);return m;}
 function spawnParticle(x,y,vx,vy,r,life,col){const q=poolAcquire('particles');

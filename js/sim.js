@@ -41,6 +41,7 @@ function update(){
 
   if(p.rageT>0)p.rageT--;
   if(p.rushT>0)p.rushT--;
+  if(p.grazeT>0)p.grazeT--;   // core-flare timer: brief cyan pulse after a near-miss (render reads it)
   p.cool--;if(p.cool<=0){fire();p.cool=p.rageT>0?p.rate*.5:p.rate;}
   if(p.missile>0){p.missileCool--;if(p.missileCool<=0){fireMissiles();p.missileCool=Math.max(40,150-p.missile*14);}}
   if(p.chain>0){p.chainCool--;if(p.chainCool<=0){castChain();p.chainCool=Math.max(34,120-p.chain*12);}}
@@ -60,7 +61,11 @@ function update(){
   const elapsed=(now-t0)/1000;
   // Enemy spawning — fixed difficulty curve: interval tightens over time, batch size grows with elapsed minutes.
   if(breatherT>0)breatherT--;const bf=breatherT>0?breatherT/BOSS.breatherT:0;   // post-boss ramp fraction: 1 at kill → 0 over 30 s (spawns ease back in, no instant flood)
-  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*(bossOn?BOSS.spawnMul:1)*(1+bf*5);
+  // WAVE RHYTHM (late game, ≥90 s — switches on with the casters) — off-boss, modulate the interval on a slow
+  // sine so pressure breathes in crescendo→lull cycles (~18 s period) instead of a flat grind: surges tighten
+  // spawns to .68×, lulls give a beat to reposition. Early game (<90 s) keeps the original clean ramp.
+  const surge=(bossOn||bf>0||elapsed<90)?1:1-.32*Math.max(0,Math.sin(elapsed*.35));
+  spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*surge*(bossOn?BOSS.spawnMul:1)*(1+bf*5);
   if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)*(1-bf*.8)));
     for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
   if(!bossOn&&elapsed>=nextBoss)spawnBoss();   // boss waves (first at 60s)
@@ -113,27 +118,40 @@ function update(){
       for(let s=0;s<2;s++){const a=e.spinA+s*3.1416;
         spawnEbullet(e.x,e.y,Math.cos(a)*BOSS.spiralSpd,Math.sin(a)*BOSS.spiralSpd,7,e.dmg*BOSS.projDmg,200);}
       e.spinA+=BOSS.spiralRot;if(--e.spin<=0)bossNext(e);}        // storm done → advance sequence
+    else if(e.type==='spitter'){                                 // ranged caster: kite to a standoff band, telegraph, then spit slow aimed bolts
+      if(dp>SPIT.stand){e.x+=ux*e.spd;e.y+=uy*e.spd;}            // too far → close in
+      else if(dp<SPIT.near){e.x-=ux*e.spd;e.y-=uy*e.spd;}        // too close → back off
+      else{e.x-=uy*e.spd*.6;e.y+=ux*e.spd*.6;}                   // in-band → strafe (orbit) so it never sits still
+      if(e.tele>0){if(--e.tele<=0)spitFire(e,ux,uy);}            // wind-up done → volley
+      else if(--e.fcd<=0){e.tele=SPIT.teleT;Fx.sfx('ping');}}    // cadence elapsed → start the readable telegraph
+    else if(e.type==='fast'&&e.dashT>0){e.x+=e.dvx;e.y+=e.dvy;   // mid-LUNGE: commit to the locked line (dodge it like an aimed bolt), then recover
+      if(--e.dashT<=0)e.lcd=Math.max(LUNGE.cdFloor,LUNGE.cd-elapsed*LUNGE.ramp);}
     else{e.x+=ux*e.spd;e.y+=uy*e.spd;
-      if(e.type==='fast'&&(e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
-        spawnParticle(e.px,e.py,-ux*.3,-uy*.3,rand(1.4,2.6),rand(10,18),'#ff9d2e');
+      if(e.type==='fast'){if((e.trail=(e.trail|0)+1)%3===0&&particles.length<320)   // amber wake → fast threats read apart from inert teal orbs
+          spawnParticle(e.px,e.py,-ux*.3,-uy*.3,rand(1.4,2.6),rand(10,18),'#ff9d2e');
+        if(e.tele>0){if(--e.tele<=0){e.dvx=ux*LUNGE.spd;e.dvy=uy*LUNGE.spd;e.dashT=LUNGE.dashT;}}   // wind-up done → fire the lunge along the telegraphed aim
+        else if(dp<LUNGE.range&&dp>LUNGE.min&&--e.lcd<=0){e.tele=LUNGE.teleT;Fx.sfx('ping');}}       // in band + cadence elapsed → readable telegraph
       if(e.boss){if(e.tele>0){if(--e.tele<=0)bossAttack(e);}      // telegraph expired → dispatch attack[e.atk]
         else if(--e.bossT<=0){e.tele=BOSS.teleT;Fx.sfx('ping');}}}   // cadence elapsed → start wind-up telegraph
-    // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger)
-    if(p.inv<=0&&e.cdmg<=0){const cdx=p.x-e.x,cdy=p.y-e.y,combR=(e.boss?e.r*BOSS.hitRMul:e.r)+p.r;   // recompute post-move: a dashing boss closes the gap this tick, stale pre-move dp misses the lunge
+    // per-enemy contact cooldown → a swarm hurts far more than one enemy (density = danger). Body hits the reduced
+    // PHIT.body radius (not the full sprite) → you can weave a swarm; same tiny-core fairness as bolts.
+    if(p.inv<=0&&e.cdmg<=0){const cdx=p.x-e.x,cdy=p.y-e.y,combR=(e.boss?e.r*BOSS.hitRMul:e.r)+PHIT.body;   // recompute post-move: a dashing boss/lunger closes the gap this tick, stale pre-move dp misses the lunge
       if(cdx*cdx+cdy*cdy<combR*combR){
         p.hp-=e.dmg;p.inv=e.boss?BOSS.invContact:7;e.cdmg=26;shake=Math.min(shake+8,14);Fx.flash();Fx.sfx('hurt');Fx.buzz(30);   // sharp jolt on contact
         if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff5fa2',14,5);e.x-=ux*12;e.y-=uy*12;
         if(p.hp<=0){p.hp=0;return gameOver();}}}}
 
-  // Boss projectiles
+  // Enemy projectiles — hit only the TINY core (PHIT.core) so dense storms stay dodgeable (bullet-hell fairness);
+  // a bolt that threads the core but crosses the graze band sparks + scores instead (see graze()).
   for(let i=ebullets.length-1;i>=0;i--){const b=ebullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
     if(b.life<=0){poolRelease('ebullets',b);ebullets.splice(i,1);continue;}
-    if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,rr=b.r+p.r;
-      if(dx*dx+dy*dy<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');Fx.buzz(30);   // sharp jolt on projectile hit
+    if(p.inv<=0){const dx=b.x-p.x,dy=b.y-p.y,d2=dx*dx+dy*dy,rr=b.r+PHIT.core;
+      if(d2<rr*rr){p.hp-=b.dmg;p.inv=BOSS.invProj;shake=Math.min(shake+6,14);Fx.flash();Fx.sfx('hurt');Fx.buzz(30);   // sharp jolt on projectile hit
         if(typeof Ach!=='undefined')Ach.onDamage(wave,Math.max(0,p.hp)/p.maxhp*100);   // intent: no-hit / comeback tracking
         burst(p.x,p.y,'#ff3b6b',10,5);poolRelease('ebullets',b);ebullets.splice(i,1);
-        if(p.hp<=0){p.hp=0;return gameOver();}}}}
+        if(p.hp<=0){p.hp=0;return gameOver();}}
+      else if(!b.grazed){const gr=b.r+PHIT.graze;if(d2<gr*gr)graze(b);}}}   // near-miss → reward, once per bolt
 
   // Energy Core / XP Orbs Tractor Pull Matrix Optimization — magnet each orb toward the player; collect → XP.
   for(let i=orbs.length-1;i>=0;i--){const o=orbs[i];

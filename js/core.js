@@ -26,7 +26,7 @@ function dotSprite(color){const k='d'+color;if(_spr[k])return _spr[k];
   grd.addColorStop(0,'#ffffff');grd.addColorStop(.28,color);grd.addColorStop(1,hexA(color,0));
   g.fillStyle=grd;g.beginPath();g.arc(r,r,r,0,7);g.fill();return _spr[k]=c;}
 // boss: only .rot is read at render (bossSprite(bt)+BOSSES drive per-archetype colour/shape/size); boss r/col/sides are legacy placeholders
-const EMETA={grunt:{r:12,col:'#7c8cff',sides:0,rot:0},fast:{r:9,col:'#ff9d2e',sides:3,rot:.05,ring:'#fff1c2'},tank:{r:22,col:'#ff5fa2',sides:6,rot:.01},boss:{r:46,col:'#ff3b6b',sides:8,rot:.006}};
+const EMETA={grunt:{r:12,col:'#7c8cff',sides:0,rot:0},fast:{r:9,col:'#ff9d2e',sides:3,rot:.05,ring:'#fff1c2'},tank:{r:22,col:'#ff5fa2',sides:6,rot:.01},spitter:{r:13,col:'#8dff3d',sides:4,rot:.03,ring:'#e6ffcf'},boss:{r:46,col:'#ff3b6b',sides:8,rot:.006}};
 function enemySprite(type,white){const k='e'+type+(white?'w':'');if(_spr[k])return _spr[k];
   const m=EMETA[type],pad=12,S=(m.r+pad)*2,c=document.createElement('canvas');c.width=c.height=S;
   const g=c.getContext('2d');g.translate(S/2,S/2);g.shadowBlur=14;g.shadowColor=m.col;g.fillStyle=white?'#fff':m.col;
@@ -106,6 +106,7 @@ const Sound={
   heal(){this.tone(440,900,.25,'sine',.09);},        // pickup: +HP chime
   rage(){this.tone(180,680,.35,'sawtooth',.11);},    // pickup: OVERDRIVE surge
   launch(){this.tone(380,520,.12,'triangle',.05);},  // missile salvo away
+  spit(){this.tone(720,300,.09,'sawtooth',.045);},   // caster volley: dry downward spit
 };
 let lastShootSnd=0,lastPingSnd=0;
 

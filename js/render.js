@@ -108,6 +108,15 @@ function draw(){
       ctx.closePath();ctx.fill();}
     if(e.type==='tank'&&!e.elite){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(ex,ey,e.r+5,-1.57,-1.57+6.28*(e.hp/e.maxhp));ctx.stroke();}
+    if(e.type==='spitter'&&e.tele>0){const tl=1-e.tele/SPIT.teleT,aa=Math.atan2(player.y-ey,player.x-ex);   // caster wind-up: acid aim line + charging core ring
+      ctx.strokeStyle='rgba(141,255,61,'+(.25+.55*tl)+')';ctx.lineWidth=2+2*tl;
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(aa)*(70+tl*90),ey+Math.sin(aa)*(70+tl*90));ctx.stroke();
+      ctx.beginPath();ctx.arc(ex,ey,e.r+4+tl*6,0,7);ctx.stroke();}
+    if(e.type==='fast'&&e.tele>0){const tl=1-e.tele/LUNGE.teleT,aa=Math.atan2(player.y-ey,player.x-ex);   // lunge wind-up: amber charge-line along the locked path
+      ctx.strokeStyle='rgba(255,157,46,'+(.3+.55*tl)+')';ctx.lineWidth=2+3*tl;
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(aa)*(60+tl*120),ey+Math.sin(aa)*(60+tl*120));ctx.stroke();}
+    if(e.type==='fast'&&e.dashT>0){ctx.strokeStyle='rgba(255,157,46,.55)';ctx.lineWidth=3;   // lunge motion streak
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-e.dvx*4,ey-e.dvy*4);ctx.stroke();}
     if(e.boss&&e.tele>0){const tl=1-e.tele/BOSS.teleT,a=e.atk;          // attack wind-up telegraph, colour/shape per attack id
       if(a===1){const aa=Math.atan2(player.y-ey,player.x-ex),L=120+tl*170;   // dash: directional lunge line (amber)
         ctx.strokeStyle='rgba(255,157,46,'+(.25+.55*tl)+')';ctx.lineWidth=3+5*tl;
@@ -150,8 +159,9 @@ function draw(){
     const fg=ctx.createLinearGradient(p.r-2,0,p.r-2+fl+6,0);fg.addColorStop(0,'rgba(255,225,120,.95)');fg.addColorStop(1,'rgba(255,90,60,0)');
     ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(p.r-3,5);ctx.lineTo(p.r-3+fl+6,0);ctx.lineTo(p.r-3,-5);ctx.closePath();ctx.fill();ctx.restore();ctx.shadowBlur=0;}
   ctx.save();ctx.rotate(p.angle);const _ship=shipSprite(rage,p.r,typeof Skins!=='undefined'?Skins.equipped():null);ctx.drawImage(_ship,-_ship.width/2,-_ship.height/2);ctx.restore();
-  const pr=3+Math.sin(frame*.15)*1.2;ctx.shadowBlur=14;ctx.shadowColor=rage?'#ffd95e':'#7c8cff';
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();ctx.shadowBlur=0;
+  // core dot = the true projectile hitbox (PHIT.core); flares cyan on a graze so the tiny hitbox reads at a glance
+  const gz=p.grazeT>0,pr=(gz?4.4:3)+Math.sin(frame*.15)*1.2;ctx.shadowBlur=gz?22:14;ctx.shadowColor=gz?'#9ad0ff':(rage?'#ffd95e':'#7c8cff');
+  ctx.fillStyle=gz?'#d6f0ff':'#fff';ctx.beginPath();ctx.arc(0,0,pr+2,0,7);ctx.fill();ctx.shadowBlur=0;
   ctx.restore();ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // 12. Deflector Energy Shield Matrices
