@@ -38,8 +38,9 @@ const BOSS={hpBase:500,hpTier:300,hpRamp:0.004,contactDmg:22,projDmg:0.45,speedB
   summonN:6,blinkDist:240,                                            // OVERSEER: drone warp-in count + blink range
   // spawn throttle while a boss is alive: much longer interval + smaller batches (focus the fight on the boss)
   spawnMul:5,spawnCountMul:0.3,
-  // post-boss breather: ticks of the linear spawn ramp-back (heavy throttle at kill → normal rate at 0)
-  breatherT:1800};
+  // post-boss breather: ticks of the linear spawn ramp-back (heavy throttle at kill → normal rate at 0).
+  // 45 s (was 30 s) so density eases back on a gentle slope instead of snapping to full late-game load.
+  breatherT:2700};
 // Ranged 'CASTER' (spitter) tunables — the late-wave BULLET-STORM layer. What makes the storm *fair* rather
 // than a wall: slow readable bolts (spd), a wind-up telegraph (teleT) before every volley, standoff kiting so
 // it fights at range (stand/near), and a hard on-screen bolt CAP so density never buries the player. Fire

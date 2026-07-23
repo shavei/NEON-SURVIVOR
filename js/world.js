@@ -173,10 +173,11 @@ function spawnEnemy(fType,fx,fy){
     tank:{r:22,hp:90,spd:.7,col:'#ff5fa2',dmg:18,xp:4,sc:20},
     spitter:{r:13,hp:30,spd:.9,col:'#8dff3d',dmg:7,xp:3,sc:14},   // ranged caster: low HP, low contact — the danger is its bolts
   }[type];
-  const late=Math.max(0,elapsed-180);            // super-linear pressure past 3 min
-  // softened the very-late HP sponge (0.00012→0.0001): with casters now adding readable bolt pressure, the
-  // late-wave challenge should come from DODGING density, not from bullet-sponge grunts that drag fights out.
-  const hpScale=(1+elapsed/75+late*late*0.0001)*DIFF.hp;
+  const late=Math.max(0,elapsed-270);            // super-linear pressure — onset pushed 180→270 s so the HP tail
+  // no longer ignites the instant the post-boss-2 breather lifts (that collision read as an impossible wall).
+  // softened the very-late HP sponge (0.0001→0.00006): late-wave challenge should come from DODGING density,
+  // not bullet-sponge grunts that drag fights out — casters already supply the readable bolt pressure.
+  const hpScale=(1+elapsed/75+late*late*0.00006)*DIFF.hp;
   const dmg=base.dmg*(1+elapsed/130+late*late*0.00006)*DIFF.dmg;
   enemies.push({id:++_eid,x,y,r:base.r,hp:base.hp*hpScale,maxhp:base.hp*hpScale,
     spd:base.spd*(1+elapsed/300),col:base.col,dmg,xp:base.xp,sc:base.sc,hit:0,scd:0,cdmg:0,dead:false,type,
@@ -296,7 +297,7 @@ function killEnemy(e,col){
   score+=e.sc;kills++;
   if(e.boss){
     bossOn=false;nextBoss=(now-t0)/1000+50;Fx.music('exitBoss');   // next boss 50s after this one falls; music back to normal track
-    breatherT=BOSS.breatherT;   // 30 s ramp: spawns start at 0.2× and ease linearly back to full so the arena clears for a beat
+    breatherT=BOSS.breatherT;   // 45 s ramp: spawns start at 0.2× and ease linearly back to full so the arena clears for a beat
     if(typeof Reward!=='undefined')Reward.pulse('#54e6b5');floatText(e.x,e.y-54,tr('CLEARED'),'#54e6b5');   // neon CLEARED announcement (banner driven by breatherT in updateHUD)
     if(typeof Ach!=='undefined')Ach.onBossKill((now-t0)/1000);   // achievements: count Wardens + flawless/fast-kill intent
     burst(e.x,e.y,'#ff3b6b',60,9);burst(e.x,e.y,'#ffd95e',40,7);
