@@ -1,5 +1,10 @@
 # Implementation Plan — Genre-Aware, Varying Menu (and In-Game) Music
 
+> ## 🟢 STATUS: EXECUTED (verified 2026-07-23)
+> Shipped. Per-genre procedural menu beds (`_bed()`/`menuBed`) and time-varying composition
+> (`_vary()`) are live in `js/audio-orchestrator.js` + `js/genre-orchestrator.js`, and the
+> behavior is documented in `CLAUDE.md`. The "scaffold only" note below is historical.
+
 > Scaffold/plan only. No game logic changed yet. Grounded in the current audio stack
 > (`js/audio-orchestrator.js` `Orchestra`, `js/genre-orchestrator.js` `GenreOrchestrator`/`GENRE_MAP`,
 > `js/audio-manifest.js` `AUDIO_MANIFEST`, `js/reward-granting-engine.js` `RewardEngine.equipMusic`).

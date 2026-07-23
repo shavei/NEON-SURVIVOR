@@ -1,5 +1,11 @@
 # Implementation Plan — Global Scoreboard (Supabase) + Responsive Mobile UI
 
+> ## 🟢 STATUS: EXECUTED (verified 2026-07-23)
+> Shipped. `js/net.js` (Supabase client + `submitScore`/`fetchTop`/offline queue), `js/config.js`,
+> the `leaderboard` table + RLS (`supabase/schema.sql`), the username/callsign modal (now
+> `js/auth-uplink.js`), and the responsive mobile CSS tiers all exist. The "scaffold only" note
+> below is historical.
+
 > Scaffold/plan only. No game logic changed yet. Grounded in the current codebase
 > (classic `<script defer>` globals, `state` machine in `js/world.js:6`, all menus in
 > `index.html`, local-only leaderboard in `js/main.js:188-216`).
