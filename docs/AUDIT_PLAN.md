@@ -1,12 +1,12 @@
 # Implementation Plan — Game-Wide Audit (Next Phase)
 
-> ## 🔴 STATUS: NOT EXECUTED / SUPERSEDED (verified 2026-07-23)
-> The concrete deliverable — the Phase-1 modularization split (`core.js` → `js/sprites.js`,
-> `audio-engine.js` → `js/audio-samplekit.js`) — was never done (`js/sprites.js` absent). The plan
-> also predates a large refactor: `audio-engine.js` no longer exists (it became
-> `js/audio-orchestrator.js`) and the byte sizes below are stale. The size-guard idea did land, but
-> separately as `verify-size.cjs`. The audit sweep itself produced `docs/AUDIT-REPORT.md` (and its
-> successor `docs/RED-TEAM-REPORT.md`). Treat this plan as historical.
+> ## ⛔ STATUS: WON'T DO / SUPERSEDED (owner decision, 2026-07-23)
+> **Cancelled.** The concrete deliverable — the Phase-1 modularization split (`core.js` →
+> `js/sprites.js`, `audio-engine.js` → `js/audio-samplekit.js`) — will not be done. It never was
+> (`js/sprites.js` absent), and the plan is obsolete: `audio-engine.js` no longer exists (it became
+> `js/audio-orchestrator.js`) and the byte sizes below are stale. The one durable idea — the size
+> guard — already shipped separately as `verify-size.cjs`. The audit sweep itself produced
+> `docs/AUDIT-REPORT.md` (and its successor `docs/RED-TEAM-REPORT.md`). Historical only.
 
 ## Phase 0 — Sync Check (gate, before ANY destructive edit)
 1. `git fetch origin && git status` — confirm clean working tree, no unpushed/unpulled commits.

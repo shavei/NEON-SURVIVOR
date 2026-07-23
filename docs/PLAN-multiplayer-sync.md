@@ -1,10 +1,11 @@
 # Implementation Plan — One Shared World: a Deterministic Co-op Simulation
 
-> ## 🔴 STATUS: NOT EXECUTED / ABANDONED (verified 2026-07-23)
-> Unbuilt. No `js/network-sync.js`, `js/multiplayer-combat.js`, or lockstep verifiers exist, and
-> the earlier host-authoritative co-op stack this plan referenced was removed (see
-> `docs/RED-TEAM-REPORT.md`). Only a dead `world_state` table lingers in `supabase/schema.sql`
-> with no consumer. This plan is not in progress.
+> ## ⛔ STATUS: WON'T DO (owner decision, 2026-07-23)
+> **Cancelled.** The deterministic lockstep co-op simulation will not be built. It was already
+> unbuilt (no `js/network-sync.js`, `js/multiplayer-combat.js`, or lockstep verifiers) and the
+> earlier host-authoritative co-op stack it referenced was removed (see `docs/RED-TEAM-REPORT.md`).
+> The dead `world_state` table it left in `supabase/schema.sql` has been **removed** as part of this
+> decision. Retained below for historical context only — do not resurrect without a fresh decision.
 
 > **Scaffold/plan only. No game logic written yet.** Grounded in the live codebase as of
 > this branch: classic `<script defer>` globals (`index.html:137-151`), the existing co-op

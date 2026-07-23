@@ -1,12 +1,13 @@
 # Implementation Plan — Secure Achievements + Peaceful Multiplayer Lobby
 
-> ## 🟡 STATUS: PARTIALLY EXECUTED (verified 2026-07-23)
+> ## 🟡 STATUS: SECURE-ACHIEVEMENTS DONE · LOBBY WON'T DO (decided 2026-07-23)
 > **Secure achievements half ✅ DONE:** `js/achievements.js`, `api/verify.js`, the
 > `player_achievements`/`runs`/`achievement_defs` tables + read-only RLS (`supabase/schema.sql`).
-> **Peaceful multiplayer lobby half ❌ NOT DONE:** no `js/network.js`, `js/netdebug.js`, or
-> `verify-net.cjs` — the Presence/lerp lobby (§3, §5.1, §5.3) was never built. (Note: server-side
-> identity binding from §4 remains open — see `docs/RED-TEAM-REPORT.md`.) The "scaffold only" note
-> below is historical.
+> **Peaceful multiplayer lobby half ⛔ WON'T DO (owner decision, 2026-07-23):** the Presence/lerp
+> lobby (§3, §5.1, §5.3 — `js/network.js`, `js/netdebug.js`, `verify-net.cjs`) is **cancelled**, not
+> merely pending; do not resurrect it without a fresh decision. (Note: server-side identity binding
+> from §4 was since delivered under `docs/PLAN-achievement-cloud-sync.md`.) The lobby sections below
+> are retained for historical context only.
 
 > **Scaffold/plan only. No game logic written yet.** Grounded in the current codebase:
 > classic `<script defer>` globals (`index.html:120-129`), `state` machine (`js/world.js:6`),
