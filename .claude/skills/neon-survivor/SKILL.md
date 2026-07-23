@@ -6,8 +6,11 @@ description: Efficient workflow for editing the single-file NEON SURVIVOR game (
 # NEON SURVIVOR dev skill
 
 NEON SURVIVOR is a vanilla-JS HTML5 canvas game (no deps, runs offline), split across `index.html`,
-`css/style.css`, and five classic scripts loaded in order: `js/core.js → world.js → sim.js → render.js → main.js`.
-The canonical map of its internals lives in **`CLAUDE.md`** (project root) — read that first instead of grepping/reading whole files.
+`css/*.css`, and a stack of **classic** (non-module) scripts loaded in a fixed order — the game core alone runs
+`config-sim → core → audio-orchestrator → world → sim → render → … → main`, with the identity/achievement/reward
+stack after it (see `index.html`'s `<script defer>` tags for the authoritative order). Every served `js/*.js` must
+stay **under 28 KB** (a larger file is silently truncated). The canonical map of its internals lives in **`CLAUDE.md`**
+(project root) — read that first instead of grepping/reading whole files.
 
 ## Golden rules (token efficiency)
 1. **Don't re-read whole files.** Use `CLAUDE.md`'s system map + `Grep` for the section header (e.g. `/* ========== COMBAT ========== */`) to jump to the ~20 lines you need, in the right `js/*.js`.
