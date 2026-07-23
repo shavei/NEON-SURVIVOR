@@ -133,6 +133,7 @@ const Orchestra = {
     try {
       this.stopPreview();
       const a = new Audio(); a.src = url; a.volume = 0.6; this._prev = a;
+      a.addEventListener('error', () => this.stopPreview(), { once: true });   // absent/404 clip (genre files not yet supplied) ⇒ restore the bed at once, don't leave the menu ducked to silence for 9 s
       const p = a.play(); if (p && p.catch) p.catch(() => {});
       this._duckBed(true);                                       // hush the menu bed so preview plays alone, not stacked on top
       this._prevT = setTimeout(() => this.stopPreview(), 9000);
@@ -141,7 +142,7 @@ const Orchestra = {
   stopPreview() { try { if (this._prevT) { clearTimeout(this._prevT); this._prevT = null; } if (this._prev) { this._prev.pause(); this._prev = null; } } catch (e) {} this._duckBed(false); },
   // duck/restore the in-graph mix (procedural bed + any real track, both feed _g.master) so a preview is never
   // heard over the menu music; restore target 0.9 == menu()/resume() level. No-op headless / before the graph exists.
-  _duckBed(on) { if (this._g && Sound && Sound.ac) try { this._g.master.gain.setTargetAtTime(on ? 0.0001 : 0.9, Sound.ac.currentTime, 0.18); } catch (e) {} },
+  _duckBed(on) { if (this._g && Sound && Sound.ac) try { this._g.master.gain.setTargetAtTime(on ? 0.0001 : (this.state === 'PAUSED' ? 0.4 : 0.9), Sound.ac.currentTime, 0.18); } catch (e) {} },   // restore to the PAUSE muffle level when previewing from the pause menu, not full 0.9
 
   // ---------- AUDIO GRAPH: section gains + sting bus + juke gains → lowpass → master → Sound.master ----------
   _build() {
@@ -170,6 +171,8 @@ const Orchestra = {
     o.connect(ga); ga.connect(g.layers[layer]); o.start(t); o.stop(t + 0.55);
     this._live++; setTimeout(() => { this._live--; }, 650);
   },
+  // ---- GENRE BEAT ENGINE (_noiseBuf/_drum/_saw/_beat) is attached to Orchestra by genre-orchestrator.js,
+  //      kept out-of-file so this module stays under the 28 KB silent-truncation cap. Styled beds only. ----
 
   // cosmetic "not the same the whole time" variation, driven by this._loops (a plain cycle counter, NEVER
   // srng) so verify-equiv stays byte-identical. rot = A (progression phase rotates every 2 loops); trans =
@@ -185,6 +188,7 @@ const Orchestra = {
       const boss = this.active === 'boss', V = boss ? { rot: 0, trans: 0, thin: false } : this._vary();   // boss overdrive owns the mix ⇒ no variation (pinned)
       const s = this.step, idx = s % 8, bar = (s / 8) | 0, ci = ((bar >> 1) + V.rot) % T.prog.length;
       const set = T.prog[ci].map(m => m + V.trans), root = T.bass[ci] + V.trans, t = this.nextTime;
+      if (T.style && this._beat) { this._beat(T.style, set, root, s, idx, t, stepDur, boss); const nx0 = (this.step + 1) % 64; if (nx0 === 0) this._loops++; this.step = nx0; this.nextTime += stepDur; continue; }   // styled bed → genre beat engine (attached by genre-orchestrator.js)
       if (idx === 0) { const dur = stepDur * 16; for (const m of set) { this._v('strings', this._mtof(m), t, dur, 'sawtooth', 0.045, 0.28); this._v('strings', this._mtof(m) * 1.006, t, dur, 'triangle', 0.035, 0.32); } this._v('strings', this._mtof(root), t, dur, 'sine', 0.09, 0.18); }
       if (T.ostinato && !V.thin) this._v('strings', this._mtof(root + 12), t, stepDur * 0.9, 'sawtooth', 0.04, 0.012);
       const wm = [0, 2, 1, 3, 2, 3, 1, 2][idx];
@@ -202,9 +206,10 @@ const Orchestra = {
     const g = this._g; if (!g || this.state === 'PAUSED') return;
     const ac = Sound.ac, { i, danger } = this._intensity(); this._i = i; const boss = this.active === 'boss';
     const mute = this._realActive ? 0 : 1;       // silence the procedural bed under a live real track
-    for (const L of this.LAYERS) { const tgt = clamp((this.MIX[L] || (() => 1))(i, danger, boss), 0, 1) * 0.9 * mute; g.layers[L].gain.setTargetAtTime(tgt, ac.currentTime, 0.5); }
+    const bedT = this.TRACKS[this._bed()], elec = !!(bedT && bedT.style);   // beat-driven bed: layers stay OPEN, the composer owns density (the orchestral vertical remix doesn't fit a drum kit)
+    for (const L of this.LAYERS) { const tgt = (elec ? 1 : clamp((this.MIX[L] || (() => 1))(i, danger, boss), 0, 1)) * 0.9 * mute; g.layers[L].gain.setTargetAtTime(tgt, ac.currentTime, 0.5); }
     const LH = this._lh();                       // DANGER ⇒ manifest low-pass on the LIVE mix — no track swap
-    const cut = danger ? LH.freq : (this._realActive ? 8000 : (boss ? 2600 : 1100) + i * 3000);   // real mix open unless danger; boss bed bright
+    const cut = danger ? LH.freq : (this._realActive ? 8000 : elec ? (boss ? 5200 : 2200) + i * 4000 : (boss ? 2600 : 1100) + i * 3000);   // real mix open unless danger; electronic beds ride brighter; boss bed bright
     g.filter.frequency.setTargetAtTime(cut, ac.currentTime, LH.ramp);
     g.filter.Q.setTargetAtTime(danger ? LH.q : 1.2, ac.currentTime, LH.ramp);   // resonant peak reads as DANGER, not broken audio
   },

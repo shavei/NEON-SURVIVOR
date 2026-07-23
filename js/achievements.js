@@ -31,6 +31,8 @@ const ACH_CATALOG = [
   { id:'ascended',      conds:[['level',25]],     cat:'survival', difficulty:null, ico:'✨', title:'Ascended',         desc:'Reach level 25 in a single run.',      tier:'silver', chain:null },
   { id:'veteran',       conds:[['runs',10]],      cat:'survival', difficulty:null, ico:'🎖️', title:'Veteran',          desc:'Finish 10 runs (lifetime).',           tier:'bronze', chain:null },
   { id:'hardcore',      conds:[['wave',10]],      cat:'survival', difficulty:'hard', ico:'🔥', title:'Hardcore',        desc:'Reach wave 10 on Hard.',               tier:'silver', chain:null },
+  { id:'bass_cannon',   conds:[['level',15]],     cat:'survival', difficulty:null, ico:'🔊', title:'Bass Cannon',      desc:'Reach level 15 in a single run.',      tier:'silver', chain:null },
+  { id:'hypnotic',      conds:[['wave',15]],      cat:'survival', difficulty:null, ico:'🌀', title:'Hypnotic',         desc:'Reach wave 15 in a single run.',       tier:'silver', chain:null },
 
   // ---- skill (intent-based, cosmetic-only trust) ----
   { id:'ghost_grid',        conds:[['noHitWave',10]],                 cat:'skill',     difficulty:null, ico:'👻', title:'Ghost in the Grid', desc:'Reach wave 10 without taking a single hit.',        tier:'silver', chain:'flawless' },

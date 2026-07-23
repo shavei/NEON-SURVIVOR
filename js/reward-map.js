@@ -27,6 +27,8 @@ const REWARD_MAP = {
   ascended:          { kind:'palette', id:'violet_void',       title:'Violet Void',         ico:'🔮' },
   veteran:           { kind:'music', id:'neon_pop',            title:'Neon Pop',            ico:'🎤', src:'pop',   genre:'Pop'  },
   hardcore:          { kind:'skin',  id:'cinder_frame',        title:'Cinder Frame',        ico:'🟧' },
+  bass_cannon:       { kind:'music', id:'festival_edm',        title:'Festival Drop',       ico:'🔊', src:'edm',    genre:'EDM'    },
+  hypnotic:          { kind:'music', id:'hypno_trance',        title:'Hypno Pulse',         ico:'🌀', src:'trance', genre:'Trance' },
   // ---- boss ----
   boss_slayer:       { kind:'palette', id:'crimson_nebula',    title:'Crimson Nebula',      ico:'🟥' },
   warden_hunter:     { kind:'music', id:'requiem_hunt',        title:'Requiem of the Hunt', ico:'🎼', src:'boss0' },
