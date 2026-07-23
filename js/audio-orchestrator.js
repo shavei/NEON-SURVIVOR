@@ -132,10 +132,14 @@ const Orchestra = {
       this.stopPreview();
       const a = new Audio(); a.src = url; a.volume = 0.6; this._prev = a;
       const p = a.play(); if (p && p.catch) p.catch(() => {});
+      this._duckBed(true);                                       // hush the menu bed so preview plays alone, not stacked on top
       this._prevT = setTimeout(() => this.stopPreview(), 9000);
     } catch (e) {}
   },
-  stopPreview() { try { if (this._prevT) { clearTimeout(this._prevT); this._prevT = null; } if (this._prev) { this._prev.pause(); this._prev = null; } } catch (e) {} },
+  stopPreview() { try { if (this._prevT) { clearTimeout(this._prevT); this._prevT = null; } if (this._prev) { this._prev.pause(); this._prev = null; } } catch (e) {} this._duckBed(false); },
+  // duck/restore the in-graph mix (procedural bed + any real track, both feed _g.master) so a preview is never
+  // heard over the menu music; restore target 0.9 == menu()/resume() level. No-op headless / before the graph exists.
+  _duckBed(on) { if (this._g && Sound && Sound.ac) try { this._g.master.gain.setTargetAtTime(on ? 0.0001 : 0.9, Sound.ac.currentTime, 0.18); } catch (e) {} },
 
   // ---------- AUDIO GRAPH: section gains + sting bus + juke gains → lowpass → master → Sound.master ----------
   _build() {
