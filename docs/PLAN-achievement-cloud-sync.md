@@ -1,6 +1,12 @@
 # PLAN — Achievement Cloud Sync & Persistent Identity
 
-Status: **proposal / scaffold** · Owner: TBD · Target branch: `claude/nifty-newton-p2rix0`
+> ## 🟡 STATUS: PARTIALLY EXECUTED (verified 2026-07-23)
+> **P1 — Auth + identity ✅ DONE** · **P2 — Fetch + reconcile ✅ DONE** (`js/achievement-sync.js`,
+> `profiles` table + RLS in `supabase/schema.sql`). **P3 — Hardening ❌ NOT DONE:** no `api/claim.js`
+> (legacy badge re-key) and no bearer-token / `auth.uid()` check in `api/verify.js` — the endpoint
+> still trusts the client-supplied `player_id`. See §5 Phasing for the P3 checklist.
+
+Status: **P1 ✅ / P2 ✅ implemented · P3 ⏳ pending** · Owner: TBD · Target branch: `claude/nifty-newton-p2rix0`
 
 Goal (as stated): achievements survive a browser clear by living in Supabase keyed to a
 durable user identity instead of a per-browser localStorage token, restorable on any device.
