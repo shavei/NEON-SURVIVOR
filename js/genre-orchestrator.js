@@ -61,8 +61,9 @@ const GenreOrchestrator = {
 };
 
 /* ========== GENRE BEAT ENGINE — attached onto Orchestra (kept here so audio-orchestrator.js stays under the
- * 28 KB truncation cap). A bed tagged style:'trap'|'edm'|'trance' in AUDIO_MANIFEST renders through _beat
- * instead of the orchestral voices, so each electronic genre actually sounds like itself. All methods run as
+ * 28 KB truncation cap). A bed tagged style:'trap'|'edm'|'trance'|'pop'|'metal'|'classical'|'acoustic' in
+ * AUDIO_MANIFEST renders through _beat instead of the orchestral voices, so each genre actually sounds like
+ * itself (electronic drum-machine beds + band/chamber/unplugged beds). All methods run as
  * Orchestra methods (this === Orchestra): _v/_mtof/_g/_live/Sound all resolve on it. Headless: Sound.ac is
  * absent so nothing schedules; sched() never fires without an audio graph, so verify-equiv stays byte-identical. */
 if (typeof Orchestra !== 'undefined') Object.assign(Orchestra, {
@@ -104,6 +105,43 @@ if (typeof Orchestra !== 'undefined') Object.assign(Orchestra, {
       this._v('strings', mtof(root + (idx % 2 ? 12 : 0)), t + hh, sd * 0.45, 'sawtooth', 0.3, 0.004);   // …retrig'd octave bounce = fake wub
       if (idx % 2 === 1) this._saw('brass', set[(idx >> 1) % nt] + 12, t, sd * 0.9, 0.04, 0.01);         // complextro supersaw stab
       if (boss && idx === 0) this._drum('winds', t, 'snare', 0.5);
+      return;
+    }
+    if (style === 'pop') {                         // bright I–V–vi–IV anthem: four-on-floor-lite + bell stabs
+      if (on(0, 4)) this._drum('timpani', t, 'kick', 0.9);                            // punchy downbeat kick
+      if (on(2, 6)) this._drum('winds', t, 'snare', 0.6);                             // backbeat clap
+      this._drum('winds', t, 'hat', 0.16); if (idx % 2 === 1) this._drum('winds', t, 'ohat', 0.14);   // 8th hats + offbeat open
+      this._v('strings', mtof(root), t, sd * 0.9, 'triangle', 0.42, 0.006); this._v('strings', mtof(root + (idx % 2 ? 12 : 7)), t + hh, sd * 0.5, 'triangle', 0.22, 0.006);   // bouncy octave/5th bass
+      if (idx % 2 === 0) set.forEach(m => this._v('brass', mtof(m + 12), t, sd * 0.7, 'sine', 0.05, 0.004));   // bright bell/synth stab
+      if (idx === 0) this._v('choir', mtof(set[nt - 1] + 12), t, sd * 16, 'triangle', 0.04, 0.4);   // shimmer pad
+      if (boss && on(2, 6)) this._drum('timpani', t, 'kick', 0.4);
+      return;
+    }
+    if (style === 'metal') {                       // driving power-chord chug: galloping kick + tremolo lead
+      if (idx % 2 === 0) this._drum('timpani', t, 'kick', 0.95);                      // galloping kick chug
+      if (on(2, 6)) this._drum('winds', t, 'snare', 0.72);                            // driving backbeat
+      this._drum('winds', t, 'hat', 0.2);
+      this._saw('brass', root + 12, t, sd * 0.9, 0.06, 0.002); this._saw('brass', root + 19, t, sd * 0.9, 0.05, 0.002);   // palm-muted power chord (root+5th)
+      if (idx % 2 === 1) this._saw('brass', set[s % nt] + 24, t, hh * 1.05, 0.03, 0.002);   // tremolo-picked lead 16ths
+      if (idx === 0) this._v('strings', mtof(root - 12), t, sd * 4, 'sawtooth', 0.09, 0.004);   // low sub drone
+      if (boss) { if (idx % 2 === 1) this._drum('timpani', t, 'kick', 0.6); this._drum('winds', t + hh, 'hat', 0.14); }   // double-kick blast
+      return;
+    }
+    if (style === 'classical') {                   // no drum kit — Alberti broken-chord arpeggio + sustained pad
+      this._v('strings', mtof(set[[0, 2, 1, 2, 0, 2, 1, 2][idx] % nt] + 12), t, sd * 1.1, 'triangle', 0.06, 0.01);   // Alberti bass figure
+      if (boss) this._v('strings', mtof(set[(s * 2) % nt] + 24), t + hh, hh * 1.1, 'triangle', 0.045, 0.008);   // agitato 16th run under boss
+      if (idx === 0) { set.forEach(m => this._v('choir', mtof(m), t, sd * 16, 'sine', 0.05, 0.5)); this._timp('timpani', t, root - 12, boss ? 0.55 : 0.32); }   // sustained pad + soft downbeat drum
+      if (idx === 4) this._v('strings', mtof(root), t, sd * 4, 'sine', 0.07, 0.02);   // mid-bar bass suspension
+      if (boss && on(2, 6)) this._timp('timpani', t, root - 12, 0.4);
+      return;
+    }
+    if (style === 'acoustic') {                    // unplugged — brushed kit, walking bass, fingerpicked arpeggio
+      if (on(0, 4)) this._drum('timpani', t, 'kick', 0.5); this._drum('winds', t, 'hat', 0.1);   // soft upright kick + brushed 8ths
+      if (boss && on(2, 6)) this._drum('winds', t, 'snare', 0.4);                     // brushed backbeat under boss
+      if (idx % 2 === 0) this._v('strings', mtof(root + (idx % 4 ? 2 : 0)), t, sd * 1.1, 'triangle', 0.16, 0.008);   // walking upright bass
+      this._v('brass', mtof(set[(s + idx) % nt] + 12), t, sd * 0.8, 'triangle', 0.05, 0.004);   // fingerpicked pluck
+      if (idx % 2 === 1) this._v('brass', mtof(set[(s + 1) % nt] + 19), t + hh, hh * 1.1, 'triangle', 0.035, 0.004);   // travis-pick upper string
+      if (idx === 0) this._v('choir', mtof(set[0] + 12), t, sd * 12, 'sine', 0.03, 0.6);   // warm body resonance
       return;
     }
     if (idx % 2 === 0) this._drum('timpani', t, 'kick', 0.95);                        // trance: driving 4-on-floor
