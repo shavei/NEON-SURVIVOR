@@ -179,8 +179,8 @@ new tab buttons, `#sound` toggle. Target **≥44×44 px** (Apple HIG) / 48dp (Ma
   and tap targets measure ≥44px with the overlay ruler.
 
 ### 3c. Token discipline — new modular files? **Yes.**
-Adding this inline would bloat `main.js` toward the 24 KB split trigger flagged in
-`docs/AUDIT_PLAN.md`. Proposed additions (keeps each file single-purpose):
+Adding this inline would bloat `main.js` toward the 24 KB split trigger (the size guard
+now enforced by `verify-size.cjs`). Proposed additions (keeps each file single-purpose):
 
 | File | Role | Load order |
 |---|---|---|
