@@ -40,6 +40,9 @@ const GenreOrchestrator = {
     return null; },
   // procedural bed the composer renders under a boss for this genre ('boss' = the orchestral default bed)
   bossBed() { const k = this.current() + 'boss'; return (typeof Orchestra !== 'undefined' && Orchestra.TRACKS[k]) ? k : 'boss'; },
+  // procedural MENU bed for this genre (distinct chill flavour when the real g+'menu' file is absent); null =
+  // orchestral / genre with no menubed → Orchestra._bed falls through to the wave bed / default ambient loop
+  menuBed() { const k = this.current() + 'menu'; return (typeof Orchestra !== 'undefined' && Orchestra.TRACKS[k]) ? k : null; },
   wardenTitle() { return this.def().wardenTitle; },   // world.js boss-spawn toast reads this (tr() at the display site)
   // menu + pause 'Music Sync' readout — re-rendered on every retheme and language switch (Hebrew in lang-he.js)
   syncUI() { if (typeof document === 'undefined') return; const d = this.def();
