@@ -43,6 +43,7 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `node .claude/skills/neon-survivor/verify-upgrades.cjs` — after upgrade logic
 - `node .claude/skills/neon-survivor/verify-equiv.cjs` — after behavior-preserving refactors
 - `node .claude/skills/neon-survivor/verify-achievements.cjs` — after achievement/reward catalog or `api/verify.js` edits (client↔server lockstep)
+- `node .claude/skills/neon-survivor/verify-music.cjs` — after audio-orchestrator / genre-orchestrator / audio-manifest edits (every genre × every state under a Web-Audio mock: procedural beat engine + real-track handover, danger muffle, pause freeze, preview duck/restore)
 - `node .claude/skills/neon-survivor/verify-otp.cjs` — after auth-uplink / achievement-sync edits (signup-code · otp-code · instant-resume)
 - `node .claude/skills/neon-survivor/verify-censor.cjs` — after callsign-filter / auth-gate edits (cross-language EN↔HE censorship: blocked · allowed · convergence · `debugCensor`)
 - `node .claude/skills/neon-survivor/verify-fullcycle.cjs` — full identity arc: login → unique callsign → unlock → reward → showcase (`--live` for a real Supabase round-trip)
