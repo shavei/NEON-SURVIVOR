@@ -225,6 +225,23 @@ async function sb(pathAndQuery, opts = {}) {
   return body;
 }
 
+/* resolve the caller's authenticated user id from a Supabase session bearer token (GoTrue /auth/v1/user).
+ * Returns the uid for a valid USER token, or null when the token is absent/invalid (the legacy-anon path).
+ * The service key is never accepted as a user. Never throws — a network hiccup degrades to null, and the
+ * handler's no-session branch then refuses to target any registered account. */
+async function authUid(req) {
+  const h = (req && req.headers && (req.headers.authorization || req.headers.Authorization)) || '';
+  const m = /^Bearer\s+(.+)$/i.exec(String(h));
+  const tok = m && m[1];
+  if (!tok || tok === SERVICE_KEY) return null;
+  try {
+    const res = await fetch(SUPA_URL + '/auth/v1/user', { headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + tok } });
+    if (!res.ok) return null;
+    const u = await res.json();
+    return (u && u.id) || null;
+  } catch (e) { return null; }
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ accepted:false, reason:'method_not_allowed' }); return; }
   if (!SUPA_URL || !SERVICE_KEY) { res.status(500).json({ accepted:false, reason:'server_unconfigured' }); return; }
@@ -240,6 +257,19 @@ module.exports = async function handler(req, res) {
   sanitizeIntent(claim, b);   // fold client-asserted intent fields in, each clamped to a plausible bound
 
   try {
+    // 0) IDENTITY BINDING (red-team H1): a run may only be verified onto a player_id by that player.
+    //    A valid session bearer must MATCH the claimed id; and a claim carrying NO session may never target
+    //    a registered account (a profiles row) — so a forged/orphaned player_id can't mint onto a real user.
+    //    (Legacy/offline anon ids have no profile, so local play keeps writing as before.)
+    const uid = await authUid(req);
+    if (uid) {
+      if (uid !== b.player_id) { res.status(403).json({ accepted:false, reason:'identity_mismatch' }); return; }
+    } else {
+      let prof = null;
+      try { prof = await sb('profiles?select=id&id=eq.' + encodeURIComponent(b.player_id) + '&limit=1'); } catch (e) { prof = null; }
+      if (Array.isArray(prof) && prof.length) { res.status(403).json({ accepted:false, reason:'auth_required' }); return; }
+    }
+
     // 1) fetch the trusted run row (must belong to this player)
     const rows = await sb('runs?select=*&run_token=eq.' + encodeURIComponent(b.run_token) +
                           '&player_id=eq.' + encodeURIComponent(b.player_id));
@@ -339,3 +369,4 @@ module.exports.COSMETIC_MAP = COSMETIC_MAP;
 module.exports.cosmeticsFor = cosmeticsFor;
 module.exports.REWARD_MAP = REWARD_MAP;
 module.exports.rewardsFor = rewardsFor;
+module.exports.authUid = authUid;

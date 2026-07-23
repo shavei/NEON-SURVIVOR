@@ -217,10 +217,16 @@ create or replace function public.callsign_available(name text)
 $$;
 grant execute on function public.callsign_available(text) to anon, authenticated;
 
--- NOTE (P3): once legacy player_achievements rows are re-keyed to auth ids by /api/claim.js, add an FK
--- for integrity:  alter table public.player_achievements add constraint player_achievements_player_fk
---                 foreign key (player_id) references public.profiles(id) on delete cascade;
--- Deferred so the constraint doesn't reject still-orphaned legacy player_ids before the claim runs.
+-- P3 STATUS: /api/claim.js (legacy re-key) and the /api/verify.js bearer/auth.uid() identity binding are
+-- now LIVE. The player_achievements → profiles FK below stays DEFERRED — and is only safe after a full
+-- auth-only cutover — for two reasons:
+--   1) orphaned legacy rows: any player_id not yet re-keyed by /api/claim.js would violate the FK on add;
+--   2) anon/offline grants: /api/verify.js still (intentionally) accepts writes for non-account ids that
+--      have NO profiles row (local play), and the FK would reject every one of those grants.
+-- So do NOT enable it while anon writes are permitted. After the cutover (claim has re-keyed all legacy
+-- rows AND /api/verify requires a session), run:
+--   alter table public.player_achievements add constraint player_achievements_player_fk
+--     foreign key (player_id) references public.profiles(id) on delete cascade;
 
 
 -- ---------- harden the EXISTING leaderboard (DONE — cutover applied above) ----------

@@ -254,20 +254,23 @@ const Ach = {
     if (!p || !this._token || typeof fetch !== 'function') {               // offline / SDK-not-ready → local-only, no cloud write
       this._last = { accepted:false, reason:this._token ? 'no_identity' : 'no_run_token' }; return; }
     const base = (typeof SUPA_FUNCTIONS_URL === 'string' && SUPA_FUNCTIONS_URL) || '';
-    try {
-      fetch(base + '/api/verify', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player_id: p.id, run_token: this._token, username: p.name,    // username → server-written leaderboard row
-          score: stats.score, wave: stats.wave, secs: entry.secs | 0, kills: stats.kills,
-          level: stats.level, bosses: stats.bosses, runs: stats.runs, difficulty: stats.difficulty,
-          // intent fields (cosmetic-only; server clamps to plausible bounds before granting)
-          noHitWave: stats.noHitWave, starterWave: stats.starterWave, soloWave: stats.soloWave,
-          asceticWave: stats.asceticWave, glassWave: stats.glassWave, flawlessBoss: stats.flawlessBoss,
-          peakWeapons: stats.peakWeapons, bossKillSecs: stats.bossKillSecs, cameback: stats.cameback,
-          evolutions: stats.evolutions,
-        }),
-      }).then(r => r.json()).then(j => {
+    const payload = JSON.stringify({
+      player_id: p.id, run_token: this._token, username: p.name,    // username → server-written leaderboard row
+      score: stats.score, wave: stats.wave, secs: entry.secs | 0, kills: stats.kills,
+      level: stats.level, bosses: stats.bosses, runs: stats.runs, difficulty: stats.difficulty,
+      // intent fields (cosmetic-only; server clamps to plausible bounds before granting)
+      noHitWave: stats.noHitWave, starterWave: stats.starterWave, soloWave: stats.soloWave,
+      asceticWave: stats.asceticWave, glassWave: stats.glassWave, flawlessBoss: stats.flawlessBoss,
+      peakWeapons: stats.peakWeapons, bossKillSecs: stats.bossKillSecs, cameback: stats.cameback,
+      evolutions: stats.evolutions,
+    });
+    // send with the session bearer when signed in so /api/verify can bind the write to auth.uid() (H1);
+    // anon/local players post without it and the server allows only non-account ids.
+    const send = (token) => {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = 'Bearer ' + token;
+      try {
+      fetch(base + '/api/verify', { method: 'POST', headers, body: payload }).then(r => r.json()).then(j => {
         this._last = j;
         if (j && j.accepted && Array.isArray(j.newAchievements)) {
           const s = this._load(), add = j.newAchievements.filter(id => s.unlocked.indexOf(id) < 0);
@@ -282,7 +285,12 @@ const Ach = {
           }
         }
       }, () => {});
-    } catch (e) {}
+      } catch (e) {}
+    };
+    if (typeof SB !== 'undefined' && SB && SB.auth && typeof SB.auth.getSession === 'function') {
+      try { SB.auth.getSession().then(r => send(r && r.data && r.data.session && r.data.session.access_token), () => send()); }
+      catch (e) { send(); }
+    } else { send(); }
   },
 
   /* unlock feedback: prefer the high-fidelity, self-queuing #achtoast (achievements-ui.js) — it slides
