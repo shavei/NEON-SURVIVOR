@@ -3,8 +3,11 @@
 These are the **achievement-reward** soundtracks. Equipping one in the Showcase → **Soundtrack** tab
 performs a **Total Genre Conversion** — menu, wave and boss themes all re-point to that genre. Each file
 is **copyright-free (Public Domain / CC0)** — never a copyrighted recording. Missing files fall back to a
-built-in **per-genre procedural bed** (distinct tempo + harmony + drive per genre), so an unlocked genre
-always sounds different even before a real recording is supplied.
+built-in **per-genre procedural bed** (distinct tempo + harmony + drive per genre — with a **separate chill
+`menubed`** for the menu/pause so a `menu.mp3`-less genre still sounds like itself, not a flat shared loop),
+so an unlocked genre always sounds different even before a real recording is supplied. The procedural
+composer also **varies over time** (`Orchestra._vary` — cosmetic loop-clock rotates the harmony, lifts the
+key and breathes the texture) so a bed never repeats bar-for-bar; the variation is pinned OFF under a boss.
 
 ## Layout
 One folder per genre — `audio/genres/<genre>/` — with these slots (all optional, resolved by

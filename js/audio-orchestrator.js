@@ -30,7 +30,7 @@ const Orchestra = {
   // ---- state ----
   state: 'BOOT', active: 'ambient', playing: false, bossMode: false, _bt: 0,
   _g: null, _jk: {}, _real: null, _realActive: false,
-  step: 0, nextTime: 0, _pending: null, _resume: 'AMBIENT', _i: 0, _live: 0, _trace: [],
+  step: 0, nextTime: 0, _pending: null, _resume: 'AMBIENT', _i: 0, _live: 0, _trace: [], _loops: 0,
 
   // ---------- STATE TRANSITION + DEBUG TRACE (one [AUD] line per edge, off the hot path) ----------
   _go(to, note) {
@@ -114,6 +114,8 @@ const Orchestra = {
     if (this.active === 'boss') {   // under a boss: the equipped genre's boss bed (GenreOrchestrator data), else the orchestral one
       if (typeof GenreOrchestrator !== 'undefined' && GenreOrchestrator.bossBed) { const k = GenreOrchestrator.bossBed(); if (this.TRACKS[k]) return k; }
       return 'boss'; }
+    if (!this._realActive && this.state === 'MENU' && typeof GenreOrchestrator !== 'undefined' && GenreOrchestrator.menuBed) {   // menu with no real g+'menu' file ⇒ the genre's chill menu bed (not the flat shared ambient loop)
+      const mb = GenreOrchestrator.menuBed(); if (mb && this.TRACKS[mb]) return mb; }
     if (!this._realActive && typeof GenreOrchestrator !== 'undefined' && GenreOrchestrator.resolveKey) {   // genre wave bed (covers the debugGenre override too, which owns no track)
       const k = GenreOrchestrator.resolveKey('play'); if (k && this.TRACKS[k]) return k; }
     if (!this._realActive && typeof RewardEngine !== 'undefined' && RewardEngine.equippedMusic) {
@@ -169,16 +171,22 @@ const Orchestra = {
     this._live++; setTimeout(() => { this._live--; }, 650);
   },
 
+  // cosmetic "not the same the whole time" variation, driven by this._loops (a plain cycle counter, NEVER
+  // srng) so verify-equiv stays byte-identical. rot = A (progression phase rotates every 2 loops); trans =
+  // B (slow ±scale-step key lift that resolves back); thin = C (texture breathes thin→full every 2 loops).
+  _vary() { const n = this._loops | 0;
+    return { rot: (n >> 1) % 4, trans: [0, 0, 2, 0, 0, -2, 0, 3][n % 8], thin: (n % 4) < 2 }; },
   // ---------- PROCEDURAL COMPOSER: 8th-note grid, 8-bar cycle, reads this.active ----------
   sched() {
     const ac = Sound.ac, g = this._g; if (!g) return;
     while (this.nextTime < ac.currentTime + 0.18) {
       if (this.step % 8 === 0 && this._pending && this._pending !== this.active) { this.active = this._pending; this._pending = null; if (this.active === 'boss' && !this._realActive) this._sting('boss'); }
       const T = this.TRACKS[this._bed()], stepDur = (60 / T.bpm) / 2;
-      const s = this.step, idx = s % 8, bar = (s / 8) | 0, ci = (bar >> 1) % T.prog.length;
-      const set = T.prog[ci], root = T.bass[ci], t = this.nextTime;
+      const boss = this.active === 'boss', V = boss ? { rot: 0, trans: 0, thin: false } : this._vary();   // boss overdrive owns the mix ⇒ no variation (pinned)
+      const s = this.step, idx = s % 8, bar = (s / 8) | 0, ci = ((bar >> 1) + V.rot) % T.prog.length;
+      const set = T.prog[ci].map(m => m + V.trans), root = T.bass[ci] + V.trans, t = this.nextTime;
       if (idx === 0) { const dur = stepDur * 16; for (const m of set) { this._v('strings', this._mtof(m), t, dur, 'sawtooth', 0.045, 0.28); this._v('strings', this._mtof(m) * 1.006, t, dur, 'triangle', 0.035, 0.32); } this._v('strings', this._mtof(root), t, dur, 'sine', 0.09, 0.18); }
-      if (T.ostinato) this._v('strings', this._mtof(root + 12), t, stepDur * 0.9, 'sawtooth', 0.04, 0.012);
+      if (T.ostinato && !V.thin) this._v('strings', this._mtof(root + 12), t, stepDur * 0.9, 'sawtooth', 0.04, 0.012);
       const wm = [0, 2, 1, 3, 2, 3, 1, 2][idx];
       if (idx % 2 === 0 || this._i > 0.4) this._v('winds', this._mtof(set[wm % set.length] + 12), t, stepDur * 1.5, 'triangle', 0.035, 0.04);
       if (T.drive ? idx % 2 === 0 : idx === 0) { this._v('brass', this._mtof(set[0] + 12), t, stepDur * 2.2, 'sawtooth', 0.05, 0.06); this._v('brass', this._mtof(set[2] + 12), t, stepDur * 2.2, 'square', 0.028, 0.07); }
@@ -186,8 +194,8 @@ const Orchestra = {
       if (T.ostinato && (idx === 2 || idx === 6)) this._timp('timpani', t, root - 12, 0.4);
       if (this.active === 'boss' && !this._realActive) { if (idx % 2 === 1) this._timp('timpani', t, root - 12, 0.35);   // boss overdrive: 8th-note war drums…
         this._v('brass', this._mtof(set[idx % set.length] + 24), t, stepDur * 0.7, 'square', 0.022, 0.008); }            // …+ shrill top-octave stab on every step
-      if (idx === 0) this._v('choir', this._mtof(set[set.length - 1] + 12), t, stepDur * 16, 'sine', 0.05, 0.55);
-      this.step = (this.step + 1) % 64; this.nextTime += stepDur;
+      if (idx === 0 && !V.thin) this._v('choir', this._mtof(set[set.length - 1] + 12), t, stepDur * 16, 'sine', 0.05, 0.55);
+      const nx = (this.step + 1) % 64; if (nx === 0) this._loops++; this.step = nx; this.nextTime += stepDur;   // _loops = cosmetic variation clock (§2), advances one per 8-bar cycle
     }
   },
   _tick() {                                      // automate section gains + filter; freezes while PAUSED
@@ -278,7 +286,7 @@ const Orchestra = {
   for (const g in G) { const d = G[g], o = g === 'orchestral';
     if (d.menu) J[o ? 'menu' : g + 'menu'] = d.menu; if (d.wave) J[o ? 'play' : g] = d.wave; if (d.over) J.over = d.over;
     if (d.boss) ['revenant', 'maelstrom', 'overseer'].forEach((a, i) => { if (d.boss[a]) J[(o ? 'boss' : g + 'boss') + i] = d.boss[a]; });
-    if (d.bed) T[g] = d.bed; if (d.bossbed) T[g + 'boss'] = d.bossbed; } })();
+    if (d.bed) T[g] = d.bed; if (d.menubed) T[g + 'menu'] = d.menubed; if (d.bossbed) T[g + 'boss'] = d.bossbed; } })();
 
 /* ========== PUBLIC FACADE — the only audio object game code touches (Fx.music dispatches by name) ========== */
 const Music = {
