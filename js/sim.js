@@ -60,13 +60,13 @@ function update(){
 
   const elapsed=(now-t0)/1000;
   // Enemy spawning — fixed difficulty curve: interval tightens over time, batch size grows with elapsed minutes.
-  if(breatherT>0)breatherT--;const bf=breatherT>0?breatherT/BOSS.breatherT:0;   // post-boss ramp fraction: 1 at kill → 0 over 30 s (spawns ease back in, no instant flood)
+  if(breatherT>0)breatherT--;const bf=breatherT>0?breatherT/BOSS.breatherT:0;   // post-boss ramp fraction: 1 at kill → 0 over 45 s (spawns ease back in, no instant flood)
   // WAVE RHYTHM (late game, ≥90 s — switches on with the casters) — off-boss, modulate the interval on a slow
   // sine so pressure breathes in crescendo→lull cycles (~18 s period) instead of a flat grind: surges tighten
   // spawns to .68×, lulls give a beat to reposition. Early game (<90 s) keeps the original clean ramp.
   const surge=(bossOn||bf>0||elapsed<90)?1:1-.32*Math.max(0,Math.sin(elapsed*.35));
   spawnTimer--;const interval=Math.max(22,72-elapsed*.42)*DIFF.spawn*surge*(bossOn?BOSS.spawnMul:1)*(1+bf*5);
-  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/70))*(bossOn?BOSS.spawnCountMul:1)*(1-bf*.8)));
+  if(spawnTimer<=0){const c=Math.max(1,Math.round((1+Math.floor(elapsed/90))*(bossOn?BOSS.spawnCountMul:1)*(1-bf*.8)));
     for(let i=0;i<c;i++)spawnEnemy();spawnTimer=interval;}
   if(!bossOn&&elapsed>=nextBoss)spawnBoss();   // boss waves (first at 60s)
 
