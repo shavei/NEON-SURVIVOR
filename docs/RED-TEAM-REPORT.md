@@ -5,7 +5,7 @@ serverless validator (`api/verify.js`), Supabase RLS/schema, identity/auth, cosm
 **Method:** static review of every shipped asset + the server validator, live headless play-through (Chromium),
 and **executable proofs-of-concept run against the real exported `api/verify.js` functions**. No code was changed.
 
-> **Read note.** A prior audit (`docs/AUDIT-REPORT.md`, 2026-06-21) predates a large refactor. Its four
+> **Read note.** A prior audit (2026-06-21, since removed) predated a large refactor. Its four
 > "criticals" were mostly the **multiplayer/lockstep** subsystem (`network-sync.js`, `multiplayer-combat.js`,
 > `network.js`) and the broken verifier harness. **All of that is now resolved**: the multiplayer files are
 > gone, and **13 of 14 verifiers pass** (the 14th, `verify-supabase`, fails only on blocked network egress in
