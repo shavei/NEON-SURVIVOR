@@ -135,9 +135,14 @@ const AchSync = {
    * an update anyway). */
   _adopt(user, username) {
     const self = this;
+    const prev = (typeof getPlayer === 'function' && getPlayer()) || {};
+    const legacyId = (prev.id && prev.id !== user.id) ? prev.id : null;  // a pre-auth browser id to rescue
     const hydrate = function (name) {
       if (typeof savePlayer === 'function') savePlayer(name, user.id);   // canonical id = auth user_id
-      return self.pull(user.id).then(function () { return { ok: true, id: user.id, name: name }; });
+      return self.pull(user.id).then(function () {
+        if (legacyId) self.claimLegacy(legacyId);                        // one-time re-key of stranded progress
+        return { ok: true, id: user.id, name: name };
+      });
     };
     if (username) {
       const name = String(username).slice(0, 16);
@@ -213,6 +218,30 @@ const AchSync = {
         s.cosmetics = cloud.concat(localOnly);
         Ach._save(s);
         if (typeof Ach.renderPanel === 'function') Ach.renderPanel();
+      }, function () {});
+    } catch (e) { return Promise.resolve(); }
+  },
+
+  /* ONE-TIME legacy rescue: POST a pre-auth localStorage id to /api/claim, which (service role) re-keys its
+   * player_achievements/runs/user_inventory onto the durable auth id — but ONLY when the bearer's auth.uid()
+   * matches the destination, and NEVER from an id that is itself a real account. Fire-and-forget, idempotent
+   * (a per-legacy-id marker stops re-fires), headless/offline-safe. `newId` is the already-adopted auth id. */
+  claimLegacy(oldId) {
+    const newId = ((typeof getPlayer === 'function' && getPlayer()) || {}).id;
+    if (!this.ready() || !oldId || !newId || oldId === newId) return Promise.resolve();
+    try { if (localStorage.getItem('neon_legacy_claimed') === oldId) return Promise.resolve(); } catch (e) {}
+    const self = this, base = (typeof SUPA_FUNCTIONS_URL === 'string' && SUPA_FUNCTIONS_URL) || '';
+    try {
+      return SB.auth.getSession().then(function (r) {
+        const tok = r && r.data && r.data.session && r.data.session.access_token;
+        if (!tok || typeof fetch !== 'function') return;
+        return fetch(base + '/api/claim', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+          body: JSON.stringify({ player_id: newId, legacy_id: oldId }),
+        }).then(function (res) { return res.json(); }).then(function (j) {
+          try { if (j && j.ok) localStorage.setItem('neon_legacy_claimed', oldId); } catch (e) {}
+          if (j && j.ok && j.moved) self.pull(newId);                     // hydrate the rescued badges
+        }, function () {});
       }, function () {});
     } catch (e) { return Promise.resolve(); }
   },

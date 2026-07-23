@@ -34,7 +34,8 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main.
 - `js/callsign-filter.js` `CallsignFilter` cross-language (EN↔HE) censorship: `normalizeCallsign(text)`→{latin,hebrew} comparison strings, inline canonical blocklist, `window.debugCensor(text)`; auth-uplink gates on `blocked()` before any cloud write
 - `js/auth-uplink.js` `confirmUsername()` GRID ACCESS modal — one overlay, `_stage` machine (login·signup·signup-code·otp-code·local·callsign)
 - `js/theme-system.js` `Theme` map palettes · `js/skins-ui.js` `Skins` showcase · `js/leaderboard-*.js` board sync/UI
-- `api/verify.js` THE authoritative server grantor (service role): validates a run, writes `player_achievements`/`cosmetics_inventory`/`user_inventory`. `REWARD_MAP`/`CATALOG`/`COSMETIC_MAP` here MUST stay in lockstep with the client.
+- `api/verify.js` THE authoritative server grantor (service role): validates a run, writes `player_achievements`/`cosmetics_inventory`/`user_inventory`. `REWARD_MAP`/`CATALOG`/`COSMETIC_MAP` here MUST stay in lockstep with the client. `authUid()` binds the write to the session bearer's `auth.uid()` (a mismatched `player_id` → 403; a no-session claim can't target a registered account) — `js/achievements.js` `_submit` sends the token.
+- `api/claim.js` one-time legacy re-key (service role): moves `player_achievements`/`user_inventory`/`runs` from a pre-auth localStorage id onto the durable auth id (bearer must own the destination; refuses a legacy id that is itself an account). Wired to `AchSync.claimLegacy` (fires once on first login, `neon_legacy_claimed` marker).
 - `supabase/schema.sql` RLS + the `profiles_username_unique` (case-insensitive UNIQUE callsign) index + `callsign_available` RPC
 
 ## Verify (run after every edit)

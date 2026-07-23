@@ -1,12 +1,16 @@
 # PLAN — Achievement Cloud Sync & Persistent Identity
 
-> ## 🟡 STATUS: PARTIALLY EXECUTED (verified 2026-07-23)
-> **P1 — Auth + identity ✅ DONE** · **P2 — Fetch + reconcile ✅ DONE** (`js/achievement-sync.js`,
-> `profiles` table + RLS in `supabase/schema.sql`). **P3 — Hardening ❌ NOT DONE:** no `api/claim.js`
-> (legacy badge re-key) and no bearer-token / `auth.uid()` check in `api/verify.js` — the endpoint
-> still trusts the client-supplied `player_id`. See §5 Phasing for the P3 checklist.
+> ## 🟢 STATUS: EXECUTED (verified 2026-07-23)
+> **P1 — Auth + identity ✅ DONE** · **P2 — Fetch + reconcile ✅ DONE** · **P3 — Hardening ✅ DONE:**
+> `api/verify.js` now binds the write to `auth.uid()` via the session bearer (a mismatched id → 403;
+> a no-session claim may not target a registered account), `js/achievements.js` sends that token, and
+> `api/claim.js` re-keys stranded legacy progress onto the auth id (`AchSync.claimLegacy` fires once on
+> first login). **One deliberate carry-over:** the `player_achievements → profiles` FK stays **deferred**
+> — it is incompatible with the still-supported anon/offline grant path (no profiles row) and with any
+> not-yet-re-keyed legacy rows, so it activates only after a full auth-only cutover (documented in
+> `supabase/schema.sql`).
 
-Status: **P1 ✅ / P2 ✅ implemented · P3 ⏳ pending** · Owner: TBD · Target branch: `claude/nifty-newton-p2rix0`
+Status: **P1 ✅ / P2 ✅ / P3 ✅ implemented · FK deferred (auth-only cutover)** · Owner: TBD · Target branch: `claude/nifty-newton-p2rix0`
 
 Goal (as stated): achievements survive a browser clear by living in Supabase keyed to a
 durable user identity instead of a per-browser localStorage token, restorable on any device.
@@ -246,14 +250,21 @@ so no file crosses 28 KB.
   source `user_id` (`js/net.js`). Behind the existing offline fallback.
 - **P2 — Fetch + reconcile ✅ IMPLEMENTED:** `AchSync.pull()` hydrates the panel on login; cache
   namespaced by user (`Ach._key()` → `neon_ach:<id>`). ← delivers the cross-device proof.
-- **P3 — Hardening (TODO, follow-up):** bearer-token check in `/api/verify.js`; **`/api/claim.js` legacy
-  re-key** (rescues stranded badges); then add the `player_achievements → profiles` FK once rows are
-  auth-backed. Left out of this PR to keep the catalog byte-identical check + serverless fn untouched.
+- **P3 — Hardening ✅ IMPLEMENTED:** `api/verify.js` `authUid()` resolves the session bearer via GoTrue
+  `/auth/v1/user` and binds the write — a mismatched `player_id` → `identity_mismatch` (403), and a claim
+  with no session may not target an id that has a `profiles` row (`auth_required`); `js/achievements.js`
+  `_submit` sends `Authorization: Bearer <access_token>`. **`api/claim.js`** re-keys legacy
+  `player_achievements`/`user_inventory`/`runs` onto the auth id (destination must match the bearer;
+  refuses a legacy id that is itself an account), wired to `AchSync.claimLegacy` (one-time, marker-gated).
+  The `player_achievements → profiles` **FK remains deferred** — see the Decisions note below.
 
 ### Decisions (approved)
 1. **Auth method — email + password** (`SB.auth.signUp` / `signInWithPassword`). Session survives a
    browser clear via the refresh token; recommend disabling email-confirmation for instant play.
 2. **Rescue legacy badges — yes.** `/api/claim.js` re-keys old `player_id` → new `user_id` on first
    login (P3), idempotent, clears the legacy id locally on success.
-3. **FK on `player_achievements` — deferred to P3**, added only after the legacy claim has re-keyed
-   orphaned rows so the constraint won't reject them.
+3. **FK on `player_achievements` — still deferred (revised).** Beyond the legacy-orphan concern, the FK
+   is fundamentally incompatible with the anon/offline grant path that `/api/verify.js` still supports:
+   a local player has no `profiles` row, so the constraint would reject every anon grant. It can only be
+   enabled after a full **auth-only cutover** (require a session on `/api/verify` AND finish re-keying all
+   legacy rows). Kept as a ready-to-run migration in `supabase/schema.sql`, not activated.
