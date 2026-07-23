@@ -58,8 +58,23 @@ const AUDIO_MANIFEST = {
       menu: 'audio/genres/rap/menu.mp3',
       wave: 'audio/genres/rap/wave.mp3',                          // HoliznaCC0 — Gangsters In Space [CC0]
       boss: { revenant: 'audio/genres/rap/boss-revenant.mp3', maelstrom: 'audio/genres/rap/boss-maelstrom.mp3', overseer: 'audio/genres/rap/boss-overseer.mp3' },
-      bed:     { bpm: 90,  prog: [[57,60,64],[56,59,62],[53,57,60],[55,58,62]], bass: [33,32,29,31], drive: false, ostinato: true },    // sparse boom-bap, heavy low end
-      menubed: { bpm: 78,  prog: [[57,60,64],[53,56,60],[55,58,62],[52,55,59]], bass: [33,29,31,28], drive: false, ostinato: true },    // laid-back lo-fi head-nod
-      bossbed: { bpm: 104, prog: [[53,56,60],[51,55,58],[50,53,57],[48,51,55]], bass: [29,27,26,24], drive: false, ostinato: true } },  // menacing half-time low end, pushed
+      // style:'trap' → the composer renders REAL trap: half-time syncopated kick, gliding 808 sub, hi-hat rolls, dark stabs (not orchestral voices)
+      bed:     { bpm: 140, prog: [[57,60,64],[56,59,62],[53,57,60],[55,58,62]], bass: [33,32,29,31], drive: false, ostinato: true, style: 'trap' },    // trap: syncopated kick, 808 sub, hat rolls
+      menubed: { bpm: 120, prog: [[57,60,64],[53,56,60],[55,58,62],[52,55,59]], bass: [33,29,31,28], drive: false, ostinato: true, style: 'trap' },    // half-time chill trap head-nod
+      bossbed: { bpm: 150, prog: [[53,56,60],[51,55,58],[50,53,57],[48,51,55]], bass: [29,27,26,24], drive: false, ostinato: true, style: 'trap' } },  // menacing dark trap, busier kicks
+    edm: { unlock: 'bass_cannon', label: 'EDM', ico: '🔊', wardenTitle: 'BASS DROP',
+      menu: 'audio/genres/edm/menu.mp3', wave: 'audio/genres/edm/wave.mp3',
+      boss: { revenant: 'audio/genres/edm/boss-revenant.mp3', maelstrom: 'audio/genres/edm/boss-maelstrom.mp3', overseer: 'audio/genres/edm/boss-overseer.mp3' },
+      // style:'edm' → four-on-the-floor kick, growling retrig'd wobble bass, offbeat open hats, complextro supersaw stabs
+      bed:     { bpm: 140, prog: [[57,60,64],[53,57,60],[55,58,62],[52,55,59]], bass: [33,29,31,28], drive: true,  ostinato: true, style: 'edm' },    // aggressive dubstep/complextro floor
+      menubed: { bpm: 128, prog: [[57,60,64],[55,58,62],[53,57,60],[52,55,59]], bass: [33,31,29,28], drive: true,  ostinato: false, style: 'edm' },   // big-room pulse at rest
+      bossbed: { bpm: 150, prog: [[52,55,59],[50,53,57],[51,54,58],[48,51,55]], bass: [28,26,27,24], drive: true,  ostinato: true, style: 'edm' } },  // festival drop, full-tilt
+    trance: { unlock: 'hypnotic', label: 'Trance', ico: '🌀', wardenTitle: 'HYPNOSIS',
+      menu: 'audio/genres/trance/menu.mp3', wave: 'audio/genres/trance/wave.mp3',
+      boss: { revenant: 'audio/genres/trance/boss-revenant.mp3', maelstrom: 'audio/genres/trance/boss-maelstrom.mp3', overseer: 'audio/genres/trance/boss-overseer.mp3' },
+      // style:'trance' → driving 4-on-floor kick, rolling offbeat bass (psy), climbing 16th supersaw arp, euphoric pad
+      bed:     { bpm: 138, prog: [[57,60,64],[55,59,62],[53,57,60],[50,53,57]], bass: [33,31,29,26], drive: true,  ostinato: true, style: 'trance' },   // rolling psy/hard driving
+      menubed: { bpm: 132, prog: [[57,60,64],[52,55,59],[53,57,60],[55,59,62]], bass: [33,28,29,31], drive: false, ostinato: true, style: 'trance' },   // dreamy breakdown arps
+      bossbed: { bpm: 145, prog: [[52,55,59],[50,54,57],[51,54,58],[48,52,55]], bass: [28,26,27,24], drive: true,  ostinato: true, style: 'trance' } }, // hard/psy driving, darker
   },
 };

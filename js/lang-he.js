@@ -154,6 +154,7 @@ const LANG_HE={
 'Ascended':'התעלות','Reach level 25 in a single run.':'הגיעו לרמה 25 בריצה אחת.',
 'Veteran':'ותיק','Finish 10 runs (lifetime).':'סיימו 10 ריצות (מצטבר).',
 'Hardcore':'הארדקור','Reach wave 10 on Hard.':'הגיעו לגל 10 ברמת קושי קשה.',
+'Bass Cannon':'תותח באס','Reach level 15 in a single run.':'הגיעו לרמה 15 בריצה אחת.','Hypnotic':'היפנוטי','Reach wave 15 in a single run.':'הגיעו לגל 15 בריצה אחת.',
 'Ghost in the Grid':'רוח רפאים ברשת','Reach wave 10 without taking a single hit.':'הגיעו לגל 10 בלי לספוג ולו פגיעה אחת.',
 'Untouchable':'חסין','Reach wave 20 without taking a single hit.':'הגיעו לגל 20 בלי לספוג ולו פגיעה אחת.',
 'Flawless Protocol':'פרוטוקול מושלם','Destroy a boss without taking a hit in the fight.':'השמידו בוס בלי לספוג פגיעה בקרב.',
@@ -184,9 +185,9 @@ const LANG_HE={
 'Orchestral':'תזמורתי','Unlock:':'לפתיחה:',
 'Projectile trail':'שביל קליעים','Stock neon hull':'גוף הניאון המקורי','Hull cosmetic':'קוסמטיקת גוף',
 'Gold-tier reward':'פרס דרגת זהב','Cosmic Nebula':'ערפילית קוסמית','No Trail':'בלי שביל','Default Hull':'גוף ברירת מחדל',
-'Pop':'פופ','Rap':'ראפ','Classical':'קלאסי','Metal':'מטאל','Acoustic':'אקוסטי','Music Sync':'סנכרון מוזיקלי',
+'Pop':'פופ','Rap':'ראפ','Classical':'קלאסי','Metal':'מטאל','Acoustic':'אקוסטי','EDM':'אי.די.אם','Trance':'טראנס','Music Sync':'סנכרון מוזיקלי',
 /* --- Total Genre Conversion: Warden titles + Full Sync retheme toast --- */
-'WARDEN PROTOCOL':'פרוטוקול השומר','MIDNIGHT SET':'סט של חצות','HEADLINER':'כוכב ראשי','MAIN STAGE':'הבמה הראשית','FINAL VERSE':'הבית האחרון','GRAND RECITAL':'רסיטל גדול',
+'WARDEN PROTOCOL':'פרוטוקול השומר','MIDNIGHT SET':'סט של חצות','HEADLINER':'כוכב ראשי','MAIN STAGE':'הבמה הראשית','FINAL VERSE':'הבית האחרון','GRAND RECITAL':'רסיטל גדול','BASS DROP':'נפילת באס','HYPNOSIS':'היפנוזה',
 '⚡ FULL SYNC':'⚡ סנכרון מלא','grid conversion':'המרת רשת',
 /* --- cosmetic / track titles --- */
 'First Blood Spark':'ניצוץ דם ראשון','Swarm Pulse':'פעימת נחיל','Legionnaire':'לגיונר','Crimson Husk':'קליפה ארגמנית',
@@ -197,7 +198,7 @@ const LANG_HE={
 'Factory Line':'קו ייצור','Overclock Toccata':'טוקטת האצה','Second Wind Gust':'משב רוח שנייה','Prism Shard':'רסיס מנסרה',
 'Spike Trail':'שביל דוקרן','Blitz Streak':'פס בזק','Predator':'טורף','Breakbeat':'ברייקביט',
 'Objector Halo':'הילת הסרבן','Radiant Aura':'הילה זוהרת','Monoline':'קו יחיד','Ascetic Nocturne':'נוקטורן סגפני',
-'Acoustic Grid':'רשת אקוסטית','Any% Blip':'בליפ Any%','1337 Chrome':'כרום 1337','Prism Core':'ליבת מנסרה',
+'Acoustic Grid':'רשת אקוסטית','Festival Drop':'נפילת פסטיבל','Hypno Pulse':'פעימה היפנוטית','Any% Blip':'בליפ Any%','1337 Chrome':'כרום 1337','Prism Core':'ליבת מנסרה',
 /* --- GRID ACCESS auth stages --- */
 'NEW OPERATOR':'מפעיל חדש','VERIFY UPLINK':'אימות ערוץ','CHOOSE CALLSIGN':'בחרו כינוי',
 'Set a password, then confirm with the 6-digit code we uplink to your email.':'בוחרים סיסמה ומאשרים עם הקוד בן 6 הספרות שיישלח לאימייל שלך.',

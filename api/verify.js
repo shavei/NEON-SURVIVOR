@@ -34,6 +34,8 @@ const CATALOG = [
   { id:'ascended',      conds:[['level',25]],     difficulty:null, tier:'silver', chain:null },
   { id:'veteran',       conds:[['runs',10]],      difficulty:null, tier:'bronze', chain:null },
   { id:'hardcore',      conds:[['wave',10]],      difficulty:'hard', tier:'silver', chain:null },
+  { id:'bass_cannon',   conds:[['level',15]],     difficulty:null, tier:'silver', chain:null },
+  { id:'hypnotic',      conds:[['wave',15]],      difficulty:null, tier:'silver', chain:null },
   // skill (intent-based, cosmetic-only)
   { id:'ghost_grid',        conds:[['noHitWave',10]],                 difficulty:null, tier:'silver', chain:'flawless' },
   { id:'untouchable',       conds:[['noHitWave',20]],                 difficulty:null, tier:'gold',   chain:'flawless' },
@@ -98,6 +100,8 @@ const REWARD_MAP = {
   ascended:          { kind:'palette', id:'violet_void' },
   veteran:           { kind:'music', id:'neon_pop',            src:'pop'   },
   hardcore:          { kind:'skin',  id:'cinder_frame' },
+  bass_cannon:       { kind:'music', id:'festival_edm',        src:'edm'    },
+  hypnotic:          { kind:'music', id:'hypno_trance',        src:'trance' },
   boss_slayer:       { kind:'palette', id:'crimson_nebula' },
   warden_hunter:     { kind:'music', id:'requiem_hunt',        src:'boss0' },
   warden_legend:     { kind:'trail', id:'warden_halo' },

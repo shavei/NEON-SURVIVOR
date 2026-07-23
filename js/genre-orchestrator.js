@@ -60,6 +60,61 @@ const GenreOrchestrator = {
     if (typeof window !== 'undefined' && window.dispatchEvent) try { window.dispatchEvent(new CustomEvent('rethemeGrid', { detail: { genre: g } })); } catch (e) {} },
 };
 
+/* ========== GENRE BEAT ENGINE — attached onto Orchestra (kept here so audio-orchestrator.js stays under the
+ * 28 KB truncation cap). A bed tagged style:'trap'|'edm'|'trance' in AUDIO_MANIFEST renders through _beat
+ * instead of the orchestral voices, so each electronic genre actually sounds like itself. All methods run as
+ * Orchestra methods (this === Orchestra): _v/_mtof/_g/_live/Sound all resolve on it. Headless: Sound.ac is
+ * absent so nothing schedules; sched() never fires without an audio graph, so verify-equiv stays byte-identical. */
+if (typeof Orchestra !== 'undefined') Object.assign(Orchestra, {
+  _noiseBuf() { if (this._nb) return this._nb; const ac = Sound.ac; const n = (ac.sampleRate * 0.4) | 0; const b = ac.createBuffer(1, n || 1, ac.sampleRate);
+    const d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; return (this._nb = b); },   // Math.random = audio texture only, never the sim RNG
+  _drum(layer, t, kind, vol) {                   // synth drum kit — kind ∈ kick | snare | hat | ohat
+    const ac = Sound.ac, g = this._g; if (!g || !ac) return;
+    if (kind === 'kick') { const o = ac.createOscillator(), ga = ac.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(46, t + 0.08);
+      ga.gain.setValueAtTime(vol, t); ga.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
+      o.connect(ga); ga.connect(g.layers[layer]); o.start(t); o.stop(t + 0.3); this._live++; setTimeout(() => { this._live--; }, 340); return; }
+    const src = ac.createBufferSource(), ga = ac.createGain(), f = ac.createBiquadFilter(); src.buffer = this._noiseBuf();
+    if (kind === 'snare') { f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.8; ga.gain.setValueAtTime(vol, t); ga.gain.exponentialRampToValueAtTime(0.001, t + 0.17); }
+    else { f.type = 'highpass'; f.frequency.value = 8000; ga.gain.setValueAtTime(vol, t); ga.gain.exponentialRampToValueAtTime(0.001, t + (kind === 'ohat' ? 0.14 : 0.045)); }
+    src.connect(f); f.connect(ga); ga.connect(g.layers[layer]); src.start(t); src.stop(t + 0.3); this._live++; setTimeout(() => { this._live--; }, 350);
+  },
+  _saw(layer, midi, t, dur, vol, atk) {          // 3-osc detuned supersaw (EDM/trance stabs + arps)
+    const f = this._mtof(midi); this._v(layer, f * 0.994, t, dur, 'sawtooth', vol, atk); this._v(layer, f, t, dur, 'sawtooth', vol, atk); this._v(layer, f * 1.006, t, dur, 'sawtooth', vol, atk);
+  },
+  // 8th-note grid: idx 0..7 = one bar, sd = 8th-note seconds, hh = 16th. boss=true busies the pattern.
+  _beat(style, set, root, s, idx, t, sd, boss) {
+    const g = this._g; if (!g) return; const hh = sd / 2, mtof = m => this._mtof(m), nt = set.length, on = (...a) => a.indexOf(idx) >= 0;
+    if (style === 'trap') {
+      if (on(0, 3, 6)) this._drum('timpani', t, 'kick', 0.95);                        // syncopated kick
+      if (idx === 4) this._drum('winds', t, 'snare', 0.7);                            // half-time clap on beat 3
+      this._drum('winds', t, 'hat', 0.22);                                            // steady 8th hats…
+      if (on(2, 5)) this._drum('winds', t + hh, 'hat', 0.18);                         // …16th doubles…
+      if (idx === 7) { this._drum('winds', t + hh, 'hat', 0.2); this._drum('winds', t + sd * 0.75, 'hat', 0.16); }   // …roll into the downbeat
+      if (on(0, 6)) this._v('strings', mtof(root - 12), t, sd * 2.4, 'sine', 0.5, 0.006);   // gliding 808 sub
+      if (idx === 0) set.forEach(m => this._v('brass', mtof(m), t, sd * 1.6, 'sawtooth', 0.05, 0.02));   // dark minor stab
+      if (boss && on(1, 4, 7)) this._drum('timpani', t, 'kick', 0.55);
+      return;
+    }
+    if (style === 'edm') {
+      if (idx % 2 === 0) this._drum('timpani', t, 'kick', 1.0);                       // four-on-the-floor
+      if (idx === 4) this._drum('winds', t, 'snare', 0.6);                            // backbeat clap
+      if (idx % 2 === 1) this._drum('winds', t, 'ohat', 0.28);                        // offbeat open hat
+      this._v('strings', mtof(root), t, sd * 0.55, 'sawtooth', 0.4, 0.004);           // growling wobble bass…
+      this._v('strings', mtof(root + (idx % 2 ? 12 : 0)), t + hh, sd * 0.45, 'sawtooth', 0.3, 0.004);   // …retrig'd octave bounce = fake wub
+      if (idx % 2 === 1) this._saw('brass', set[(idx >> 1) % nt] + 12, t, sd * 0.9, 0.04, 0.01);         // complextro supersaw stab
+      if (boss && idx === 0) this._drum('winds', t, 'snare', 0.5);
+      return;
+    }
+    if (idx % 2 === 0) this._drum('timpani', t, 'kick', 0.95);                        // trance: driving 4-on-floor
+    if (idx % 2 === 1) { this._drum('winds', t, 'ohat', 0.3); this._v('strings', mtof(root), t, sd * 0.5, 'square', 0.28, 0.004); }   // offbeat hat + rolling psy bass
+    this._saw('brass', set[(s * 2) % nt] + 12, t, hh * 1.1, 0.035, 0.006);            // climbing 16th supersaw arp
+    this._saw('brass', set[(s * 2 + 1) % nt] + 12, t + hh, hh * 1.1, 0.035, 0.006);
+    if (idx === 0) set.forEach(m => this._v('choir', mtof(m), t, sd * 16, 'sawtooth', 0.03, 0.6));        // euphoric sustained pad
+    if (boss && idx % 2 === 0) this._drum('winds', t, 'hat', 0.2);
+  },
+});
+
 /* Thematic Swap debugger — debugGenre('pop') instantly retunes music + Warden labels (no ownership gate,
  * session-only, no cloud write). debugGenre() lists genres; debugGenre(null) reverts to the equipped/default. */
 if (typeof window !== 'undefined') window.debugGenre = function (id) {
