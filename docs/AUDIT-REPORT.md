@@ -141,7 +141,7 @@ missing files to each verifier's concat list to match `index.html` order, then r
 - **L2** — `saveWorld` gates on stale `Coop.host` under lockstep; snapshot authority may be wrong/stale. `js/network-sync.js:198`.
 - **L3** — `/api/verify` race between the verified-check and the PATCH; dup inserts deduped by `ignore-duplicates`. `api/verify.js:103-129`.
 - **L4** — Lifesteal "~10 HP/s" comment only holds at `lifesteal===1`; scales with stacks. `js/world.js:262-263`.
-- **L5** — Spawn count grows unbounded (linear `1+floor(elapsed/70)`), no cap. `js/sim.js:61`.
+- **L5** — Spawn count grows unbounded (linear `1+floor(elapsed/90)`, slowed from `/70` in the difficulty-cliff smoothing pass), no cap. `js/sim.js:61`.
 - **L6** — `@vercel/speed-insights` declared as a dep but loaded via CDN; `pnpm install` pulls an unused package. `package.json:20-22` / `index.html:9-12`.
 - **L7** — Speed-Insights CDN module has no SRI / fallback (non-fatal; offline-safe game still boots). `index.html:9-12`.
 - **L8** — `.menupanels` sets `flex-direction` on a `display:grid` element (dead property); works only by `auto-fit` accident. `css/style.css:80,264`.
