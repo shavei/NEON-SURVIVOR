@@ -136,6 +136,15 @@ icon and a 1200×630 share card, in both light and dark contexts.
 zone; wordmark on title screen; OG card shows the mark; APK launcher icon matches;
 all old asset references updated (no stale-cache regressions).
 
+**Status (shipped):** concept 2 (ship-in-ring) chosen — a neon targeting reticle
+(pink→violet ring, diagonal gaps, teal cardinal ticks) around a teal energy-core
+diamond. Master vectors in `brand/` (`logo.svg`, `mark.svg`, `logo-maskable.svg`,
+`wordmark.svg`, `og-image.svg`). Rasterized via `tools/gen-brand-pngs.cjs` (global
+Playwright) to versioned, cache-busting PNGs (`icons/*.v2.png`, `og-image.png`);
+old `icons/*.png` removed. Favicon (inline SVG), apple-touch, manifest, README hero,
+and the in-game logomark (start + boot) all updated; `tools/gen-android-icons.cjs`
+draw routine now paints the new mark for the CI-built APK.
+
 ---
 
 ## C. Store & distribution — **P1**
@@ -257,8 +266,8 @@ place; backups on.
 
 - [ ] Privacy policy + terms published and linked (menu, auth modal, store).
 - [ ] Account/data-deletion path documented and reachable.
-- [ ] New logo/wordmark shipped across favicon, PWA, maskable, Android, in-game title.
-- [ ] `og-image.png` + OG/Twitter/SEO meta live; share preview verified.
+- [x] New logo/wordmark shipped across favicon, PWA, maskable, Android, in-game title.
+- [~] `og-image.png` + OG/Twitter **image** meta live; broader SEO meta (description, canonical, sitemap, JSON-LD) still workstream D; share preview to verify post-deploy.
 - [ ] Stable APK signing key; APK updates in place.
 - [ ] Production RLS confirmed (anon INSERT denied, public SELECT works); rate limits + backups on.
 - [ ] Cross-device QA matrix signed off; no open P0/P1 bugs.

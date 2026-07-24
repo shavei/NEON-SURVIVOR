@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="og-image.png" alt="NEON SURVIVOR" width="760">
+</p>
+
 # ⚡ NEON SURVIVOR
 
 > A neon HTML5 canvas **auto-shooter**. Move, dodge, and let your guns do the talking — survive the swarm, evolve your arsenal, and topple the bosses.

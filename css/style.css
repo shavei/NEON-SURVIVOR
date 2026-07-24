@@ -48,6 +48,12 @@
     background:linear-gradient(110deg,var(--clay),var(--blue) 55%,var(--mint));-webkit-background-clip:text;background-clip:text;color:transparent;
     background-size:200% auto;animation:sh 5s linear infinite}
   @keyframes sh{to{background-position:200% center}}
+  /* brand logomark above the wordmark on the start/boot screens */
+  .brandmark{width:clamp(96px,17vw,140px);height:auto;margin-bottom:2px;
+    filter:drop-shadow(0 0 20px rgba(255,95,162,.28)) drop-shadow(0 0 26px rgba(155,109,255,.22));
+    animation:bmpulse 4.5s ease-in-out infinite}
+  .brandmark--sm{width:clamp(76px,13vw,104px)}
+  @keyframes bmpulse{0%,100%{transform:scale(1);opacity:.96}50%{transform:scale(1.045);opacity:1}}
   .tag{color:var(--muted);margin-top:14px;max-width:48ch;font-size:1.02rem;line-height:1.5}
   .keys{display:flex;gap:10px;margin-top:26px;flex-wrap:wrap;justify-content:center}
   .key{font-family:var(--mono);font-size:13px;padding:8px 14px;border:1px solid rgba(255,255,255,.14);border-radius:9px;color:var(--ink);background:rgba(255,255,255,.04)}
@@ -313,7 +319,7 @@
 
   /* respect reduced-motion: drop the decorative looping animations */
   @media(prefers-reduced-motion:reduce){
-    .title{animation:none}.upg{animation:none}#lowhp.danger{animation:none;opacity:calc(var(--sev,.5)*.7+.15)}}
+    .title{animation:none}.upg{animation:none}.brandmark{animation:none}#lowhp.danger{animation:none;opacity:calc(var(--sev,.5)*.7+.15)}}
 
   @media(max-width:520px){.upg{width:100%;max-width:300px}#loadout{bottom:60px}}
 

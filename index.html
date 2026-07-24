@@ -4,14 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>NEON SURVIVOR</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a12'/><circle cx='16' cy='16' r='8' fill='none' stroke='%23ff5fa2' stroke-width='3'/><circle cx='16' cy='16' r='2.5' fill='%2354e6b5'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='r' x1='6' y1='6' x2='26' y2='26' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='%23ff5fa2'/><stop offset='1' stop-color='%239b6dff'/></linearGradient></defs><rect width='32' height='32' rx='7' fill='%230a0a12'/><circle cx='16' cy='16' r='9.5' fill='none' stroke='url(%23r)' stroke-width='3.2' stroke-linecap='round' stroke-dasharray='11 3.92' transform='rotate(45 16 16)'/><path d='M16 10.5 L21.5 16 L16 21.5 L10.5 16 Z' fill='%2354e6b5'/></svg>">
 <!-- PWA / Android TWA: same game, same Supabase backend, installable to a phone -->
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0a0a12">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.v2.png">
+<!-- Share card: the brand OG image so a pasted link renders the logo + wordmark (full SEO meta is workstream D) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NEON SURVIVOR">
+<meta property="og:title" content="NEON SURVIVOR">
+<meta property="og:description" content="HTML5 neon auto-shooter — survive the swarm, level up, choose upgrades, beat the bosses.">
+<meta property="og:url" content="https://neon-survivor.com/">
+<meta property="og:image" content="https://neon-survivor.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="NEON SURVIVOR">
+<meta name="twitter:description" content="HTML5 neon auto-shooter — survive the swarm, level up, choose upgrades, beat the bosses.">
+<meta name="twitter:image" content="https://neon-survivor.com/og-image.png">
 <!-- warm the TLS handshake to the scoreboard backend + SDK CDN before any fetch fires -->
 <link rel="preconnect" href="https://ukvsnjgysbrmuheibrgv.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://ukvsnjgysbrmuheibrgv.supabase.co">
@@ -57,6 +70,7 @@
 
 <div class="overlay" id="start">
   <button class="langbtn" title="English / עברית">🌐 עברית</button>
+  <img class="brandmark" src="/brand/mark.svg" alt="" width="128" height="128">
   <div class="title">NEON<br>SURVIVOR</div>
   <p class="tag" data-i18n>Survive the swarm. Your gun auto-fires — you just move, dodge, and choose upgrades. Unlock homing missiles, an orbiting shield, and chain lightning. How long can you last?</p>
   <div class="keys">
@@ -105,6 +119,7 @@
 </div>
 
 <div class="overlay hidden" id="boot">
+  <img class="brandmark brandmark--sm" src="/brand/mark.svg" alt="" width="96" height="96">
   <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">NEON<br>SURVIVOR</div>
   <p class="tag" style="margin-top:16px"><span data-i18n>Connecting</span><span class="bootdots"></span></p>
 </div>

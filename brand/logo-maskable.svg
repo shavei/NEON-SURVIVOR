@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NEON SURVIVOR">
+  <!-- Maskable: full-bleed background, mark scaled into the inner 80% safe zone (launcher crops to a circle/squircle). -->
+  <defs>
+    <linearGradient id="ring" x1="96" y1="96" x2="416" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5fa2"/>
+      <stop offset="0.55" stop-color="#c86bff"/>
+      <stop offset="1" stop-color="#9b6dff"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.5" cy="0.42" r="0.7">
+      <stop offset="0" stop-color="#c9fff0"/>
+      <stop offset="0.45" stop-color="#54e6b5"/>
+      <stop offset="1" stop-color="#17b98c"/>
+    </radialGradient>
+    <radialGradient id="tile" cx="0.5" cy="0.42" r="0.85">
+      <stop offset="0" stop-color="#15162a"/>
+      <stop offset="1" stop-color="#08080f"/>
+    </radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#tile)"/>
+
+  <g transform="translate(256 256) scale(0.82) translate(-256 -256)">
+    <circle cx="256" cy="256" r="150" fill="none" stroke="#ff5fa2" stroke-width="26"
+            stroke-linecap="round" stroke-dasharray="175 60.62"
+            transform="rotate(45 256 256)" opacity="0.35" filter="url(#softglow)"/>
+    <circle cx="256" cy="256" r="150" fill="none" stroke="url(#ring)" stroke-width="26"
+            stroke-linecap="round" stroke-dasharray="175 60.62"
+            transform="rotate(45 256 256)" filter="url(#glow)"/>
+    <g stroke="#54e6b5" stroke-width="16" stroke-linecap="round" filter="url(#glow)">
+      <line x1="256" y1="122" x2="256" y2="152"/>
+      <line x1="256" y1="390" x2="256" y2="360"/>
+      <line x1="390" y1="256" x2="360" y2="256"/>
+      <line x1="122" y1="256" x2="152" y2="256"/>
+    </g>
+    <g filter="url(#glow)">
+      <path d="M256 190 L322 256 L256 322 L190 256 Z" fill="url(#core)"/>
+      <path d="M256 224 L288 256 L256 288 L224 256 Z" fill="#eafff9" opacity="0.9"/>
+    </g>
+  </g>
+</svg>
