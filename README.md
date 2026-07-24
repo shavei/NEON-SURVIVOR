@@ -32,7 +32,7 @@
 - 🎚️ **Three difficulties** for a fresh challenge curve each time.
 - 🏆 **Global leaderboard, sign-in & achievements** powered by Supabase — or play fully offline with an on-device board.
 - 🎨 **Unlockable cosmetics** — skins, trails, color palettes, and themes earned through achievements.
-- 🎵 **Adaptive soundtrack** — a built-in synth composer plus unlockable genre beds (jazz / pop / rock / rap), so the game is never silent, even offline.
+- 🎵 **Adaptive soundtrack** — a built-in synth composer plus eight unlockable genre beds (orchestral, classical, pop, metal, acoustic, rap, EDM, trance), so the game is never silent, even offline.
 - 📱 **Installable** as a PWA on the web or as a **standalone Android app**.
 
 ## 📱 Android (APK)

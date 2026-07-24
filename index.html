@@ -178,7 +178,7 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: i18n → lang-he → config → config-sim → core → audio-orchestrator → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → reward-granting-engine → skins-ui → theme-system → achievement-sync → auth-uplink → leaderboard-sync → leaderboard-engine → main. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
+<!-- classic scripts, shared global scope — load order matters: i18n → lang-he → config → config-sim → audio-manifest → core → audio-orchestrator → upgrade-logic → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → reward-map → genre-orchestrator → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine → debug-overlay → main → dev-tools. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
 <script defer src="js/i18n.js"></script>
 <script defer src="js/lang-he.js"></script>
 <script defer src="js/config.js"></script>
