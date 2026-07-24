@@ -49,8 +49,8 @@ function update(){
   // Shield Collision Matrix Optimization
   if(p.shield>0){p.shieldAng+=.07;
     const aegis=p.evo&&p.evo.shield==='aegis';   // AEGIS DRIVE: more orbs, wider sweep, +damage, knockback
-    const orbs=Math.min(p.shield+1,aegis?8:6),rad=(48+p.shield*5)*(aegis?1.3:1),sdmg=(10+p.shield*4)*(aegis?1.5:1),hitPad=aegis?16:9;
-    for(let k=0;k<orbs;k++){const a=p.shieldAng+k/orbs*6.283;const ox=p.x+Math.cos(a)*rad,oy=p.y+Math.sin(a)*rad;
+    const sorbs=Math.min(p.shield+1,aegis?8:6),rad=(48+p.shield*5)*(aegis?1.3:1),sdmg=(10+p.shield*4)*(aegis?1.5:1),hitPad=aegis?16:9;   // sorbs: shield-orb count (NOT the global orbs array)
+    for(let k=0;k<sorbs;k++){const a=p.shieldAng+k/sorbs*6.283;const ox=p.x+Math.cos(a)*rad,oy=p.y+Math.sin(a)*rad;
       for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.scd>0)continue;   // live length: damageEnemy may splice
         const dx=e.x-ox,dy=e.y-oy,distHit=e.r+hitPad;
         if((dx*dx+dy*dy)<(distHit*distHit)){

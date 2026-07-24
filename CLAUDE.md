@@ -44,12 +44,17 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main 
 - `node .claude/skills/neon-survivor/verify.cjs` — syntax + headless load + boss sim
 - `node .claude/skills/neon-survivor/verify-upgrades.cjs` — after upgrade logic
 - `node .claude/skills/neon-survivor/verify-equiv.cjs` — after behavior-preserving refactors
+- `node .claude/skills/neon-survivor/verify-simcore.cjs` — after core/world/sim edits (sim-layer decoupling: sim ticks with render/ui/main/audio ABSENT, reaching presentation only through the `Fx` port — throws if a sim path names a presentation symbol directly)
+- `node .claude/skills/neon-survivor/verify-determinism.cjs` — after `seedRng`/gameplay-RNG edits (proves gameplay is a pure function of the world seed, independent of `Math.random`: same seed ⇒ identical state across different `Math.random` streams; different seed ⇒ different state)
 - `node .claude/skills/neon-survivor/verify-achievements.cjs` — after achievement/reward catalog or `api/verify.js` edits (client↔server lockstep)
 - `node .claude/skills/neon-survivor/verify-music.cjs` — after audio-orchestrator / genre-orchestrator / audio-manifest edits (every genre × every state under a Web-Audio mock: procedural beat engine + real-track handover, danger muffle, pause freeze, preview duck/restore)
+- `node .claude/skills/neon-survivor/verify-jukebox.cjs` — after audio-orchestrator / genre-orchestrator / audio-manifest edits (the REAL recording path under a stubbed Web Audio: track key per state, `AUDIO_MANIFEST` shape (8 genres × menu/wave/3 boss archetypes), genre-LOCK gating via `RewardEngine` ownership, equal-power crossfade curves at manifest durations, danger low-pass on the live mix)
 - `node .claude/skills/neon-survivor/verify-otp.cjs` — after auth-uplink / achievement-sync edits (signup-code · otp-code · instant-resume)
 - `node .claude/skills/neon-survivor/verify-censor.cjs` — after callsign-filter / auth-gate edits (cross-language EN↔HE censorship: blocked · allowed · convergence · `debugCensor`)
+- `node .claude/skills/neon-survivor/verify-gauntlet.cjs` — after HARDENING callsign-filter / its auth gate (the 'Censorship Gauntlet': drives `blocked()` against every bypass class — leetspeak, dotted/spaced noise, Unicode homoglyphs, cross-script phonetics — asserting 100% rejection while every legit callsign passes clean)
 - `node .claude/skills/neon-survivor/verify-fullcycle.cjs` — full identity arc: login → unique callsign → unlock → reward → showcase (`--live` for a real Supabase round-trip)
 - `node .claude/skills/neon-survivor/verify-grid.cjs` — 'Grid-Grade' regression: OTP login → Tier-3 synergy juice (shake/pulse/toast/sting) → gold reward → captured `user_inventory` write
+- `node .claude/skills/neon-survivor/verify-supabase.cjs` — network-gated, on demand (leaderboard RLS lockdown: anon-client INSERT into `leaderboard` must be DENIED while the public board SELECT still works; SKIPs (exit 0) when `js/config.js` has no Supabase keys, so the offline gate is unaffected)
 - `node .claude/skills/neon-survivor/verify-size.cjs` — 28 KB silent-truncation guard for every served `js/*.js`
 - `node .claude/skills/neon-survivor/verify-ui-he.cjs` — Hebrew UI snapshot test (headless Chromium via global playwright): boots in `he`, asserts menu + level-up strings/RTL/no-clipping, saves PNGs to `$UIHE_OUT` (or tmp) — run after `lang-he.js` or RTL-CSS edits
 
