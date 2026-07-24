@@ -1,7 +1,8 @@
 // Generates branded Android launcher icons for the Capacitor project and drops them into
 // android/app/src/main/res/mipmap-*. Run AFTER `npx cap add android`.
 //   node tools/gen-android-icons.cjs android/app/src/main/res
-// Zero dependencies (Node zlib). Mirrors the favicon: dark tile, pink ring, teal core.
+// Zero dependencies (Node zlib). Mirrors the favicon: dark tile, neon targeting reticle
+// (pink→violet ring with diagonal gaps + teal cardinal crosshair ticks) around a teal core diamond.
 const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
@@ -32,18 +33,36 @@ function png(size, rgba) {
   return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 // Full-bleed (maskable-style) icon: the launcher applies its own mask/rounding.
+const PI = Math.PI;
+function angDiff(a, b) { let d = a - b; while (d > PI) d -= 2 * PI; while (d < -PI) d += 2 * PI; return d; }
+function lerp(c1, c2, t) { return [c1[0] + (c2[0] - c1[0]) * t, c1[1] + (c2[1] - c1[1]) * t, c1[2] + (c2[2] - c1[2]) * t]; }
 function draw(size) {
   const buf = Buffer.alloc(size * size * 4);
   const cx = size / 2, cy = size / 2;
-  const ringR = size * 0.31, ringW = size * 0.07, coreR = size * 0.10;
-  const bg = [0x0a, 0x0a, 0x12], pink = [0xff, 0x5f, 0xa2], teal = [0x54, 0xe6, 0xb5];
+  const ringR = size * 0.293, ringW = size * 0.052;
+  const coreR = size * 0.125, coreHi = size * 0.058;
+  const tickIn = size * 0.205, tickOut = size * 0.262, tickHalf = size * 0.032;
+  const gapHalf = 0.202; // rad — reticle gaps centred on the diagonals
+  const diags = [PI / 4, 3 * PI / 4, -PI / 4, -3 * PI / 4];
+  const bg = [0x0a, 0x0a, 0x12], pink = [0xff, 0x5f, 0xa2], violet = [0x9b, 0x6d, 0xff];
+  const teal = [0x54, 0xe6, 0xb5], white = [0xea, 0xff, 0xf9];
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const i = (y * size + x) * 4;
-    let r = bg[0], g = bg[1], b = bg[2];
-    const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
-    if (Math.abs(d - ringR) <= ringW / 2) { r = pink[0]; g = pink[1]; b = pink[2]; }
-    if (d <= coreR) { r = teal[0]; g = teal[1]; b = teal[2]; }
-    buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = 255;
+    const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = Math.hypot(dx, dy), m = Math.abs(dx) + Math.abs(dy);
+    let col = bg;
+    // reticle ring (pink→violet along the diagonal), broken by 4 diagonal gaps
+    if (Math.abs(d - ringR) <= ringW / 2) {
+      const ang = Math.atan2(dy, dx);
+      const inGap = diags.some(a => Math.abs(angDiff(ang, a)) < gapHalf);
+      if (!inGap) { const t = Math.max(0, Math.min(1, ((dx + dy) / (2 * ringR)) * 0.5 + 0.5)); col = lerp(pink, violet, t); }
+    }
+    // cardinal crosshair ticks (teal), drawn over the ring
+    if ((Math.abs(dx) <= tickHalf && Math.abs(dy) >= tickIn && Math.abs(dy) <= tickOut) ||
+        (Math.abs(dy) <= tickHalf && Math.abs(dx) >= tickIn && Math.abs(dx) <= tickOut)) col = teal;
+    // energy-core diamond + highlight
+    if (m <= coreR) col = teal;
+    if (m <= coreHi) col = white;
+    buf[i] = col[0]; buf[i + 1] = col[1]; buf[i + 2] = col[2]; buf[i + 3] = 255;
   }
   return png(size, buf);
 }
