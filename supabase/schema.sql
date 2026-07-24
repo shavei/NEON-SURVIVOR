@@ -193,6 +193,9 @@ create table if not exists public.profiles (
   username    text not null check (char_length(username) between 1 and 16),
   created_at  timestamptz not null default now()
 );
+-- Cross-device equipped-skin sync (js/skins-ui.js patches this column). Plain text, NO foreign key on
+-- purpose — the client validates ownership; an FK here could reintroduce the grant-freeze class of bug.
+alter table public.profiles add column if not exists equipped_skin_id text;
 
 alter table public.profiles enable row level security;
 
@@ -207,14 +210,29 @@ drop policy if exists "profiles readable"      on public.profiles;
 drop policy if exists "owner writes profile"    on public.profiles;
 drop policy if exists "owner updates profile"   on public.profiles;
 drop policy if exists "owner sets callsign once" on public.profiles;
+drop policy if exists "owner updates own profile" on public.profiles;
 -- world-readable (show anyone's name); each user may INSERT only their OWN row (auth.uid() = id).
 create policy "profiles readable"    on public.profiles for select using (true);
 create policy "owner writes profile" on public.profiles for insert with check (auth.uid() = id);
--- SET-ONCE: a player may UPDATE their row ONLY while the callsign is still empty. Once set, the
--- username column is frozen — there is no path for the client to rename (EDIT NAME is retired).
-create policy "owner sets callsign once" on public.profiles for update
-  using (auth.uid() = id and (username is null or username = ''))
-  with check (auth.uid() = id);
+-- Owner may UPDATE their own row (e.g. patch equipped_skin_id for cross-device sync). The username stays
+-- SET-ONCE: the trigger below rejects any change to a non-empty username, so a player can set their
+-- callsign once but never rename (which would break the unique-callsign index). This replaces the older
+-- "row frozen once callsign is set" policy, which also blocked the equipped-skin write.
+create policy "owner updates own profile" on public.profiles for update
+  using (auth.uid() = id) with check (auth.uid() = id);
+
+-- SET-ONCE callsign enforcement (was an RLS gate; now a trigger, so other columns remain updatable).
+create or replace function public.freeze_username()
+  returns trigger language plpgsql set search_path = public as $$
+begin
+  if OLD.username is not null and OLD.username <> '' and NEW.username is distinct from OLD.username then
+    raise exception 'username is set-once and cannot be changed';
+  end if;
+  return NEW;
+end $$;
+drop trigger if exists profiles_freeze_username on public.profiles;
+create trigger profiles_freeze_username before update on public.profiles
+  for each row execute function public.freeze_username();
 
 -- AVAILABILITY RPC — returns ONLY a boolean, callable before a session exists (signup flow), so the
 -- table itself need not be queried for the live check. SECURITY DEFINER reads past RLS; the pinned
