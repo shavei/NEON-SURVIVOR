@@ -2,7 +2,7 @@
  * Classic global, loads after config-sim.js and BEFORE audio-orchestrator.js / genre-orchestrator.js,
  * which build their jukebox (JUKE), procedural-bed (TRACKS) and genre (GENRE_MAP) tables from it. THE
  * single source of truth for every music asset path + the crossfade / low-HP-filter voicings.
- *   • genres — 6 total-conversion soundtracks. `orchestral` is the free default; every other genre stays
+ *   • genres — 8 total-conversion soundtracks. `orchestral` is the free default; every other genre stays
  *     LOCKED until a music reward carrying its genre is owned — granted authoritatively by api/verify.js
  *     (service role) into user_inventory, hydrated by RewardEngine.pullInventory. `unlock` names the
  *     primary granting achievement (acoustic has TWO: wave_rider + bare_bones).
