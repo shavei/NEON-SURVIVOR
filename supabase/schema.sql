@@ -58,7 +58,8 @@ create table if not exists public.player_achievements (
   run_score      integer not null default 0,                          -- the validated score that earned it
   primary key (player_id, achievement_id)
 );
-create index if not exists player_ach_player_idx on public.player_achievements (player_id);
+create index if not exists player_ach_player_idx      on public.player_achievements (player_id);
+create index if not exists player_ach_achievement_idx on public.player_achievements (achievement_id);   -- covering index for the achievement_id FK
 
 -- TIERED PROGRESSION (additive, non-breaking). Existing rows backfill as fully-unlocked/complete.
 -- current_progress + is_unlocked let a badge exist BEFORE it unlocks; the PK stays the upsert key.
@@ -87,6 +88,7 @@ create table if not exists public.cosmetics_definitions (
   title  text not null,
   unlock_achievement_id text references public.achievement_defs(id)   -- the GOLD def that grants it
 );
+create index if not exists cosmetic_defs_unlock_ach_idx on public.cosmetics_definitions (unlock_achievement_id);   -- covering index for the FK
 
 -- DEPRECATED: superseded by user_inventory (the unified all-tier reward inventory below). No reader or
 -- writer remains — api/verify.js stopped writing it and the client's pullInventory reads user_inventory
@@ -112,7 +114,8 @@ drop policy if exists "owner equips cosmetic" on public.cosmetics_inventory;
 -- may UPDATE only their own row, and only to (un)equip — never to grant themselves a new cosmetic.
 create policy "cosmetics readable"    on public.cosmetics_inventory for select using (true);
 create policy "owner equips cosmetic" on public.cosmetics_inventory for update
-  using (auth.uid() = player_id) with check (auth.uid() = player_id);
+  using ((select auth.uid()) = player_id) with check ((select auth.uid()) = player_id);
+create index if not exists cosmetics_inv_cosmetic_idx on public.cosmetics_inventory (cosmetic_id);   -- covering index for the cosmetic_id FK
 
 -- ============================================================
 -- USER_INVENTORY — the unified reward mirror (ALL tiers, every kind). One row per (player, reward).
@@ -124,22 +127,29 @@ create policy "owner equips cosmetic" on public.cosmetics_inventory for update
 create table if not exists public.user_inventory (
   player_id    uuid not null,
   reward_id    text not null,                                   -- 'maelstrom_waltz','aurora_drift',...
-  kind         text not null check (kind in ('skin','trail','music','palette')),
+  kind         text not null check (kind in ('skin','trail','music','palette')),  -- 'palette' is REQUIRED: 3 rewards use it
   granted_at   timestamptz not null default now(),
   primary key (player_id, reward_id)
 );
+-- Owner-writable equip flag (parallels cosmetics_inventory.equipped) — the only client write beyond the
+-- optimistic mirror insert; a player may flip it on rows they already own, never mint a new reward.
+alter table public.user_inventory add column if not exists equipped boolean not null default false;
 create index if not exists user_inventory_player_idx on public.user_inventory (player_id);
 
 alter table public.user_inventory enable row level security;
 
-drop policy if exists "reward inventory readable" on public.user_inventory;
-drop policy if exists "owner mirrors reward"      on public.user_inventory;
--- READABLE by all (show off the collection); each player may INSERT only their OWN rows. No UPDATE/DELETE
--- policy → the optimistic mirror can grow but never be rewritten client-side; /api/verify (service_role)
--- is the authoritative writer and upserts past RLS.
+drop policy if exists "inventory readable"         on public.user_inventory;  -- legacy duplicate of the readable policy below
+drop policy if exists "reward inventory readable"  on public.user_inventory;
+drop policy if exists "owner mirrors reward"       on public.user_inventory;
+drop policy if exists "owner equips reward"        on public.user_inventory;
+-- READABLE by all (show off the collection); each player may INSERT only their OWN rows, and UPDATE only
+-- their OWN rows (to (un)equip — never to grant a new reward). /api/verify (service_role) upserts past RLS
+-- and is the authoritative writer. auth.uid() is wrapped in (select ...) so RLS evaluates it once/query.
 create policy "reward inventory readable" on public.user_inventory for select using (true);
 create policy "owner mirrors reward"      on public.user_inventory for insert
-  with check (auth.uid() = player_id);
+  with check ((select auth.uid()) = player_id);
+create policy "owner equips reward"       on public.user_inventory for update
+  using ((select auth.uid()) = player_id) with check ((select auth.uid()) = player_id);
 
 -- One row per run, keyed by a server-issued token → makes /api/verify idempotent and gives it a
 -- trusted anchor (started_at, difficulty) to sanity-check the submitted run against.
@@ -213,13 +223,13 @@ drop policy if exists "owner sets callsign once" on public.profiles;
 drop policy if exists "owner updates own profile" on public.profiles;
 -- world-readable (show anyone's name); each user may INSERT only their OWN row (auth.uid() = id).
 create policy "profiles readable"    on public.profiles for select using (true);
-create policy "owner writes profile" on public.profiles for insert with check (auth.uid() = id);
+create policy "owner writes profile" on public.profiles for insert with check ((select auth.uid()) = id);
 -- Owner may UPDATE their own row (e.g. patch equipped_skin_id for cross-device sync). The username stays
 -- SET-ONCE: the trigger below rejects any change to a non-empty username, so a player can set their
 -- callsign once but never rename (which would break the unique-callsign index). This replaces the older
 -- "row frozen once callsign is set" policy, which also blocked the equipped-skin write.
 create policy "owner updates own profile" on public.profiles for update
-  using (auth.uid() = id) with check (auth.uid() = id);
+  using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
 
 -- SET-ONCE callsign enforcement (was an RLS gate; now a trigger, so other columns remain updatable).
 create or replace function public.freeze_username()
@@ -241,7 +251,21 @@ create or replace function public.callsign_available(name text)
   returns boolean language sql security definer set search_path = public as $$
   select not exists (select 1 from profiles where lower(username) = lower(name));
 $$;
+-- INTENTIONAL: the signup flow needs this boolean check BEFORE a session exists, so anon EXECUTE is required.
+-- SECURITY DEFINER + the pinned search_path keep it injection-safe; it returns only a boolean, leaks nothing.
+-- (The database linter flags any anon-executable SECURITY DEFINER function — this one is by design.)
 grant execute on function public.callsign_available(text) to anon, authenticated;
+
+-- HARDENING: some deployments carry a project-level `rls_auto_enable()` event-trigger helper (auto-enables
+-- RLS on new tables). It's SECURITY DEFINER and the linter flags any anon/authenticated EXECUTE grant on it.
+-- Event triggers fire from DDL context regardless of grants, so revoking EXECUTE closes the exposed /rpc
+-- surface without disabling the safety behaviour. Guarded so this schema still runs where the helper is absent.
+do $$ begin
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'rls_auto_enable') then
+    revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+  end if;
+end $$;
 
 -- P3 STATUS: /api/claim.js (legacy re-key) and the /api/verify.js bearer/auth.uid() identity binding are
 -- now LIVE. The player_achievements → profiles FK below stays DEFERRED — and is only safe after a full
