@@ -283,6 +283,38 @@ on conflict (id) do update set
   threshold=excluded.threshold, difficulty=excluded.difficulty, sort=excluded.sort,
   tier=excluded.tier, chain=excluded.chain;
 
+-- ---------- SKILL / SPEED / CHALLENGE / SECRET defs (idempotent) ----------
+-- These 23 ids exist in the CODE catalog (js/achievements.js + api/verify.js) but were never seeded here,
+-- so player_achievements' FK to achievement_defs(id) rejected every grant that earned one — and because the
+-- grant threw inside /api/verify, the leaderboard write + run-close were skipped, freezing the global board.
+-- achievement_defs is now just an FK anchor (the authoritative catalog lives in code); metric/threshold are
+-- legacy display columns, so intent-based achievements use a constraint-valid placeholder metric/threshold.
+insert into public.achievement_defs (id,title,description,metric,threshold,difficulty,sort,tier,chain,hidden) values
+  ('bass_cannon',      'Bass Cannon',              'Reach level 15 in a single run.',                        'level', 15,  null,17,'silver',null,          false),
+  ('hypnotic',         'Hypnotic',                 'Reach wave 15 in a single run.',                         'wave',  15,  null,18,'silver',null,          false),
+  ('ghost_grid',       'Ghost in the Grid',        'Reach wave 10 without taking a single hit.',             'wave',  10,  null,19,'silver','flawless',    false),
+  ('untouchable',      'Untouchable',              'Reach wave 20 without taking a single hit.',             'wave',  20,  null,20,'gold',  'flawless',    false),
+  ('flawless_protocol','Flawless Protocol',        'Destroy a boss without taking a hit in the fight.',      'bosses',1,   null,21,'gold',  null,          false),
+  ('factory_settings', 'Factory Settings',         'Reach wave 15 using only the starting gun.',             'wave',  15,  null,22,'silver',null,          false),
+  ('overclocked',      'Overclocked',              'Wield all three weapons at once and reach wave 15.',     'wave',  15,  null,23,'silver',null,          false),
+  ('second_wind',      'Second Wind',              'Survive into a new wave after dropping below 10% HP.',   'wave',  2,   null,24,'bronze',null,          false),
+  ('glass_cannon',     'Glass Cannon',             'Reach wave 12 without ever raising max HP.',             'wave',  12,  null,25,'silver',null,          false),
+  ('weaponsmith',      'Weaponsmith',              'Evolve a weapon by completing an upgrade pair.',         'runs',  1,   null,26,'silver',null,          false),
+  ('power_spike',      'Power Spike',              'Reach level 10 within 90 seconds.',                      'level', 10,  null,27,'bronze',null,          false),
+  ('ascendant_rush',   'Ascendant Rush',           'Reach level 20 within 5 minutes.',                       'level', 20,  null,28,'silver',null,          false),
+  ('blitz',            'Blitz',                    'Reach wave 10 within 4 minutes.',                        'wave',  10,  null,29,'bronze',null,          false),
+  ('killer_instinct',  'Killer Instinct',          'Destroy a boss within 15s of its spawn.',                'bosses',1,   null,30,'silver',null,          false),
+  ('massacre_clock',   'Massacre Clock',           'Get 250 kills in the first 3 minutes.',                  'kills', 250, null,31,'silver',null,          false),
+  ('objector',         'Conscientious Objector',   'Reach wave 8 while still at level 1.',                   'wave',  8,   null,32,'silver',null,          false),
+  ('pacifist_protocol','Pacifist Protocol',        'Survive 5 minutes with fewer than 25 kills.',            'wave',  1,   null,33,'gold',  null,          false),
+  ('minimalist',       'Minimalist',               'Reach wave 12 owning at most one weapon.',               'wave',  12,  null,34,'silver',null,          false),
+  ('ascetic',          'Ascetic',                  'Reach wave 10 collecting zero pickups.',                 'wave',  10,  null,35,'silver',null,          false),
+  ('bare_bones',       'Bare Bones',               'Reach wave 20 wielding only your starter weapon.',       'wave',  20,  null,36,'gold',  null,          false),
+  ('any_percent',      'Any% Speedrun',            'Die within 5 seconds of starting a run.',                'wave',  1,   null,37,'bronze',null,          true),
+  ('leet',             'Leet',                     'Finish a run with exactly 1,337 kills.',                 'kills', 1337,null,38,'silver',null,          true),
+  ('completionist',    'The Completionist''s Curse','Unlock 80% of every other achievement.',                'runs',  1,   null,39,'gold',  null,          true)
+on conflict (id) do nothing;
+
 -- ---------- COSMETIC REWARDS (one per gold cap; idempotent) ----------
 insert into public.cosmetics_definitions (id,kind,title,unlock_achievement_id) values
   ('crimson_husk',   'skin',  'Crimson Husk',     'annihilator'),
