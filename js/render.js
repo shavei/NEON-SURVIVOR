@@ -209,7 +209,7 @@ function draw(){
     ctx.textBaseline='alphabetic';
   }
   if(_test){ctx.fillStyle='#54e6b5';ctx.font='700 12px Inter,sans-serif';ctx.textAlign='left';
-    ctx.fillText('🧪 TEST MODE (one-hit bosses · B to toggle)',12,H-14);ctx.textAlign='left';}
+    ctx.fillText('🧪 TEST MODE (one-hit bosses · B to toggle)',12,H-14);}
   drawMinimap();   // corner minimap (own canvas; pure screen space)
 }
 function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);
