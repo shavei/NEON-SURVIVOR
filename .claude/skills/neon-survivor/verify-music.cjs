@@ -50,7 +50,7 @@ const noiseCount = () => LOG.filter(k => k === 'noise').length;
 const layerMax = () => Math.max(...Object.keys(Orchestra._g.layers).filter(L => L !== 'sting').map(L => Orchestra._g.layers[L].gain.value));
 
 const GENRES = Object.keys(GENRE_MAP);
-const STYLED = new Set(['rap', 'edm', 'trance']);
+const STYLED = new Set(['rap', 'edm', 'trance', 'pop', 'metal', 'acoustic']);   // genres whose bed drives a synth DRUM KIT (noise snare/hats); classical is styled-but-drumless, orchestral has no style
 const flush = () => new Promise(r => queueMicrotask(r));   // let a pending 404/canplaythrough event settle (≈ one frame), as it would in a real browser
 ok(GENRES.length >= 8 && ['rap', 'edm', 'trance', 'orchestral'].every(x => GENRES.includes(x)), 'GENRE_MAP has orchestral + rap + edm + trance (' + GENRES.length + ' genres)');
 
@@ -115,6 +115,23 @@ async function runPass(present, label) {
   await new Promise(r => queueMicrotask(r)); await new Promise(r => queueMicrotask(r));
   ok(Orchestra._g.master.gain.value > 0.5, 'BUG-1: absent-track preview unducks the bed (no 9s silence)');
   Music.stop();
+
+  // LOOP regression: a real track a few s from its end must crossfade onto the idle ping-pong voice (no seam silence)
+  FILES_PRESENT = true; GenreOrchestrator._ov = 'orchestral'; Orchestra._jk = {}; Orchestra._real = null; Orchestra._realActive = false;
+  Orchestra.bossMode = false; Music.start(); await flush();
+  { const rec = Orchestra._jk[Orchestra._real];
+    ok(rec && rec.a && rec.a2 && rec.ga && rec.g2, 'LOOP: real track has two ping-pong voices + gains');
+    rec.a.duration = 180; rec.a.currentTime = 179; rec.cur = 0; rec.loopT = 0;   // 1 s from the end (< loopLead)
+    Orchestra._loop();
+    ok(rec.cur === 1 && rec.loopT === 1, 'LOOP: near end → crossfade swaps to the idle voice'); }
+  Music.stop();
+
+  // BOSS-OVERLAY regression: gameplay theme IS the boss track (_realBossSame, e.g. Requiem) → sched() overlays war-drums, mix stays sane
+  FILES_PRESENT = true; Orchestra._jk = {}; Orchestra._real = null; Orchestra._realActive = false;
+  Orchestra.bossMode = false; Music.start(); await flush();
+  Orchestra._realBossSame = true; Orchestra.active = 'boss'; Orchestra._pending = null; LOG = []; drive(8);
+  ok(gainsSane() && filterSane(), 'BOSS-OVERLAY: same-track boss war-drum overlay keeps the mix sane');
+  Orchestra._realBossSame = false; Music.stop();
 
   if (fail) { console.log('\nMUSIC — ' + fail + ' FAILED:'); errs.slice(0, 40).forEach(e => console.log('  ✗ ' + e)); }
   else console.log('\nMUSIC — ALL PASS (' + GENRES.length + ' genres × 2 passes × menu/wave/boss0-2/danger/pause/preview/die/reset + BUG-1)');

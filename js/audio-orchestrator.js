@@ -28,7 +28,7 @@ const Orchestra = {
   LAYERS: ['strings', 'winds', 'brass', 'timpani', 'choir'],
 
   // ---- state ----
-  state: 'BOOT', active: 'ambient', playing: false, bossMode: false, _bt: 0,
+  state: 'BOOT', active: 'ambient', playing: false, bossMode: false, _bt: 0, _realBossSame: false,
   _g: null, _jk: {}, _real: null, _realActive: false,
   step: 0, nextTime: 0, _pending: null, _resume: 'AMBIENT', _i: 0, _live: 0, _trace: [], _loops: 0,
 
@@ -53,16 +53,20 @@ const Orchestra = {
 
   // ---------- REAL-RECORDING JUKEBOX ----------
   _jukeOK() { return typeof Audio !== 'undefined' && Sound && Sound.ac && typeof Sound.ac.createMediaElementSource === 'function'; },
-  _track(key) {                                  // lazy-create one streaming track
+  _track(key) {                                  // lazy-create one streaming track — TWO ping-pong voices (a/a2) so _loop can crossfade the seam
     if (!this._jukeOK() || !this._g) return null;
     if (this._jk[key]) return this._jk[key];
     const url = this.JUKE[key]; if (!url) return null;
-    const a = new Audio(); a.src = url; a.loop = true; a.preload = 'auto';
-    const rec = { a, gain: null, ready: false, bad: false };
-    a.addEventListener('canplaythrough', () => { rec.ready = true; }, { once: true });
-    a.addEventListener('error', () => { rec.bad = true; if (this._real === key) { this._real = null; this._realActive = false; }   // file missing ⇒ recover to procedural
-      if (typeof _perf !== 'undefined' && _perf.on && typeof console !== 'undefined') console.log('[AUD] track missing: ' + url + ' → procedural fallback'); });
-    try { const src = Sound.ac.createMediaElementSource(a); const g = Sound.ac.createGain(); g.gain.value = 0; src.connect(g); g.connect(this._g.filter); rec.gain = g; } catch (e) { rec.bad = true; }
+    const rec = { a: null, a2: null, ga: null, g2: null, gain: null, ready: false, bad: false, cur: 0, loopT: 0 };
+    const bad = () => { rec.bad = true; if (this._real === key) { this._real = null; this._realActive = false; }   // file missing ⇒ recover to procedural
+      if (typeof _perf !== 'undefined' && _perf.on && typeof console !== 'undefined') console.log('[AUD] track missing: ' + url + ' → procedural fallback'); };
+    const mk = () => { const a = new Audio(); a.src = url; a.loop = false; a.preload = 'auto'; a.addEventListener('error', bad); return a; };   // loop=false: the loop is a manual crossfade (_loop) — <audio loop> leaves an audible seam gap on non-looped recordings
+    rec.a = mk(); rec.a2 = mk();
+    rec.a.addEventListener('canplaythrough', () => { rec.ready = true; }, { once: true });
+    try { const s1 = Sound.ac.createMediaElementSource(rec.a), s2 = Sound.ac.createMediaElementSource(rec.a2);
+      rec.ga = Sound.ac.createGain(); rec.ga.gain.value = 1; rec.g2 = Sound.ac.createGain(); rec.g2.gain.value = 0;   // ga/g2 = the two voice gains crossfaded at the loop seam
+      rec.gain = Sound.ac.createGain(); rec.gain.gain.value = 0;                                                      // gain = the outer STATE gain (unchanged: _playReal ramps it)
+      s1.connect(rec.ga); s2.connect(rec.g2); rec.ga.connect(rec.gain); rec.g2.connect(rec.gain); rec.gain.connect(this._g.filter); } catch (e) { rec.bad = true; }
     this._jk[key] = rec; return rec;
   },
   _warm(k) {                                     // warm the imminent track now, the trio later (off the tap-critical path)
@@ -91,12 +95,23 @@ const Orchestra = {
     const XF = this._xf(fk);
     for (const k in this._jk) { const r = this._jk[k]; if (!r.gain) continue; const on = k === key;
       this._ramp(r.gain.gain, on ? 1 : 0, XF);   // equal-power overlap, no hard cut
-      if (on) { try { const p = r.a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
-      else setTimeout(() => { if (this._real !== k) try { r.a.pause(); } catch (e) {} }, (XF + 0.4) * 1000);   // pause only after the fade-out
+      if (on) { try { const fa = r.cur ? r.a2 : r.a; const p = fa.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }   // play the current front voice
+      else setTimeout(() => { if (this._real !== k) { try { r.a.pause(); } catch (e) {} try { r.a2.pause(); } catch (e) {} } }, (XF + 0.4) * 1000);   // pause both voices only after the fade-out
     }
     this._real = key; this._realActive = true; return true;
   },
-  _stopReal() { for (const k in this._jk) { const r = this._jk[k]; if (r.gain) try { r.gain.gain.value = 0; } catch (e) {} try { r.a.pause(); } catch (e) {} } this._real = null; this._realActive = false; },
+  _stopReal() { for (const k in this._jk) { const r = this._jk[k]; if (r.gain) try { r.gain.gain.value = 0; } catch (e) {} try { r.a.pause(); } catch (e) {} try { r.a2.pause(); } catch (e) {} } this._real = null; this._realActive = false; },
+  // gapless loop: a concert recording isn't authored to loop, so a few s before it ends we start the idle
+  // voice from 0 and equal-power crossfade onto it — the fresh downbeat comes in UNDER the tail, no seam silence.
+  _loopLead() { const m = typeof AUDIO_MANIFEST !== 'undefined' && AUDIO_MANIFEST.loopLead; return m || 2; },
+  _loop() {
+    if (!this._realActive) return; const rec = this._jk[this._real]; if (!rec || !rec.a || rec.loopT) return;
+    const front = rec.cur ? rec.a2 : rec.a, back = rec.cur ? rec.a : rec.a2, fg = rec.cur ? rec.g2 : rec.ga, bg = rec.cur ? rec.ga : rec.g2;
+    const d = front.duration, lead = this._loopLead(); if (!d || !isFinite(d) || d - front.currentTime > lead) return;
+    rec.loopT = 1; try { back.currentTime = 0; const p = back.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+    this._ramp(fg.gain, 0, lead); this._ramp(bg.gain, 1, lead); rec.cur = rec.cur ? 0 : 1;   // swap: back voice is now the front
+    setTimeout(() => { rec.loopT = 0; try { front.pause(); front.currentTime = 0; } catch (e) {} }, (lead + 0.3) * 1000);
+  },
 
   // GenreOrchestrator resolves menu/wave/boss keys through the equipped genre first (null = no opinion);
   // else an equipped Soundtrack reward re-points 'play' at its JUKE src; else the requested key unchanged.
@@ -198,12 +213,14 @@ const Orchestra = {
       if (T.ostinato && (idx === 2 || idx === 6)) this._timp('timpani', t, root - 12, 0.4);
       if (this.active === 'boss' && !this._realActive) { if (idx % 2 === 1) this._timp('timpani', t, root - 12, 0.35);   // boss overdrive: 8th-note war drums…
         this._v('brass', this._mtof(set[idx % set.length] + 24), t, stepDur * 0.7, 'square', 0.022, 0.008); }            // …+ shrill top-octave stab on every step
+      else if (this.active === 'boss' && this._realBossSame) this._timp('sting', t, root - 12, idx % 2 ? 0.5 : 0.34);    // equipped gameplay theme already IS this boss's track (e.g. Requiem) → drive war-drums over it on the always-on sting bus
       if (idx === 0 && !V.thin) this._v('choir', this._mtof(set[set.length - 1] + 12), t, stepDur * 16, 'sine', 0.05, 0.55);
       const nx = (this.step + 1) % 64; if (nx === 0) this._loops++; this.step = nx; this.nextTime += stepDur;   // _loops = cosmetic variation clock (§2), advances one per 8-bar cycle
     }
   },
   _tick() {                                      // automate section gains + filter; freezes while PAUSED
-    const g = this._g; if (!g || this.state === 'PAUSED') return;
+    const g = this._g; if (!g) return; this._loop();   // the seamless-loop crossfade keeps running even while PAUSED (real tracks keep streaming)
+    if (this.state === 'PAUSED') return;
     const ac = Sound.ac, { i, danger } = this._intensity(); this._i = i; const boss = this.active === 'boss';
     const mute = this._realActive ? 0 : 1;       // silence the procedural bed under a live real track
     const bedT = this.TRACKS[this._bed()], elec = !!(bedT && bedT.style);   // beat-driven bed: layers stay OPEN, the composer owns density (the orchestral vertical remix doesn't fit a drum kit)
@@ -247,7 +264,7 @@ const Orchestra = {
     try { if (close) g.filter.frequency.setTargetAtTime(120, ac.currentTime, 0.25); g.master.gain.setTargetAtTime(0.0001, ac.currentTime, close ? 0.3 : 0.12); } catch (e) {}
     setTimeout(() => { try { g.master.disconnect(); } catch (e) {} }, close ? 1000 : 200);
   },
-  stop() { this.playing = false; this._stopReal(); this._teardown(false); this._go('BOOT', 'stop'); },
+  stop() { this.playing = false; this._realBossSame = false; this._stopReal(); this._teardown(false); this._go('BOOT', 'stop'); },
   pause() {
     this._resume = this.state === 'BOSS' ? 'BOSS' : (this.state === 'MENU' ? 'MENU' : 'AMBIENT');
     if (this._g && Sound.ac) { const ac = Sound.ac; this._g.filter.frequency.setTargetAtTime(360, ac.currentTime, 0.25); this._g.master.gain.setTargetAtTime(0.4, ac.currentTime, 0.2); }
@@ -259,26 +276,28 @@ const Orchestra = {
     this._go(this._resume, 'resume'); this._tick();
   },
   die() {                                        // somber real track if present, else procedural powerdown
-    this.bossMode = false; this._pending = 'ambient';
+    this.bossMode = false; this._realBossSame = false; this._pending = 'ambient';
     const over = this._jukeOK() ? this._track('over') : null;
     if (over && over.ready && !over.bad && this._playReal('over', 'over')) { this._go('OVER', 'gameover theme'); return; }
     this.playing = false; if (this._g && Sound.ac) this._timp('timpani', Sound.ac.currentTime + 0.02, 21, 0.9);
     this._teardown(true); this._go('DEATH', 'powerdown');
   },
   reset() {                                      // new run: back to the ambient bed
-    this.bossMode = false; this._pending = 'ambient';
+    this.bossMode = false; this._realBossSame = false; this._pending = 'ambient';
     if (this._real && this._real.indexOf('boss') >= 0) this._playReal('play', 'wave');   // >=0: genre boss keys are '<g>bossN'
     this._go(this.playing && this.state !== 'BOOT' ? 'AMBIENT' : this.state, 'reset');
   },
   enterBoss(bt) {                                // crossfade to this archetype's theme + sting
     if (this.bossMode) return; this.bossMode = true; this._bt = bt | 0;
     if (this._g) this._pending = 'boss'; else this.active = 'boss';
+    const prev = this._real;
     if (!this._playReal('boss' + (this._bt % 3), 'boss')) this._realActive = false;   // boss asset absent ⇒ _tick un-mutes the procedural boss bed
+    this._realBossSame = this._realActive && this._real === prev;   // equipped gameplay theme already IS this boss's track ⇒ no crossfade escalation → sched() overlays war-drums so the boss still lands
     if (this._realActive) this._sting('boss');    // layer the sting over the real track
     this._go('BOSS', 'enterBoss b' + (this._bt % 3) + ' · xfade');
   },
   exitBoss() {
-    if (!this.bossMode) return; this.bossMode = false;
+    if (!this.bossMode) return; this.bossMode = false; this._realBossSame = false;
     if (this._g) this._pending = 'ambient'; else this.active = 'ambient';
     if (!this._playReal('play', 'wave')) this._realActive = false;   // real track absent ⇒ procedural bed, not silence
     this._go('AMBIENT', 'exitBoss · xfade');

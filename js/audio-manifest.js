@@ -18,6 +18,7 @@
 const AUDIO_MANIFEST = {
   ver: 1,
   xfade: { boss: 1.2, wave: 2.4, menu: 2.4, over: 0.8 },
+  loopLead: 2,          // Orchestra._loop starts the next loop this many s before a real track ends + crossfades onto it (kills the seam silence on non-looped recordings)
   lowHealth: { freq: 700, q: 1.6, ramp: 0.35, hpFrac: 0.30 },
   genres: {
     orchestral: { unlock: null, label: 'Orchestral', ico: '🎼', wardenTitle: 'WARDEN PROTOCOL',
