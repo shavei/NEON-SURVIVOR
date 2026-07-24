@@ -374,7 +374,12 @@ module.exports = async function handler(req, res) {
       return cos;
     };
     const earned = evaluate(claim);
-    const newCosmetics = (await grant(earned)) || [];
+    // Best-effort grant: a missing/invalid achievement_defs row (client catalog drifting ahead of the DB
+    // seed) must NEVER sink the run. This insert used to THROW on a foreign-key violation, aborting the whole
+    // handler so the leaderboard write + run-close below never ran — freezing the global board for everyone
+    // the moment any player earned an un-seeded id. Swallow it: the score is the user-facing critical path.
+    let newCosmetics = [];
+    try { newCosmetics = (await grant(earned)) || []; } catch (e) {}
 
     // 4c) meta: "completionist" depends on how many OTHER achievements this player now owns. Recount from
     //     the table (authoritative) and grant once the threshold cond is met — server-derived, unforgeable.
