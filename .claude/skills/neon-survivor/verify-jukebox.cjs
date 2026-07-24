@@ -4,7 +4,7 @@
  * verify.cjs runs headless with no Audio ctor, so it only exercises the PROCEDURAL fallback. This
  * stubs Audio + Web Audio (recording GainNode/BiquadFilter params) so the REAL Orchestra code runs the
  * recording path, then drives every state transition and asserts: correct track key per state, the
- * AUDIO_MANIFEST registry shape (6 genres × menu/wave/3 boss archetypes), genre LOCK gating through
+ * AUDIO_MANIFEST registry shape (8 genres × menu/wave/3 boss archetypes), genre LOCK gating through
  * RewardEngine ownership, equal-power GainNode crossfade curves at the manifest per-kind durations,
  * the low-HP DANGER low-pass sweeping the LIVE mix without a track swap (debugAudioState), and 'error'
  * fallback to the per-genre procedural beds. No audio files or browser/network needed. */
@@ -56,9 +56,10 @@ const driver = `;(function(){
   A(Orchestra._real===null && Orchestra._realActive===false,'load error  -> falls back to procedural bed');
   A(['boss0','boss1','boss2','menu','over','play'].every(function(k){return k in Orchestra._jk;}),'all 6 track elements created');
 
-  // ---- AUDIO_MANIFEST registry shape: 6 genres, each unlockable one with menu + wave + 3 boss archetypes ----
-  A(Object.keys(AUDIO_MANIFEST.genres).length===6,'manifest carries 6 genres');
-  A(['classical','pop','metal','acoustic','rap'].every(function(g){var d=AUDIO_MANIFEST.genres[g];
+  // ---- AUDIO_MANIFEST registry shape: 8 genres (orchestral default + 7 unlockable), each unlockable one
+  //      with menu + wave + 3 boss archetypes + procedural beds ----
+  A(Object.keys(AUDIO_MANIFEST.genres).length===8,'manifest carries 8 genres');
+  A(['classical','pop','metal','acoustic','rap','edm','trance'].every(function(g){var d=AUDIO_MANIFEST.genres[g];
     return d.menu&&d.wave&&d.boss&&d.boss.revenant&&d.boss.maelstrom&&d.boss.overseer&&d.bed&&d.bossbed;}),'every unlockable genre: menu + wave + 3 boss tracks + beds');
   // ---- genre LOCK gating: owned-in-user_inventory is the only key that turns ----
   A(GenreOrchestrator.current()==='orchestral' && !GenreOrchestrator.unlocked('metal'),'metal LOCKED before its achievement');
