@@ -5,6 +5,16 @@
  *   window.stressTest(1000)  → start a run if needed, spawn N enemies at once, then sample real framerate
  *                              for ~2 s and log fps + live body count. Verifies the projectile pools / hot
  *                              loops hold up under load (pair with the F3 perf overlay for per-tick detail). */
+/* window.neonDevId() → print THIS browser's signed-in account id (Supabase auth user_id). Add it to
+ * DEV_IDS in main.js to grant that account the Test Mode (one-hit boss) affordance. Log in first. */
+if (typeof window !== 'undefined') window.neonDevId = function () {
+  var p = (typeof getPlayer === 'function') && getPlayer();
+  var id = p && p.id || null;
+  console.log(id ? '[neonDevId] your account id: ' + id + '  — paste this into DEV_IDS (main.js)'
+                 : '[neonDevId] not signed in — sign in, then run neonDevId() again');
+  return id;
+};
+
 if (typeof window !== 'undefined') window.stressTest = function (count) {
   count = (count | 0) || 1000;
   if (typeof startGame === 'function' && typeof state !== 'undefined' && state !== 'play') startGame();
