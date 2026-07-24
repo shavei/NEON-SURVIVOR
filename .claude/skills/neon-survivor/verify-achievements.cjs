@@ -118,6 +118,21 @@ const longRun = { started_at: new Date(now - 300000).toISOString(), difficulty: 
 ok(server.validateRun(longRun, { score: 40000, wave: 12, kills: 1200, secs: 250, level: 18, difficulty: 'normal' }).ok, 'C1: legit long run (1200 kills / 250s) still accepted');
 ok(server.killsCeil(1) < 400 && server.killsCeil(600) > 20000, 'C1: killsCeil tight for short runs, generous for long runs');
 
+// 5c) C2 regression — level is XP-gated by kills, and lifetime bosses/runs are server-derived (red-team C2).
+//     A forged `level:25`/`bosses:50` on a 5-kill run can no longer mint ascended / warden_legend.
+ok(server.maxLevelForKills(5) < 25, 'C2: 5 kills can never reach level 25 (ascended forge blocked)');
+ok(server.maxLevelForKills(5) >= 8 && server.maxLevelForKills(5) <= 11, 'C2: 5 kills → ~level 10 ceiling (never caps real play)');
+ok(server.maxLevelForKills(400) >= 25, 'C2: a real 400-kill run still reaches level 25');
+ok(server.maxLevelForKills(0) === 1, 'C2: 0 kills → level 1');
+ok(server.bossesCeil(1) === 0, 'C2: no boss can fall in 1s');
+ok(server.bossesCeil(60) >= 1 && server.bossesCeil(60) <= 2, 'C2: first Warden reachable by 60s, but not a horde');
+ok(server.bossesCeil(300) < 50, 'C2: a single ~5-min run can never bank 50 bosses (warden_legend forge blocked)');
+
+// 5d) H2 regression — the board name is cleaned (length cap + shipped censor); profanity/impersonation
+//     can't ride the leaderboard write. (Registered players resolve to their profile name server-side.)
+ok(server.cleanName('overlongcallsign_1234567') === 'overlongcallsign', 'H2: name length-capped to 16');
+ok(server.cleanName('') === 'anon', 'H2: empty name → anon');
+
 // 6) tier/chain integrity + gold→cosmetic mapping (client COSMETIC_MAP === server COSMETIC_MAP, all gold)
 const C = g.COSMETIC_MAP, COS = g.COSMETICS;
 ok(JSON.stringify(C) === JSON.stringify(server.COSMETIC_MAP), 'client and server COSMETIC_MAP identical');

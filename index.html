@@ -16,8 +16,8 @@
 <link rel="preconnect" href="https://ukvsnjgysbrmuheibrgv.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://ukvsnjgysbrmuheibrgv.supabase.co">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<!-- fetch the supabase SDK in parallel with the game scripts — net.js injects the same URL and hits this cache, shrinking the #boot Connecting gate -->
-<link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" as="script">
+<!-- fetch the supabase SDK in parallel with the game scripts — net.js injects the same URL and hits this cache, shrinking the #boot Connecting gate. Pinned to an EXACT version + SRI hash (red-team L1): a floating @2 or an un-hashed CDN file lets a registry/CDN compromise run arbitrary JS in the page that holds the anon key + auth session. crossorigin must match net.js' script tag so the preload is reused. -->
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8/dist/umd/supabase.js" as="script" integrity="sha384-M65KxMm/JqBppck6onbmAgPVMBHrmPCf1L17Q+71EcvI9/VVI8j5cqoxQf6lj6h2" crossorigin="anonymous">
 <link rel="stylesheet" href="css/style.css">
 <!-- achievements/skins style only the gallery panels — load async so first paint doesn't wait on them -->
 <link rel="stylesheet" href="css/achievements.css" media="print" onload="this.media='all'">
