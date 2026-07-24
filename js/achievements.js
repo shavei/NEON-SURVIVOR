@@ -260,6 +260,7 @@ const Ach = {
       player_id: p.id, run_token: this._token, username: p.name,    // username → server-written leaderboard row
       score: stats.score, wave: stats.wave, secs: entry.secs | 0, kills: stats.kills,
       level: stats.level, bosses: stats.bosses, runs: stats.runs, difficulty: stats.difficulty,
+      runBosses: this.run.bosses | 0,   // THIS run's boss count — server banks it (clock-bounded) for the lifetime sum (C2)
       // intent fields (cosmetic-only; server clamps to plausible bounds before granting)
       noHitWave: stats.noHitWave, starterWave: stats.starterWave, soloWave: stats.soloWave,
       asceticWave: stats.asceticWave, glassWave: stats.glassWave, flawlessBoss: stats.flawlessBoss,

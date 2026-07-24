@@ -13,6 +13,17 @@
 const SUPA_URL = process.env.SUPABASE_URL || process.env.SUPA_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
+/* Reuse the SHIPPED cross-language callsign censor (single source of truth — no server-side blocklist to
+ * drift from the client). It's a classic browser script that attaches to globalThis; requiring it here just
+ * runs that side-effect. Best-effort: if it can't load, cleanName() degrades to a length cap. */
+let _CF = null;
+try { require('../js/callsign-filter.js'); _CF = (typeof globalThis !== 'undefined' && globalThis.CallsignFilter) || null; } catch (e) { _CF = null; }
+function cleanName(raw) {
+  const n = (String(raw == null ? '' : raw).trim().slice(0, 16)) || 'anon';
+  try { if (_CF && _CF.blocked(n)) return 'anon'; } catch (e) {}
+  return n;
+}
+
 /* ---- achievement catalog: MUST stay in lockstep with js/achievements.js.
  *      verify-achievements.cjs cross-checks the two are byte-identical. ---- */
 const CATALOG = [
@@ -195,6 +206,24 @@ const KILL_SECS = 3;
  * points (red-team C1). Bounding kills also caps the kill-count badge grants (annihilator/massacre_clock). */
 function killsCeil(secs) { return secs * 8 + secs * secs * 0.07 + 300; }
 
+/* Level is XP-gated: reaching level L costs a fixed cumulative XP total (world.js: next=8, then
+ * next=floor(next·1.32+3)), and a single kill banks at most MAX_KILL_XP experience — a boss under a 2× magnet
+ * on Hard is 35·1.4·2 = 98, the hard ceiling; every other kill yields far less. So `kills` bound the level a
+ * run can reach. maxLevelForKills() inverts the curve with the generous 100-XP/kill ceiling: it never caps
+ * real play, but a forged `level:25` on a 5-kill run (red-team C2) clamps to a non-qualifying level. */
+const MAX_KILL_XP = 100;
+function maxLevelForKills(kills) {
+  let lvl = 1, need = 8, bank = Math.max(0, kills | 0) * MAX_KILL_XP;
+  while (bank >= need && lvl < 999) { bank -= need; lvl++; need = Math.floor(need * 1.32 + 3); }
+  return lvl;
+}
+
+/* Bosses are time-gated: the first Warden spawns at 60 s and the next 50 s after each one falls (world.js),
+ * so the count a SINGLE run can reach is bounded by its wall clock. bossesCeil() is that cadence with slack —
+ * it caps this run's boss contribution before it's banked into the server-summed lifetime tally (red-team C2,
+ * so a throwaway run can't claim `bosses:50` and mint warden_legend). */
+function bossesCeil(secs) { return secs < 55 ? 0 : Math.floor((secs - 55) / 40) + 1; }
+
 /* pure, server-authoritative run check. runRow = the trusted `runs` row; c = the client claim. */
 function validateRun(runRow, c) {
   if (!runRow) return { ok:false, reason:'unknown_run' };
@@ -258,7 +287,10 @@ module.exports = async function handler(req, res) {
     score: b.score | 0, wave: b.wave | 0, secs: b.secs | 0, kills: b.kills | 0,
     level: b.level | 0, bosses: b.bosses | 0, runs: b.runs | 0, difficulty: String(b.difficulty || ''),
   };
-  sanitizeIntent(claim, b);   // fold client-asserted intent fields in, each clamped to a plausible bound
+  // C2: level is XP-gated, so bound it by kills before it can grant a badge. (kills itself is clock-anchored
+  // in validateRun.) `runs`/`bosses` are re-derived from server state below; sanitizeIntent runs once they are.
+  claim.level = Math.min(Math.max(1, claim.level), maxLevelForKills(claim.kills));
+  let runBosses = 0;   // this run's clock-bounded boss count — banked into the runs row so lifetime sums stay honest
 
   try {
     // 0) IDENTITY BINDING (red-team H1): a run may only be verified onto a player_id by that player.
@@ -273,6 +305,16 @@ module.exports = async function handler(req, res) {
       try { prof = await sb('profiles?select=id&id=eq.' + encodeURIComponent(b.player_id) + '&limit=1'); } catch (e) { prof = null; }
       if (Array.isArray(prof) && prof.length) { res.status(403).json({ accepted:false, reason:'auth_required' }); return; }
     }
+
+    // 0b) RATE LIMIT (red-team M2): cap how many run tokens one identity can burn in a short window. A real
+    //     game runs for minutes and opens ONE token, so a generous per-minute ceiling never trips legit play
+    //     but throttles board / badge / table-growth spam. Best-effort: a count hiccup never blocks a grant.
+    try {
+      const since = new Date(Date.now() - 60000).toISOString();
+      const recent = await sb('runs?select=run_token&player_id=eq.' + encodeURIComponent(b.player_id) +
+                              '&started_at=gte.' + encodeURIComponent(since));
+      if (Array.isArray(recent) && recent.length > 30) { res.status(429).json({ accepted:false, reason:'rate_limited' }); return; }
+    } catch (e) {}
 
     // 1) fetch the trusted run row (must belong to this player)
     const rows = await sb('runs?select=*&run_token=eq.' + encodeURIComponent(b.run_token) +
@@ -290,6 +332,20 @@ module.exports = async function handler(req, res) {
     // 3) validate the claim against the server's own anchor
     const v = validateRun(runRow, claim);
     if (!v.ok) { res.status(200).json({ accepted:false, reason:v.reason }); return; }
+
+    // 3b) SERVER-DERIVED LIFETIME METRICS (red-team C2): `runs` and `bosses` are re-computed from THIS player's
+    //     own verified run history, never trusted from the body. runs = past verified-run count (+1 for the run
+    //     we're about to close); bosses = the sum of each past run's clock-bounded boss count plus this run's
+    //     (also clock-bounded). So a throwaway run can no longer mint veteran / warden_hunter / warden_legend.
+    let priorRuns = 0, priorBosses = 0;
+    try {
+      const hist = await sb('runs?select=bosses&player_id=eq.' + encodeURIComponent(b.player_id) + '&verified=eq.true');
+      if (Array.isArray(hist)) { priorRuns = hist.length; priorBosses = hist.reduce((s, r) => s + (r.bosses | 0), 0); }
+    } catch (e) {}
+    runBosses = Math.min(bossesCeil(claim.secs), Math.max(0, b.runBosses | 0));
+    claim.runs = priorRuns + 1;
+    claim.bosses = priorBosses + runBosses;
+    sanitizeIntent(claim, b);   // fold intent fields in NOW — clamped against the server-bounded level/bosses
 
     // 4) grant: compute earned ids from the VALIDATED numbers, insert ignoring duplicates.
     //    is_unlocked=true / current_progress=driver-cond value mark these rows as completed badges.
@@ -338,8 +394,17 @@ module.exports = async function handler(req, res) {
     // 4d) leaderboard write — server-authoritative, from the SAME re-validated numbers (service role bypasses
     //     RLS; the client `anyone can insert` policy is gone). Best-effort: a leaderboard hiccup must NOT undo
     //     the achievement grant above. Runs once per token — the verified early-return (step 2) blocks replays.
+    //     H2: the board name is RESOLVED from the player's set-once, censor-checked profile — never trusted from
+    //     the body. A registered player always posts under their unique, filtered callsign (can't impersonate
+    //     another player or slip profanity past the censor); an anon/local id with no profile falls back to a
+    //     length-capped, filter-screened body name (cleanName), so the callsign filter is no longer bypassable.
     try {
-      const uname = (String(b.username || '').slice(0, 16)) || 'anon';
+      let uname = 'anon';
+      try {
+        const prof = await sb('profiles?select=username&id=eq.' + encodeURIComponent(b.player_id) + '&limit=1');
+        if (Array.isArray(prof) && prof.length && prof[0].username) uname = String(prof[0].username).slice(0, 16);
+        else uname = cleanName(b.username);
+      } catch (e) { uname = cleanName(b.username); }
       await sb('leaderboard', {
         method: 'POST', headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({
@@ -349,10 +414,11 @@ module.exports = async function handler(req, res) {
       });
     } catch (e) {}
 
-    // 5) close the run token (idempotency anchor) — service role only
+    // 5) close the run token (idempotency anchor) — service role only. `bosses` banks THIS run's clock-bounded
+    //    count so the next run's lifetime sum (step 3b) is server-authoritative, not re-trusted from the client.
     await sb('runs?run_token=eq.' + encodeURIComponent(b.run_token), {
       method: 'PATCH', headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ verified:true, final_score:claim.score }),
+      body: JSON.stringify({ verified:true, final_score:claim.score, bosses:runBosses }),
     });
 
     res.status(200).json({ accepted:true, newAchievements:earned, newCosmetics });
@@ -368,6 +434,9 @@ module.exports.meets = meets;
 module.exports.sanitizeIntent = sanitizeIntent;
 module.exports.validateRun = validateRun;
 module.exports.killsCeil = killsCeil;
+module.exports.maxLevelForKills = maxLevelForKills;
+module.exports.bossesCeil = bossesCeil;
+module.exports.cleanName = cleanName;
 module.exports.RATE = RATE;
 module.exports.COSMETIC_MAP = COSMETIC_MAP;
 module.exports.cosmeticsFor = cosmeticsFor;

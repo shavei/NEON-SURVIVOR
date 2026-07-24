@@ -35,6 +35,24 @@ billion-point rows"* are closed (`net.js:34`, `schema.sql:29`) — are **both fa
 
 ---
 
+## Remediation status — 2026-07-24 (branch `claude/red-team-report-review-k77ios`)
+
+All eight findings are now closed. Fixes land in `api/verify.js`, `supabase/schema.sql`, `js/achievements.js`,
+`js/net.js`, and `index.html`; C2 regression coverage is in `verify-achievements.cjs` (5c/5d).
+
+| # | Status | Fix |
+|---|--------|-----|
+| **C1** | ✅ Fixed | `killsCeil(secs)` anchors `kills` to the wall clock → `kills_impossible`; the inflated-kills score ceiling is gone. |
+| **C2** | ✅ Fixed | `level` clamped to `maxLevelForKills(kills)` (XP-gated curve); lifetime `runs` = server count of the player's verified runs; lifetime `bosses` = server **sum** of each run's clock-bounded (`bossesCeil`) count, banked into a new `runs.bosses` column. No lifetime metric is trusted from the body. |
+| **H1** | ✅ Fixed | `authUid()` binds the claim to the session bearer; a no-session claim can never target a `profiles` row. |
+| **H2** | ✅ Fixed | Board name is **resolved from `profiles.username`** (set-once, unique, censor-checked at signup); an anon id with no profile falls back through `cleanName`, which reuses the shipped `CallsignFilter`. `b.username` is no longer trusted. |
+| **M1** | ✅ Fixed | `world_state` table + open policies dropped. |
+| **M2** | ✅ Fixed | Per-identity rate limit: >30 run tokens opened in 60 s → `429 rate_limited` (real play opens one per multi-minute game). |
+| **L1** | ✅ Fixed | `@vercel/speed-insights` self-hosted; `@supabase/supabase-js` pinned to `2.110.8` with an SRI `integrity` hash on both the `index.html` preload and the `net.js` dynamic loader. |
+| **L2** | ✅ Fixed | Collapses with C2/H1 — lifetime counters are now server-derived and identity-bound, so they can no longer be inflated onto any account. |
+
+---
+
 ## CRITICAL
 
 ### C1 — Leaderboard score forgery through the "hardened" `/api/verify` path

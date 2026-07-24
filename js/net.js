@@ -24,7 +24,8 @@ function _initSupabase(){
   const boot=()=>{try{if(typeof supabase!=='undefined'){SB=supabase.createClient(SUPA_URL,SUPA_ANON_KEY);
     if(typeof onSupabaseReady==='function')onSupabaseReady();}}catch(e){}};   // wake the UI: refresh the board now the client exists
   if(typeof supabase!=='undefined'){boot();return;}
-  try{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  try{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8/dist/umd/supabase.js';
+    s.integrity='sha384-M65KxMm/JqBppck6onbmAgPVMBHrmPCf1L17Q+71EcvI9/VVI8j5cqoxQf6lj6h2';s.crossOrigin='anonymous';  // pinned + SRI (red-team L1); crossOrigin matches the index.html preload so it's reused
     s.async=true;s.onload=boot;(document.head||document.body).appendChild(s);}catch(e){}
 }
 

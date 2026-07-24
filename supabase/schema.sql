@@ -149,8 +149,16 @@ create table if not exists public.runs (
   difficulty  text not null check (difficulty in ('easy','normal','hard')),
   started_at  timestamptz not null default now(),
   verified    boolean not null default false,
-  final_score integer
+  final_score integer,
+  -- this run's server-validated, clock-bounded boss count, banked by /api/verify on close. Lifetime `bosses`
+  -- (warden_hunter / warden_legend) is SUM(bosses) over a player's verified runs — server-derived, not trusted
+  -- from the client body (red-team C2). Client insert never sets it (default 0); only service_role writes it.
+  bosses      integer not null default 0
 );
+-- Idempotent add for an already-provisioned runs table (column may predate this line on older deployments).
+alter table public.runs add column if not exists bosses integer not null default 0;
+-- Recent-run lookup for the /api/verify per-identity rate limit (red-team M2) + the lifetime boss sum (C2).
+create index if not exists runs_player_started_idx on public.runs (player_id, started_at);
 
 -- ---------- RLS ----------
 alter table public.achievement_defs    enable row level security;
