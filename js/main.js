@@ -22,6 +22,10 @@ resize();addEventListener('resize',resize);
 
 /* ========== INPUTS ========== */
 const keys={};
+// Test Mode (one-hit bosses) is gated to specific DEV accounts by Supabase auth id — no personal data in source,
+// evaluated LIVE so it picks up the session after async login. window.neonDevId() (dev-tools.js) prints your id.
+const DEV_IDS=['e743acde-03d3-404a-b1e2-4fe16843fff8'];   // account ids allowed to toggle Test Mode; empty = nobody. (yosef)
+function isDev(){try{const p=typeof getPlayer==='function'&&getPlayer();return !!(p&&p.id&&DEV_IDS.indexOf(p.id)>=0);}catch(e){return false;}}
 addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;   // let text fields (username) type normally
   const k=e.key.toLowerCase();keys[k]=true;
   if(k==='p'&&(state==='play'||state==='pause'))togglePause();
@@ -30,7 +34,7 @@ addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;  
     else if(state==='play'||state==='pause')togglePause();}
   if(k==='m')Sound.toggle();
   if(k==='f3'){e.preventDefault();if(typeof togglePerf!=='undefined')togglePerf();}   // dev FPS benchmark overlay (debug-overlay.js)
-  if(k==='b'&&state==='play'){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode: one-hit bosses (toggle off→on to respawn)
+  if(k==='b'&&state==='play'&&isDev()){_test=!_test;if(_test&&!bossOn)spawnBoss();}   // Test Mode (dev-account-gated): one-hit bosses (toggle off→on to respawn)
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();});
 addEventListener('keyup',e=>{if(e.key)keys[e.key.toLowerCase()]=false;});   // guard e.key (undefined on autofill/IME keyups)
 /* floating virtual joystick — only on mobile; anchors at first touch, sim.js reads touch.{x,y,cx,cy} unchanged */
