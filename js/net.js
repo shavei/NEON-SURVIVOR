@@ -54,4 +54,20 @@ async function fetchTop(diff){
     return error?null:(data||[]);}catch(e){return null;}
 }
 
+/* open a run token via a DIRECT PostgREST insert (anon key) — available IMMEDIATELY, with NO wait for the
+ * heavy supabase SDK to download/parse. This anchors runs.started_at at the TRUE run start; a slow WebView
+ * cold start otherwise opened the token mid-run (the SDK is a late async CDN inject), skewing started_at so
+ * the finished run was rejected by /api/verify's time check (time_impossible) and never reached the board.
+ * The `runs insert open` RLS policy admits the row (verified=false, final_score null); Prefer:return=
+ * representation echoes the server-minted run_token back. Resolves to the token string, or null when
+ * offline/unconfigured/headless (caller then plays local-only). */
+async function openRunToken(playerId,diff){
+  if(!playerId||!(_isBrowser&&SUPA_OK&&typeof fetch==='function'))return null;
+  try{const r=await fetch(SUPA_URL+'/rest/v1/runs',{method:'POST',
+      headers:{apikey:SUPA_ANON_KEY,Authorization:'Bearer '+SUPA_ANON_KEY,'Content-Type':'application/json',Prefer:'return=representation'},
+      body:JSON.stringify({player_id:playerId,difficulty:diff})});
+    if(!r.ok)return null;const d=await r.json();const row=Array.isArray(d)?d[0]:d;
+    return(row&&row.run_token)||null;}catch(e){return null;}
+}
+
 _initSupabase();

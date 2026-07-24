@@ -138,24 +138,25 @@ const Ach = {
       firstHitWave: -1, firstWeaponWave: -1, firstLevelWave: -1, firstPickWave: -1, firstMaxhpWave: -1,
       minHpPct: 100, lowWave: -1, bossKillSecs: 9999, _bossDmgMark: 0, _bossSpawnSecs: 0,
     };
-    this._token = null; this._last = null;
+    this._token = null; this._tokenPending = false; this._last = null;
     this.openToken();                                                      // anchor a server run token (retried on SDK connect)
   },
 
   /* open the /api/verify run token that anchors EVERY cloud write (leaderboard + achievements). Idempotent:
-   * no-ops once a token exists. If SB isn't ready yet (the supabase SDK is a late async CDN inject, so a
-   * cold start — e.g. the app's WebView — can begin a run before it connects), onSupabaseReady() calls this
-   * again mid-run, so a slow client still anchors a token instead of silently dropping the whole run. The
-   * ≤5 s grace in api/verify.js' time check tolerates the small started_at skew of a just-connected retry. */
+   * no-ops once a token exists or an insert is already in flight. The insert goes through net.js' openRunToken
+   * — a DIRECT REST write that needs NO supabase SDK — so the token opens at the TRUE run start even on a slow
+   * WebView cold start (the SDK is a late async CDN inject). That keeps runs.started_at honest: the old
+   * SDK-gated path opened the token mid-run, skewing started_at past /api/verify's time check so a legitimate
+   * run was rejected (time_impossible) and silently never reached the board. onSupabaseReady() still retries
+   * this when the SDK connects, covering a transient offline blip on the run-start insert. */
   openToken() {
-    if (this._token) return;
+    if (this._token || this._tokenPending) return;                          // already anchored / insert in flight
     const p = (typeof getPlayer === 'function') && getPlayer();
+    if (!p || typeof openRunToken !== 'function') return;                   // no net layer / headless → local-only
     const diff = (typeof DIFF !== 'undefined' && DIFF.key) || 'normal';
-    if (!p || typeof SB === 'undefined' || !SB) return;                    // offline / headless → local-only
-    try {
-      SB.from('runs').insert({ player_id:p.id, difficulty:diff }).select('run_token').single()
-        .then(({ data }) => { if (data) this._token = data.run_token; }, () => {});
-    } catch (e) {}
+    this._tokenPending = true;
+    openRunToken(p.id, diff).then(t => { this._tokenPending = false; if (t) this._token = t; },
+                                  () => { this._tokenPending = false; });
   },
 
   /* ---- intent hooks, fired from sparse event sites (no per-tick cost) ---- */
@@ -275,6 +276,9 @@ const Ach = {
       try {
       fetch(base + '/api/verify', { method: 'POST', headers, body: payload }).then(r => r.json()).then(j => {
         this._last = j;
+        // server accepted → it just wrote the leaderboard row; force-refetch so the new rank shows on the menu
+        // immediately instead of hiding behind the death-screen board snapshot's 30 s TTL (LBSync.fresh()).
+        if (j && j.accepted && typeof LBSync !== 'undefined' && LBSync.syncAll) LBSync.syncAll(true);
         if (j && j.accepted && Array.isArray(j.newAchievements)) {
           const s = this._load(), add = j.newAchievements.filter(id => s.unlocked.indexOf(id) < 0);
           const cos = (Array.isArray(j.newCosmetics) ? j.newCosmetics : []).filter(c => s.cosmetics.indexOf(c) < 0);
