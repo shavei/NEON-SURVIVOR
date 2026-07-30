@@ -7,7 +7,14 @@
    data-i18n-ph (placeholder); I18N.apply() captures the English original once (data-en*)
    then re-translates on every language switch and notifies onChange subscribers. */
 const I18N={
-  lang:(function(){try{return localStorage.getItem('neon_lang')==='he'?'he':'en'}catch(e){return 'en'}})(),
+  /* An explicit choice (the 🌐 toggle persists one) always wins. With none stored we follow the DEVICE
+     language, so a Hebrew phone opens in Hebrew instead of booting English behind a corner chip the
+     player can't read. 'iw' is Hebrew's legacy ISO code — still reported by some Android builds. */
+  lang:(function(){
+    try{const s=localStorage.getItem('neon_lang');if(s==='he'||s==='en')return s;}catch(e){}
+    try{if(typeof navigator==='undefined')return 'en';
+      return [].concat(navigator.languages||[],navigator.language||[])
+        .some(l=>/^(he|iw)\b/i.test(String(l)))?'he':'en';}catch(e){return 'en'}})(),
   ov:(function(){try{return JSON.parse(localStorage.getItem('neon_he_ov'))||{}}catch(e){return {}}})(),   // live per-string tweaks (debugLang) — win over LANG_HE
   _subs:[],
   onChange(f){I18N._subs.push(f);},

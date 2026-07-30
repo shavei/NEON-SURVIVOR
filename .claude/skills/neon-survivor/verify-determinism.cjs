@@ -11,7 +11,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm'), crypto = require('crypto');
 const ROOT = path.resolve(__dirname, '../../..');
 
-const scriptB = ['js/i18n.js', 'js/lang-he.js', 'js/config-sim.js', 'js/core.js', 'js/audio-orchestrator.js', 'js/upgrade-logic.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/main.js']
+const scriptB = ['js/i18n.js', 'js/lang-he.js', 'js/config-sim.js', 'js/core.js', 'js/audio-orchestrator.js', 'js/upgrade-logic.js', 'js/world.js', 'js/sim.js', 'js/render.js', 'js/ui-engine.js', 'js/menu-content.js', 'js/leaderboard-engine.js', 'js/main.js']
   .map(s => fs.readFileSync(path.resolve(ROOT, s), 'utf8')).join('\n;\n');
 
 function makeSandbox() {

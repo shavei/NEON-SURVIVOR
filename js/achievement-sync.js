@@ -139,6 +139,10 @@ const AchSync = {
     const legacyId = (prev.id && prev.id !== user.id) ? prev.id : null;  // a pre-auth browser id to rescue
     const hydrate = function (name) {
       if (typeof savePlayer === 'function') savePlayer(name, user.id);   // canonical id = auth user_id
+      // guest play comes first now (js/onboarding.js), so a first-time signup can be carrying a whole
+      // run's worth of unlocks in the unkeyed 'neon_ach:local' mirror. Fold them into the account's
+      // mirror BEFORE pull(), whose cloud∪local union then preserves them instead of dropping them.
+      if (typeof Onboard !== 'undefined') Onboard.adoptGuest();
       return self.pull(user.id).then(function () {
         if (legacyId) self.claimLegacy(legacyId);                        // one-time re-key of stranded progress
         return { ok: true, id: user.id, name: name };
@@ -147,7 +151,7 @@ const AchSync = {
     if (username) {
       const name = String(username).slice(0, 16);
       return this._setProfile(user.id, name).then(function (r) {
-        if (r && r.taken) return { ok: false, taken: true, error: 'CALLSIGN ALREADY CLAIMED' };
+        if (r && r.taken) return { ok: false, taken: true, error: 'THAT NICKNAME IS TAKEN' };
         return hydrate(name);
       });
     }

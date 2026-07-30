@@ -5,6 +5,10 @@
     --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  /* Any author `display` beats the UA's [hidden]{display:none}, so every element we toggle via the hidden
+     ATTRIBUTE (#joy, #mpause, #signinbtn, #saveprompt) needs this or it stays on screen. Was patched
+     per-element for the touch controls; generalised here so the next hidden element can't repeat the bug. */
+  [hidden]{display:none!important}
   html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);user-select:none;
     touch-action:none;overscroll-behavior:none}   /* kill pull-to-refresh / scroll-bounce during play */
   #game {
@@ -307,6 +311,32 @@
   #toast .tico{font-size:20px}
   #toast small{color:var(--muted);font-weight:600;font-size:12px;font-family:var(--mono)}
 
+  /* first-run coaching tip (onboarding.js) — sits BELOW the item toast so the two never overlap.
+     Non-interactive and sim-clock driven, so it freezes with the game and can't cover an overlay. */
+  /* explicit width, not max-width: a shrink-to-fit fixed box collapses toward its minimum and wraps a
+     translated sentence into four ragged lines, stranding the icon mid-paragraph. */
+  #tip{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(10px);z-index:9;pointer-events:none;
+    display:flex;align-items:flex-start;gap:11px;width:min(560px,90vw);padding:12px 20px;border-radius:14px;opacity:0;
+    font-family:var(--sans);font-weight:600;font-size:15px;line-height:1.45;color:var(--ink);text-align:left;
+    background:rgba(12,14,26,.9);border:1px solid rgba(84,230,181,.5);box-shadow:0 0 22px rgba(84,230,181,.16);
+    backdrop-filter:blur(6px);transition:opacity .35s,transform .35s;will-change:transform,opacity}
+  #tip.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #tip .tipico{font-size:21px;flex:0 0 auto;line-height:1.25}
+  html[lang=he] #tip{direction:rtl;text-align:right}
+  body.mobile #tip{bottom:150px;font-size:14px;padding:10px 16px}
+
+  /* death-screen account ask (onboarding.js) — the account prompt a new player used to meet BEFORE
+     ever playing. Inline and skippable: it explains what an account buys, it never blocks. */
+  .saveprompt{margin:16px auto 0;max-width:min(430px,86vw);display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:15px 18px;border-radius:14px;background:rgba(84,230,181,.07);border:1px solid rgba(84,230,181,.34)}
+  .saveprompt b{font-size:14px;color:var(--mint);letter-spacing:.01em}
+  .saveprompt span{font-size:12.5px;line-height:1.5;color:var(--muted)}
+  .saveprompt .savebtn{margin-top:9px;pointer-events:auto;cursor:pointer;font-family:var(--sans);font-weight:700;
+    font-size:13px;padding:10px 20px;border-radius:99px;color:#05060c;background:var(--mint);border:none;
+    transition:filter .2s}
+  .saveprompt .savebtn:hover{filter:brightness(1.12)}
+  html[lang=he] .saveprompt{direction:rtl}
+
   /* dev FPS benchmark overlay (toggled with F3) */
   #perfhud{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:30;display:none;pointer-events:none;
     font-family:var(--mono);font-size:11px;line-height:1.5;letter-spacing:.04em;color:var(--mint);text-align:left;
@@ -325,7 +355,6 @@
 
   /* ===== MOBILE: on-screen controls + responsive layout (gated by body.mobile, set in main.js) ===== */
   #joy,#mpause{display:none}                       /* hidden on desktop; revealed under body.mobile */
-  #joy[hidden],#mpause[hidden]{display:none!important}
   body.mobile #joy{display:block;position:fixed;width:120px;height:120px;border-radius:50%;z-index:20;pointer-events:none;
     transform:translate(-50%,-50%);border:2px solid rgba(124,140,255,.35);background:rgba(124,140,255,.06)}
   #joynub{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:50%;

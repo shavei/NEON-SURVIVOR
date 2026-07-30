@@ -46,6 +46,7 @@
 <div id="pulse"></div>
 <div id="toast"></div>
 <div id="achtoast"></div>
+<div id="tip"></div>
 <div id="cleared"><span data-i18n>CLEARED</span><small data-i18n>arena breather — spawns throttled</small></div>
 <div id="sound" title="toggle sound (M)">🔊 sound</div>
 <div id="haptics" title="toggle vibration">📳 vibrate</div>
@@ -90,6 +91,8 @@
   <div class="startactions">
     <button class="btn" id="startbtn" data-i18n>▶ PLAY</button>
   </div>
+  <!-- signed-out players reach GRID ACCESS from here: the login modal no longer blocks the menu -->
+  <button class="menubtn" id="signinbtn" hidden data-i18n>🔗 Sign in / create an account</button>
   <a class="menubtn apk-cta" id="apkdl" href="https://github.com/shavei/neon-survivor/releases/latest/download/neon-survivor.apk" rel="noopener" data-i18n>📱 Get the Android app (APK)</a>
   <div class="menupanels">
     <div class="mpanel mpanel--ref"><div class="mptitle" data-i18n>⚡ Pickups — found on the map</div><div class="legend" id="pickupsLegend"></div></div>
@@ -119,6 +122,7 @@
 </div>
 
 <div class="overlay hidden" id="boot">
+  <button class="langbtn" title="English / עברית">🌐 עברית</button>
   <img class="brandmark brandmark--sm" src="/brand/mark.svg" alt="" width="96" height="96">
   <div class="title" style="font-size:clamp(1.6rem,5vw,2.6rem)">NEON<br>SURVIVOR</div>
   <p class="tag" style="margin-top:16px"><span data-i18n>Connecting</span><span class="bootdots"></span></p>
@@ -130,9 +134,9 @@
   <p class="tag" style="margin-top:12px" id="authtag" data-i18n>Link up to carry your callsign, achievements and best runs across every device.</p>
   <form class="unamebox" onsubmit="return false">
     <input id="authemail" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="email" aria-label="email" data-i18n-ph>
-    <input id="authpass" type="password" autocomplete="current-password" placeholder="password (min 6)" aria-label="password" data-i18n-ph>
+    <input id="authpass" type="password" autocomplete="current-password" placeholder="password (at least 6 characters)" aria-label="password" data-i18n-ph>
     <input id="authcode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" spellcheck="false" placeholder="6-digit code" aria-label="verification code" data-i18n-ph>
-    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="callsign (3–16)" aria-label="callsign" data-i18n-ph>
+    <input id="uname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="nickname (3–16 characters)" aria-label="nickname" data-i18n-ph>
     <div class="unameerr" id="unameerr"></div>
   </form>
   <button class="btn" id="unameok" data-i18n>✔ JACK IN</button>
@@ -149,6 +153,8 @@
     <div class="hi" id="hibest"></div>
     <div class="gofeedback" id="gofeedback"></div>
     <div class="netstatus netstatus--go" id="gonet" role="status" aria-live="polite"></div>
+    <!-- the account ask lives HERE, not before the first run — onboarding.js fills it -->
+    <div class="saveprompt" id="saveprompt" hidden></div>
   </div>
   <button class="btn" id="againbtn" data-i18n>↻ PLAY AGAIN</button>
   <button class="menubtn" id="tomenu" data-i18n>↩ main menu</button>
@@ -193,7 +199,7 @@
   </div>
 </div>
 
-<!-- classic scripts, shared global scope — load order matters: i18n → lang-he → config → config-sim → audio-manifest → core → audio-orchestrator → upgrade-logic → world → sim → render → rewards → synergy → map-system → ui-engine → net → achievements → achievements-ui → reward-map → genre-orchestrator → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine → debug-overlay → main → dev-tools. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
+<!-- classic scripts, shared global scope — load order matters: i18n → lang-he → config → config-sim → audio-manifest → core → audio-orchestrator → upgrade-logic → world → sim → render → rewards → synergy → map-system → ui-engine → menu-content → net → achievements → achievements-ui → reward-map → genre-orchestrator → reward-granting-engine → skins-ui → theme-system → achievement-sync → callsign-filter → auth-uplink → leaderboard-sync → leaderboard-engine → onboarding → debug-overlay → main → dev-tools. Single-player only: Supabase is used solely for auth, saves, leaderboards and achievements (never in the game loop). -->
 <script defer src="js/i18n.js"></script>
 <script defer src="js/lang-he.js"></script>
 <script defer src="js/config.js"></script>
@@ -209,6 +215,7 @@
 <script defer src="js/synergy.js"></script>
 <script defer src="js/map-system.js"></script>
 <script defer src="js/ui-engine.js"></script>
+<script defer src="js/menu-content.js"></script>
 <script defer src="js/net.js"></script>
 <script defer src="js/achievements.js"></script>
 <script defer src="js/achievements-ui.js"></script>
@@ -222,6 +229,7 @@
 <script defer src="js/auth-uplink.js"></script>
 <script defer src="js/leaderboard-sync.js"></script>
 <script defer src="js/leaderboard-engine.js"></script>
+<script defer src="js/onboarding.js"></script>
 <script defer src="js/debug-overlay.js"></script>
 <script defer src="js/main.js"></script>
 <script defer src="js/dev-tools.js"></script>
