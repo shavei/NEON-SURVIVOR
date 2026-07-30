@@ -8,7 +8,7 @@ menu/leaderboard, synth + sample music.
 `<script defer>` **classic** scripts (NOT modules) — globals shared across files. Every served `js/*.js`
 must stay **under 28 KB** (a larger file is silently truncated → tail vanishes with no error).
 **Game core:** i18n → lang-he → config → config-sim → audio-manifest → core → audio-orchestrator → upgrade-logic → world → sim → render → rewards →
-synergy → map-system → ui-engine → net → … → debug-overlay → main → dev-tools.
+synergy → map-system → ui-engine → menu-content → net → … → debug-overlay → main → dev-tools.
 - `index.html` markup · `css/style.css` · `css/achievements.css` · `css/skins.css`
 - `js/i18n.js` EN⇄HE layer: `I18N` (lang / localStorage `neon_lang` / `apply()` / `onChange`) + global `tr(s)`; static DOM marked `data-i18n`/`data-i18n-html`/`data-i18n-ph`; `.langbtn` toggles it (start·pause·auth overlays); `window.debugLang(en,he)` live per-string override (localStorage `neon_he_ov`, wins over `LANG_HE`; `debugLang(en,null)` drops, `debugLang()` lists)
 - `js/lang-he.js` `LANG_HE` Hebrew dictionary — **exact English display strings are the keys**; missing entry ⇒ English fallback
@@ -22,6 +22,7 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main 
 - `js/rewards.js` `Reward` in-game JUICE facade (shake/pulse) · `js/synergy.js`/`js/map-system.js` evolutions + boss rewards
 - `js/net.js` Supabase scoreboard: `getPlayer`/`savePlayer`/`submitScore`/`fetchTop` (headless/offline-safe, SB=null)
 - `js/debug-overlay.js` F3 dev overlay (`_perf`/`togglePerf`/`perfFrame` — main's loop feeds ticks, typeof-guarded)
+- `js/menu-content.js` start-menu REFERENCE panels (pickups/weapons static copy + merge/boss-reward legends generated from the live `SYNERGIES`/`Nav.NODES` registries) and the difficulty picker/hint — split out of main.js for the 28 KB line; main only calls `renderLegends()`/`updDiffHint()`
 - `js/main.js` init/wiring, loop, menus, flow, `sanitizeName`; a `visibilitychange` handler pauses an in-progress run (via `togglePause`, which also freezes the sim clock) + suspends the AudioContext when the tab is hidden, so nothing plays in the background — returning re-wakes audio and leaves the game **paused** (tap to resume)
 - `js/dev-tools.js` console-only diagnostics, loaded last so every game global exists (`window.stressTest(n)` — spawn N enemies + sample real fps under load); headless-safe
 
@@ -35,7 +36,7 @@ synergy → map-system → ui-engine → net → … → debug-overlay → main 
 - `js/achievement-sync.js` `AchSync` durable identity: signUp/signIn/OTP wrappers, `_adopt`, `_setProfile`, `pull`/`pullInventory`
 - `js/callsign-filter.js` `CallsignFilter` cross-language (EN↔HE) censorship: `normalizeCallsign(text)`→{latin,hebrew} comparison strings, inline canonical blocklist, `window.debugCensor(text)`; auth-uplink gates on `blocked()` before any cloud write
 - `js/auth-uplink.js` `confirmUsername()` GRID ACCESS modal — one overlay, `_stage` machine (login·signup·signup-code·otp-code·local·callsign)
-- `js/theme-system.js` `Theme` map palettes · `js/skins-ui.js` `Skins` showcase · `js/leaderboard-*.js` board sync/UI
+- `js/theme-system.js` `Theme` map palettes · `js/skins-ui.js` `Skins` showcase · `js/leaderboard-sync.js` board prefetch/cache · `js/leaderboard-engine.js` every board VIEW — the `#global` menu panel (`renderGlobal`/`syncGlobalTab`/`_gdiff`, plus the `onSupabaseReady`/`onLeaderboardUpdate` hooks) and the death-screen rank feedback (`reportRun`)
 - `api/verify.js` THE authoritative server grantor (service role): validates a run, writes `player_achievements`/`cosmetics_inventory`/`user_inventory`. `REWARD_MAP`/`CATALOG`/`COSMETIC_MAP` here MUST stay in lockstep with the client. `authUid()` binds the write to the session bearer's `auth.uid()` (a mismatched `player_id` → 403; a no-session claim can't target a registered account) — `js/achievements.js` `_submit` sends the token.
 - `api/claim.js` one-time legacy re-key (service role): moves `player_achievements`/`user_inventory`/`runs` from a pre-auth localStorage id onto the durable auth id (bearer must own the destination; refuses a legacy id that is itself an account). Wired to `AchSync.claimLegacy` (fires once on first login, `neon_legacy_claimed` marker).
 - `supabase/schema.sql` RLS + the `profiles_username_unique` (case-insensitive UNIQUE callsign) index + `callsign_available` RPC
