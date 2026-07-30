@@ -77,6 +77,7 @@ function updateHUD(elapsed){const p=player;
   // post-boss CLEARED banner: first 15 s of the ramp only — the tail of the 30 s ease-back shouldn't keep it up (toggle only on change)
   const onB=(typeof breatherT!=='undefined')&&breatherT>((typeof BOSS!=='undefined'?BOSS.breatherT:1800)-900);
   if(onB!==_hud.cleared){if(HUD.cleared)HUD.cleared.classList.toggle('show',onB);_hud.cleared=onB;}
+  if(typeof Onboard!=='undefined')Onboard.tick(elapsed);   // first-run coaching tips, on the SIM clock (freezes with pause)
 }
 function flashHit(){const f=document.getElementById('flash');f.style.transition='none';f.style.opacity='.5';
   requestAnimationFrame(()=>{f.style.transition='opacity .4s';f.style.opacity='0';});}
@@ -111,6 +112,7 @@ function startGame(){
   Sound.init();Sound.resume();Music.start();reset();state='play';
   HUD.diff.textContent=tr(DIFF.label.toUpperCase());HUD.diff.style.color=DIFF.col;   // show the chosen difficulty in the HUD, tinted to its colour
   if(typeof Ach!=='undefined')Ach.onRunStart();                            // reset run counters + open a server run token
+  if(typeof Onboard!=='undefined')Onboard.onRunStart();                    // arm the first-run coaching tips
   document.getElementById('start').classList.add('hidden');document.getElementById('over').classList.add('hidden');
   document.getElementById('sound').classList.add('show');
   const hb=document.getElementById('haptics');if(hb)hb.classList.add('show');   // reveal vibration toggle (CSS gates it to mobile)
@@ -130,6 +132,7 @@ function gameOver(){state='over';Music.die();
   if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();      // refresh the Soundtrack tab (new tracks may have unlocked)
   dismissToasts();   // clear mid-run AND run-end-fired toasts (reportRun above can unlock) so none bleed behind the game-over overlay
   if(typeof renderNetStatus==='function')renderNetStatus();   // show, on the death screen, whether this run reached the global board
+  if(typeof Onboard!=='undefined')Onboard.onGameOver();       // …and, if they're playing as a guest, offer to save it
   document.getElementById('finalscore').textContent=score;
   document.getElementById('finalmeta').textContent=`${tr('survived')} ${m}:${String(s).padStart(2,'0')} · ${tr('wave')} ${wave} · ${tr('Lv')} ${player.level} · ${tr(DIFF.label)}`;
   document.getElementById('hibest').textContent=newBest?tr('★ NEW BEST!'):tr('best:')+' '+best;
@@ -189,8 +192,9 @@ function bootMenu(){   // auth-gated when online/configured; otherwise legacy lo
     // shows through the gap between hiding #start and the auth modal/menu appearing. onAuth* clears it.
     document.getElementById('start').classList.add('hidden');
     document.getElementById('boot').classList.remove('hidden');AchSync.boot();return;}
-  if(typeof getPlayer==='function'&&!getPlayer()){
-    document.getElementById('start').classList.add('hidden');showAuth('local');}}
+  // no cloud at all (Supabase unconfigured) → straight to the menu. A first-run player used to be asked
+  // for a name here before they'd seen a single frame; onboarding.js asks after the run instead.
+  if(typeof Onboard!=='undefined')Onboard.syncMenu();}
 
 function showMenu(){
   document.getElementById('over').classList.add('hidden');
@@ -205,6 +209,7 @@ function showMenu(){
   syncGlobalTab(_gdiff);if(typeof LBSync!=='undefined')LBSync.syncAll();renderGlobal(_gdiff);   // re-warm stale boards; instant if fresh
   if(typeof AchSync!=='undefined'&&AchSync.ready&&AchSync.ready())AchSync.pull();   // re-pull cloud achievements earned on another device (cross-device freshness without a restart)
   if(typeof renderNetStatus==='function')renderNetStatus();   // refresh the ONLINE/OFFLINE badge on the menu
+  if(typeof Onboard!=='undefined'){Onboard.syncMenu();Onboard.hideTip();}   // show the sign-in route while signed out; drop any live tip
   if(typeof Music!=='undefined')Music.menu();}   // chill menu theme (audio must already be unlocked by a prior gesture)
 function quitToMenu(){            // abandon the current run — all progress lost
   state='start';   // showMenu() swaps to the chill menu theme

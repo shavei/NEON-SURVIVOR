@@ -177,7 +177,7 @@ function runStub() {
     open(); _render('callsign'); $('uname').value = 'Nova'; // …tries to claim the taken "Nova"
     confirmUsername(); await sleep(60);
     ok($('uname').classList.contains('taken'), '#uname shows the red "taken" state');
-    ok($('unameerr').textContent === 'CALLSIGN ALREADY CLAIMED', 'error reads "CALLSIGN ALREADY CLAIMED"');
+    ok($('unameerr').textContent === 'THAT NICKNAME IS TAKEN', 'error reads "THAT NICKNAME IS TAKEN"');
     ok((getPlayer()||{}).name === 'Veteran', 'no local rename leaked through the rejected claim');
     ok(!closed(), 'modal stays open so the player can pick another callsign');
     state.taken = false;
