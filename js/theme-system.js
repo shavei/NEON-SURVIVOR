@@ -3,7 +3,7 @@
  * ("cosmic nebula") is free; the rest unlock as achievement rewards (kind:'palette' in REWARD_MAP) and
  * equip from the Showcase → "Grids" tab. Theme.apply(id) repoints the active palette and rebuilds the
  * cached NEBULA_CANVAS + STAR_FIELD — a one-off cost on swap, NEVER per-frame (the draw loop just blits
- * the cached tile). world.js generateNebula()/initStars() read Theme.nebula()/Theme.stars() at call time;
+ * the cached tile). backdrop.js generateNebula()/initStars() read Theme.nebula()/Theme.stars() at call time;
  * each keeps a built-in default so a Theme-less load (the headless equiv harness) stays byte-identical.
  * Classic script (shared global). Load AFTER reward-granting-engine.js (ownership) + world.js, BEFORE
  * main.js (which builds the nebula once at startup). Headless / offline / localStorage-safe. */
@@ -25,7 +25,7 @@ const Theme = {
   // resolve a palette by id, falling back to the default for unknown ids (never breaks the backdrop)
   pal(id) { return this.PALETTES[id] || this.PALETTES[this.DEFAULT]; },
   active() { return this.pal(this._active); },
-  // the projections world.js generateNebula()/initStars() consume
+  // the projections backdrop.js generateNebula()/initStars() consume
   nebula() { const p = this.active(); return { bgrad: p.bgrad, clouds: p.clouds, stars: p.neb }; },
   stars() { return this.active().stars; },
 
