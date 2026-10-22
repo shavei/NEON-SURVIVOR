@@ -61,6 +61,7 @@ function reset(){
 
   enemies=[];bullets=[];orbs=[];particles=[];floats=[];missiles=[];bolts=[];items=[];ebullets=[];
   for(const k in Up)delete Up[k];           // clear upgrade tracker so PLAY AGAIN starts fresh
+  if(typeof Shop!=='undefined')Shop.applyTo(player);   // THE ARMORY: raise p.base from the saved permanent loadout (no-op when storage empty → golden run byte-identical); Up is empty so in-run picks still recompute from the new base
   score=0;wave=1;spawnTimer=0;itemTimer=900;shake=0;frame=0;kills=0;pendingLevels=0;t0=performance.now();
   nextBoss=60;bossOn=false;bossN=0;breatherT=0;
   player.evo={};                                   // clear evolved-weapon flags so PLAY AGAIN starts fresh
@@ -346,6 +347,6 @@ function openLevelUp(){
     wrap.appendChild(el);});
   document.getElementById('levelup').classList.add('show');pauseStart=performance.now();
 }
-function gainXP(n){const p=player;if(typeof DIFF!=='undefined'&&DIFF.xp)n*=DIFF.xp;if(p.rushT>0)n*=2;p.xp+=n;const lv0=p.level;
+function gainXP(n){const p=player;if(typeof DIFF!=='undefined'&&DIFF.xp)n*=DIFF.xp;if(p.rushT>0)n*=2;if(p.xpMul)n*=p.xpMul;p.xp+=n;const lv0=p.level;
   while(p.xp>=p.next){p.xp-=p.next;p.level++;p.next=Math.floor(p.next*1.32+3);pendingLevels++;}
   if(lv0===1&&p.level>1&&typeof Ach!=='undefined')Ach.onLevelUp(wave);}   // intent: objector (stay level 1) tracking

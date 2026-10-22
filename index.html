@@ -93,6 +93,7 @@
   <div class="startactions">
     <button class="btn" id="startbtn" data-i18n>▶ PLAY</button>
   </div>
+  <button class="menubtn" id="armorybtn" data-i18n>🛒 Armory: permanent upgrades</button>
   <!-- signed-out players reach GRID ACCESS from here: the login modal no longer blocks the menu -->
   <button class="menubtn" id="signinbtn" hidden data-i18n>🔗 Sign in / create an account</button>
   <a class="menubtn apk-cta" id="apkdl" href="https://github.com/shavei/neon-survivor/releases/latest/download/neon-survivor.apk" rel="noopener" data-i18n>📱 Get the Android app (APK)</a>
@@ -153,13 +154,22 @@
     <div class="big" id="finalscore">0</div>
     <div id="finalmeta">survived 0:00 · wave 1 · level 1</div>
     <div class="hi" id="hibest"></div>
+    <div class="gocredits" id="gocredits"></div>
     <div class="gofeedback" id="gofeedback"></div>
     <div class="netstatus netstatus--go" id="gonet" role="status" aria-live="polite"></div>
     <!-- the account ask lives HERE, not before the first run — onboarding.js fills it -->
     <div class="saveprompt" id="saveprompt" hidden></div>
   </div>
   <button class="btn" id="againbtn" data-i18n>↻ PLAY AGAIN</button>
+  <button class="menubtn" id="goarmory" data-i18n>🛒 Spend in the Armory</button>
   <button class="menubtn" id="tomenu" data-i18n>↩ main menu</button>
+</div>
+
+<div class="overlay hidden" id="armory">
+  <div class="title" style="font-size:clamp(1.8rem,6vw,3rem)" data-i18n>ARMORY</div>
+  <p class="tag" style="margin-top:10px;max-width:620px" data-i18n>Permanent upgrades you keep across every run. Earn Credits by surviving, scoring and beating bosses, then bank them here. Resets are always free.</p>
+  <div class="armolist" id="armorylist"></div>
+  <button class="btn" id="armoClose" data-i18n>↩ Close</button>
 </div>
 
 <div id="levelup">
@@ -227,6 +237,7 @@
 <script defer src="js/reward-granting-engine.js"></script>
 <script defer src="js/skins-ui.js"></script>
 <script defer src="js/theme-system.js"></script>
+<script defer src="js/shop.js"></script>
 <script defer src="js/achievement-sync.js"></script>
 <script defer src="js/callsign-filter.js"></script>
 <script defer src="js/auth-uplink.js"></script>
