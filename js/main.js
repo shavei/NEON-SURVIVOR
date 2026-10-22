@@ -128,6 +128,7 @@ function gameOver(){state='over';Music.die();
   if(typeof reportRun==='function')reportRun(run);                          // concurrent submit+fetch + dynamic feedback
   else if(typeof submitScore==='function')submitScore(run);                 // fallback: bare submit if engine absent
   if(typeof Ach!=='undefined'){Ach.reportRun(run);Ach.renderPanel();}        // fold run into achievements (optimistic + server-validated)
+  if(typeof Shop!=='undefined')Shop.onGameOver(run);                          // THE ARMORY: bank the run's Credits + paint the "+N earned" line on the death screen
   if(typeof Skins!=='undefined')Skins.renderGallery();                        // refresh the Skins panel (new skins may have unlocked)
   if(typeof RewardEngine!=='undefined')RewardEngine.renderTrackGallery();      // refresh the Soundtrack tab (new tracks may have unlocked)
   dismissToasts();   // clear mid-run AND run-end-fired toasts (reportRun above can unlock) so none bleed behind the game-over overlay

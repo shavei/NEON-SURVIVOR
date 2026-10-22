@@ -98,6 +98,7 @@ const Onboard = {
         if(typeof gl[k]==='number')sl[k]=Math.max(sl[k]||0,gl[k]);});
       Ach._save(s);
       try{localStorage.removeItem('neon_ach:local');}catch(e){}    // consumed — never merge it twice
+      if(typeof Shop!=='undefined'&&Shop.adoptGuest)Shop.adoptGuest();   // fold the guest's Armory wallet + owned upgrades into the new account too
     }catch(e){}
   },
 };
