@@ -22,6 +22,23 @@
   var money = function (x) { return ('' + (x | 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
   var GLYPH = '◈';
 
+  /* Tamper-evidence: a keyed non-crypto checksum (cyrb53) over the wallet. The stored blob carries this
+   * digest; on load we recompute and reject anything that does not match, so hand-edited localStorage
+   * ("credits:999999") is ignored rather than honoured. This is NOT cryptographic — the algorithm + salt
+   * are in this file, so a determined attacker with devtools can still recompute it. It stops the casual
+   * edit, which is the realistic threat for a single-player, local-only save. The wallet is never sent to
+   * the server, and all cloud grants (achievements / cosmetics / leaderboard) are validated server-side in
+   * api/verify.js, so none of this can be used to forge cloud state. */
+  var SALT = 'neon.armory.k1';
+  var CAP = 100000000;                                   // hard credit ceiling — blocks absurd/overflow values
+  function cyrb53(s) {
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (var i = 0, ch; i < s.length; i++) { ch = s.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+
   /* The roster. `apply(p,l)` mutates p.base.* then mirrors the live p.* (Up{} is empty at reset-time, so
    * the live field == base). `tot(l)` is the honest total-at-level readout. Caps keep each axis modest. */
   var META = [
@@ -60,27 +77,63 @@
       try { var p = (typeof getPlayer === 'function') && getPlayer(); return 'neon_meta:' + ((p && p.id) || 'local'); }
       catch (e) { return 'neon_meta:local'; }
     },
+    // sanitize to a trusted shape: credits a finite int in [0,CAP]; every level a finite int in [0,max].
+    // Coercion kills NaN/Infinity/strings/negatives/overflow before they can reach the game or the hash.
     _norm: function (d) {
-      d = d || {}; var lv = d.lv || {}, out = { credits: Math.max(0, d.credits | 0), lv: {} };
-      META.forEach(function (u) { out.lv[u.id] = Math.max(0, Math.min(u.max, lv[u.id] | 0)); });
+      d = d || {}; var lv = (d && d.lv) || {};
+      var cr = d.credits; cr = (typeof cr === 'number' && isFinite(cr)) ? Math.floor(cr) : 0;
+      var out = { credits: Math.max(0, Math.min(CAP, cr)), lv: {} };
+      META.forEach(function (u) { var v = lv[u.id]; v = (typeof v === 'number' && isFinite(v)) ? Math.floor(v) : 0; out.lv[u.id] = Math.max(0, Math.min(u.max, v)); });
       return out;
     },
-    load: function () {
-      try { var raw = (typeof localStorage !== 'undefined') && localStorage.getItem(this._key()); return this._norm(raw ? JSON.parse(raw) : null); }
-      catch (e) { return this._norm(null); }
+    // canonical string over ONLY the owned (level>0) entries + credits — stable across roster ADDITIONS, so
+    // shipping a new upgrade never invalidates an existing player's signed wallet (they just re-sign on next buy).
+    _canon: function (d) {
+      var owned = []; META.forEach(function (u) { var l = d.lv[u.id] || 0; if (l > 0) owned.push(u.id + ':' + l); });
+      owned.sort(); return 'c' + d.credits + '|' + owned.join(',');
     },
-    _save: function (d) { try { if (typeof localStorage !== 'undefined') localStorage.setItem(this._key(), JSON.stringify(d)); } catch (e) {} },
+    _sig: function (d, key) { return cyrb53(this._canon(d) + '|' + SALT + '|' + key); },
+    // read + verify a specific key. Strict: a signed blob whose digest fails, or any unsigned value, is
+    // untrusted → returns a zeroed wallet (the tamper is simply not honoured). Legacy plain-JSON wallets are
+    // migrated once by _migrate() before this ever runs in the browser, so they are not seen here.
+    _readKey: function (key) {
+      try {
+        if (typeof localStorage === 'undefined') return this._norm(null);
+        var raw = localStorage.getItem(key); if (!raw) return this._norm(null);
+        var o = JSON.parse(raw);
+        if (o && o.d && typeof o.k === 'string') { var d = this._norm(o.d); return (this._sig(d, key) === o.k) ? d : this._norm(null); }
+        return this._norm(null);
+      } catch (e) { return this._norm(null); }
+    },
+    _saveKey: function (key, d) {
+      try { if (typeof localStorage === 'undefined') return; var n = this._norm(d); localStorage.setItem(key, JSON.stringify({ d: n, k: this._sig(n, key) })); } catch (e) {}
+    },
+    load: function () { return this._readKey(this._key()); },
+    _save: function (d) { this._saveKey(this._key(), d); },
+    // one-time, at init: re-sign any pre-hardening plain-JSON wallet in place so it isn't rejected as
+    // untrusted. Idempotent — a blob already carrying a digest is left alone.
+    _migrate: function () {
+      try {
+        if (typeof localStorage === 'undefined') return; var self = this;
+        [this._key(), 'neon_meta:local'].forEach(function (key) {
+          var raw = localStorage.getItem(key); if (!raw) return; var o;
+          try { o = JSON.parse(raw); } catch (e) { return; }
+          if (o && o.d && typeof o.k === 'string') return;                 // already signed
+          if (o && (('credits' in o) || ('lv' in o))) self._saveKey(key, o); // legacy plain → sign in place
+        });
+      } catch (e) {}
+    },
     // called by onboarding.adoptGuest the moment a guest signs up: fold the guest wallet (neon_meta:local)
     // into the now-bound account key so a strong pre-account grind is never lost on sign-up. Consumed once.
     adoptGuest: function () {
       try {
         if (typeof localStorage === 'undefined') return;
-        var raw = localStorage.getItem('neon_meta:local'); if (!raw) return;
+        if (!localStorage.getItem('neon_meta:local')) return;
         if (this._key() === 'neon_meta:local') return;                 // still a guest — nothing to fold into
-        var g = this._norm(JSON.parse(raw)), d = this.load();
+        var g = this._readKey('neon_meta:local'), d = this.load();     // verified read (tampered guest blob folds in as zero)
         d.credits += g.credits;
         META.forEach(function (u) { d.lv[u.id] = Math.max(d.lv[u.id] || 0, g.lv[u.id] || 0); });
-        d = this._norm(d); this._save(d);
+        this._save(d);
         localStorage.removeItem('neon_meta:local');                    // consumed — never merge it twice
       } catch (e) {}
     },
@@ -208,6 +261,7 @@
       wire('armorybtn'); wire('goarmory');
       var cl = document.getElementById('armoClose'); if (cl) cl.onclick = function () { self.close(); };
       if (typeof I18N !== 'undefined' && I18N.onChange) I18N.onChange(function () { self.render(); });
+      this._migrate();                                   // sign any pre-hardening plain-JSON wallet once, before first read
       this.render();
     }
   };
