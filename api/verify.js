@@ -13,6 +13,13 @@
 const SUPA_URL = process.env.SUPABASE_URL || process.env.SUPA_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
+/* Reuse the SHIPPED Armory wallet module (single source of truth for the credit-earn formula + the
+ * upgrade roster) so the server grants exactly what the client would compute. Classic browser script;
+ * in Node it just sets module.exports = Shop (no DOM/localStorage touched at require time). Best-effort:
+ * if it can't load, the wallet credit step below is skipped and runs/achievements are unaffected. */
+let _SHOP = null;
+try { _SHOP = require('../js/shop.js'); } catch (e) { _SHOP = null; }
+
 /* Reuse the SHIPPED cross-language callsign censor (single source of truth — no server-side blocklist to
  * drift from the client). It's a classic browser script that attaches to globalThis; requiring it here just
  * runs that side-effect. Best-effort: if it can't load, cleanName() degrades to a length cap. */
@@ -275,6 +282,37 @@ async function authUid(req) {
   } catch (e) { return null; }
 }
 
+/* read a registered player's server wallet (credits + owned upgrade levels) — the authoritative source for
+ * signed-in players. Returns {credits,levels} or null (no row / error). Service role bypasses RLS. */
+async function readWallet(uid) {
+  try {
+    const rows = await sb('player_meta?select=credits,levels&player_id=eq.' + encodeURIComponent(uid) + '&limit=1');
+    const r = Array.isArray(rows) && rows[0];
+    return r ? { credits: r.credits | 0, levels: r.levels || {} } : { credits: 0, levels: {} };
+  } catch (e) { return null; }
+}
+
+/* THE forge-proof earn: credits are computed from the SERVER-validated claim (never the client body) and
+ * the player's SERVER-held Overclock level, then applied atomically via the service-role-only meta_mutate
+ * RPC. Runs once per run token (the handler reaches here only on a token's first verify). Registered
+ * players only — anon/local ids have no wallet row and credit locally instead. Best-effort: a wallet hiccup
+ * never sinks the run/achievement grant. Returns { creditsEarned, wallet } or null. */
+async function earnCredits(uid, claim) {
+  if (!uid || !_SHOP) return null;
+  try {
+    const before = await readWallet(uid);
+    const greed = (before && before.levels && (before.levels.credit | 0)) || 0;
+    const amount = Math.max(0, _SHOP.earn({ secs: claim.secs, kills: claim.kills, score: claim.score, difficulty: claim.difficulty }, greed) | 0);
+    const rows = await sb('rpc/meta_mutate', {
+      method: 'POST',
+      body: JSON.stringify({ p_uid: uid, p_earn: amount, p_buy: null, p_cost: 0, p_max: 0 }),
+    });
+    const r = Array.isArray(rows) ? rows[0] : rows;
+    const wallet = r ? { credits: r.credits | 0, levels: r.levels || {} } : before;
+    return { creditsEarned: amount, wallet };
+  } catch (e) { return null; }
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ accepted:false, reason:'method_not_allowed' }); return; }
   if (!SUPA_URL || !SERVICE_KEY) { res.status(500).json({ accepted:false, reason:'server_unconfigured' }); return; }
@@ -325,7 +363,9 @@ module.exports = async function handler(req, res) {
     if (runRow && runRow.verified) {
       const owned = await sb('player_achievements?select=achievement_id&player_id=eq.' + encodeURIComponent(b.player_id));
       const ids = (owned||[]).map(r => r.achievement_id);
-      res.status(200).json({ accepted:true, replayed:true, newAchievements:ids, newCosmetics:cosmeticsFor(ids) });
+      const rb = { accepted:true, replayed:true, newAchievements:ids, newCosmetics:cosmeticsFor(ids) };
+      if (uid) { const w = await readWallet(uid); if (w) { rb.wallet = w; rb.creditsEarned = 0; } }  // keep the client's wallet mirror in sync, nothing re-earned
+      res.status(200).json(rb);
       return;
     }
 
@@ -426,7 +466,13 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({ verified:true, final_score:claim.score, bosses:runBosses }),
     });
 
-    res.status(200).json({ accepted:true, newAchievements:earned, newCosmetics });
+    // 6) ARMORY WALLET (registered players): bank Credits earned from the SAME server-validated numbers,
+    //    once per token. Forge-proof — a client can't inflate its wallet; spending is checked in /api/meta.
+    //    Best-effort: a wallet hiccup must never undo the run close / achievement grant above.
+    const resp = { accepted:true, newAchievements:earned, newCosmetics };
+    try { const m = await earnCredits(uid, claim); if (m) { resp.creditsEarned = m.creditsEarned; resp.wallet = m.wallet; } } catch (e) {}
+
+    res.status(200).json(resp);
   } catch (e) {
     res.status(500).json({ accepted:false, reason:'server_error', detail:String(e && e.message || e) });
   }
@@ -448,3 +494,5 @@ module.exports.cosmeticsFor = cosmeticsFor;
 module.exports.REWARD_MAP = REWARD_MAP;
 module.exports.rewardsFor = rewardsFor;
 module.exports.authUid = authUid;
+module.exports.readWallet = readWallet;
+module.exports.earnCredits = earnCredits;

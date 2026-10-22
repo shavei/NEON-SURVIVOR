@@ -129,8 +129,16 @@
       try {
         if (typeof localStorage === 'undefined') return;
         if (!localStorage.getItem('neon_meta:local')) return;
+        var g = this._readKey('neon_meta:local'), self = this;        // verified read (tampered guest blob folds in as zero)
+        if (this._server()) {                                          // server mode: one-time server-side seed (capped), then drop the guest blob
+          this._api('adopt', { guest: { credits: g.credits, levels: g.lv } }, function (j) {
+            try { localStorage.removeItem('neon_meta:local'); } catch (e) {}
+            if (j && j.ok && j.wallet) { self._applyWallet(j.wallet); self.render(); } else self.pull();
+          });
+          return;
+        }
         if (this._key() === 'neon_meta:local') return;                 // still a guest — nothing to fold into
-        var g = this._readKey('neon_meta:local'), d = this.load();     // verified read (tampered guest blob folds in as zero)
+        var d = this.load();
         d.credits += g.credits;
         META.forEach(function (u) { d.lv[u.id] = Math.max(d.lv[u.id] || 0, g.lv[u.id] || 0); });
         this._save(d);
@@ -140,16 +148,81 @@
     level: function (id) { return this.load().lv[id] || 0; },
     credits: function () { return this.load().credits; },
 
+    /* ================= SERVER-AUTHORITATIVE MODE (signed-in players) =================
+     * When the player is signed in to the cloud, the SERVER owns the wallet (public.player_meta):
+     * credits are earned ONLY from server-validated runs (/api/verify) and spent ONLY through the
+     * server-checked /api/meta endpoint, so a browser can't forge credits or buy without funds. The
+     * local signed store then acts as a synced CACHE (what applyTo/render read). Guests / offline /
+     * unconfigured stay fully local (the hardened wallet above) — every server path below no-ops then. */
+    _acct: function () { try { return typeof localStorage !== 'undefined' && localStorage.getItem('neon_acct') === '1'; } catch (e) { return false; } },
+    _server: function () {
+      return typeof SUPA_OK !== 'undefined' && SUPA_OK && typeof fetch === 'function' && this._acct() &&
+        !!(typeof getPlayer === 'function' && getPlayer() && getPlayer().id);
+    },
+    _bearer: function (cb) {
+      try {
+        if (typeof SB !== 'undefined' && SB && SB.auth && SB.auth.getSession) {
+          SB.auth.getSession().then(function (r) { cb((r && r.data && r.data.session && r.data.session.access_token) || null); }, function () { cb(null); });
+          return;
+        }
+      } catch (e) {}
+      cb(null);
+    },
+    // POST an action to /api/meta with the session bearer; cb(json|null). No session / not server mode → cb(null).
+    _api: function (action, extra, cb) {
+      cb = cb || function () {};
+      if (!this._server()) { cb(null); return; }
+      this._bearer(function (tok) {
+        if (!tok) { cb(null); return; }
+        var base = (typeof SUPA_FUNCTIONS_URL === 'string' && SUPA_FUNCTIONS_URL) || '';
+        var body = { action: action }; if (extra) { for (var k in extra) body[k] = extra[k]; }
+        try {
+          fetch(base + '/api/meta', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify(body) })
+            .then(function (r) { return r.json(); }).then(function (j) { cb(j); }, function () { cb(null); });
+        } catch (e) { cb(null); }
+      });
+    },
+    // write a server wallet ({credits, levels}) into the local signed cache so applyTo/render reflect it
+    _applyWallet: function (wallet) { if (wallet) this._save(this._norm({ credits: wallet.credits, lv: wallet.levels || {} })); },
+    // refresh the cache from the server (best-effort); called at init, when the shop opens, and post-run.
+    // One-time reconcile: if the server wallet is empty but a pre-server-era LOCAL wallet has value (a player
+    // who earned Credits before this feature, or a just-signed-up guest), seed the server from it once
+    // (capped, server-gated to no-existing-row) so the switch to server-authoritative never wipes progress.
+    pull: function () {
+      var self = this;
+      this._api('get', null, function (j) {
+        if (!(j && j.ok && j.wallet)) return;
+        var sv = j.wallet, local = self.load();
+        var svEmpty = ((sv.credits | 0) === 0) && (!sv.levels || !Object.keys(sv.levels).length);
+        var localHas = (local.credits > 0) || META.some(function (u) { return (local.lv[u.id] || 0) > 0; });
+        if (svEmpty && localHas) {
+          self._api('adopt', { guest: { credits: local.credits, levels: local.lv } }, function (a) {
+            self._applyWallet(a && a.ok && a.wallet ? a.wallet : sv); self.render();
+          });
+        } else { self._applyWallet(sv); self.render(); }
+      });
+    },
+    // called by achievements._submit with /api/verify's response: the server just banked this run's credits
+    serverSync: function (wallet, earned) {
+      if (!wallet) return;
+      this._applyWallet(wallet);
+      if (earned && earned > 0) this._paintEarned(earned, wallet.credits | 0, false);
+      this.render();
+    },
+
     /* ---- economy ---- */
     // cost to buy the step from `owned` → `owned+1` (so L1 = base, geometric ×1.55 thereafter, rounded to 10)
     cost: function (u, owned) { return Math.round(u.base * Math.pow(1.55, owned) / 10) * 10; },
     nextCost: function (u) { var l = this.level(u.id); return l >= u.max ? null : this.cost(u, l); },
-    // credits a run pays: survival floor + performance, scaled by difficulty + the Overclock upgrade
-    earn: function (run) {
+    // credits a run pays: survival floor + performance, scaled by difficulty + the Overclock upgrade.
+    // greedLvl is passed explicitly by the SERVER (api/verify) so the same formula runs client + server;
+    // the browser omits it and reads its own Overclock level.
+    earn: function (run, greedLvl) {
       run = run || {};
       var base = Math.floor((run.secs || 0) / 3) + Math.floor((run.kills || 0) / 2) + Math.floor((run.score || 0) / 200);
-      var dm = DIFFMULT[run.difficulty] || 1, greed = 1 + 0.05 * (this.load().lv.credit || 0);
-      return Math.max(0, Math.round(base * dm * greed));
+      var dm = DIFFMULT[run.difficulty] || 1;
+      var g = (greedLvl != null) ? (greedLvl | 0) : ((this.load().lv.credit) || 0);
+      return Math.max(0, Math.round(base * dm * (1 + 0.05 * g)));
     },
 
     /* ---- the one hook reset() calls: raise base stats from the saved loadout ---- */
@@ -164,6 +237,16 @@
     /* ---- transactions ---- */
     buy: function (id) {
       var u = META.find(function (x) { return x.id === id; }); if (!u) return false;
+      var self = this;
+      if (this._server()) {                                            // server-authoritative purchase
+        this._api('buy', { upgrade: id }, function (j) {
+          if (j && j.ok && j.wallet) { self._applyWallet(j.wallet); self._toast('<b>' + tr(u.name) + '</b> → ' + tr('Lv') + ' ' + ((j.wallet.levels && j.wallet.levels[id]) || 0), u.c); self.render(); }
+          else if (j && j.wallet) { self._applyWallet(j.wallet); self.render(); self._toast(tr(j.reason === 'insufficient' ? 'Not enough Credits' : 'Already maxed'), '#ff5fa2'); }
+          else { self._toast(tr('Could not reach the grid, try again'), '#ff5fa2'); }
+        });
+        return true;                                                   // async; the UI refreshes on the callback
+      }
+      // local mode (guest / offline) — client-authoritative, hardened
       var d = this.load(), lv = d.lv[id] || 0; if (lv >= u.max) return false;
       var c = this.cost(u, lv); if (d.credits < c) return false;
       d.credits -= c; d.lv[id] = lv + 1; this._save(d);
@@ -172,24 +255,43 @@
       return true;
     },
     respec: function () {
-      var d = this.load(), refund = 0, self = this;
+      var self = this;
+      if (this._server()) {                                            // server-authoritative respec (full refund)
+        this._api('respec', null, function (j) {
+          if (j && j.ok && j.wallet) { self._applyWallet(j.wallet); self._toast(tr('Upgrades reset'), '#ffd95e'); self.render(); }
+          else self._toast(tr('Could not reach the grid, try again'), '#ff5fa2');
+        });
+        return;
+      }
+      var d = this.load(), refund = 0;
       META.forEach(function (u) { var l = d.lv[u.id] || 0; for (var i = 0; i < l; i++) refund += self.cost(u, i); d.lv[u.id] = 0; });
       d.credits += refund; this._save(d);
       this._toast(tr('Upgrades reset') + ' · +' + money(refund) + ' ' + GLYPH, '#ffd95e');
       this.render();
     },
-    // banked at death (called from gameOver) → returns amount earned so the death screen can show it
-    onGameOver: function (run) {
-      var amt = this.earn(run), d = this.load(); d.credits += amt; this._save(d);
+    _paintEarned: function (amt, balance, pending) {
       try {
-        if (typeof document !== 'undefined') {
-          var el = document.getElementById('gocredits');
-          if (el) el.innerHTML = '<span class="go-cr-amt">+' + money(amt) + ' ' + GLYPH + '</span> ' +
-            tr('credits earned') + ' · ' + tr('balance') + ' <b>' + money(d.credits) + ' ' + GLYPH + '</b>';
-        }
+        if (typeof document === 'undefined') return;
+        var el = document.getElementById('gocredits'); if (!el) return;
+        el.innerHTML = '<span class="go-cr-amt">+' + money(amt) + ' ' + GLYPH + '</span> ' + tr('credits earned') +
+          ' · ' + tr('balance') + ' <b>' + money(balance) + ' ' + GLYPH + '</b>' +
+          (pending ? ' <span class="go-cr-pending">' + tr('(banking…)') + '</span>' : '');
       } catch (e) {}
+    },
+    // banked at death (called from gameOver) → returns amount earned so the death screen can show it.
+    // Server mode: the server banks it (via /api/verify); we show an optimistic predicted amount now and
+    // serverSync() corrects it with the confirmed balance a moment later. Local mode: the client banks it.
+    onGameOver: function (run) {
+      if (this._server()) {
+        var amt = this.earn(run, this.load().lv.credit || 0);
+        this._paintEarned(amt, (this.load().credits | 0) + amt, true);
+        this.render();
+        return amt;
+      }
+      var a = this.earn(run), d = this.load(); d.credits += a; this._save(d);
+      this._paintEarned(a, d.credits, false);
       this.render();
-      return amt;
+      return a;
     },
 
     _toast: function (html, col) {
@@ -199,8 +301,9 @@
     /* ---- UI ---- */
     open: function () {
       if (typeof document === 'undefined') return;
-      this.render();
+      this.render();                                                   // paint from cache instantly
       var o = document.getElementById('armory'); if (o) o.classList.remove('hidden');
+      if (this._server()) this.pull();                                 // then refresh the balance from the server
     },
     close: function () {
       if (typeof document === 'undefined') return;
@@ -263,6 +366,7 @@
       if (typeof I18N !== 'undefined' && I18N.onChange) I18N.onChange(function () { self.render(); });
       this._migrate();                                   // sign any pre-hardening plain-JSON wallet once, before first read
       this.render();
+      if (this._server()) this.pull();                   // signed-in: hydrate the cache from the authoritative server wallet
     }
   };
 

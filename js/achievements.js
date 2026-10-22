@@ -276,6 +276,9 @@ const Ach = {
       try {
       fetch(base + '/api/verify', { method: 'POST', headers, body: payload }).then(r => r.json()).then(j => {
         this._last = j;
+        // THE ARMORY (server-authoritative wallet): the server just banked this run's Credits from its own
+        // validated numbers — sync the client cache + paint the confirmed "+N earned" on the death screen.
+        if (j && j.wallet && typeof Shop !== 'undefined' && Shop.serverSync) { try { Shop.serverSync(j.wallet, j.creditsEarned | 0); } catch (e) {} }
         // server accepted → it just wrote the leaderboard row; force-refetch so the new rank shows on the menu
         // immediately instead of hiding behind the death-screen board snapshot's 30 s TTL (LBSync.fresh()).
         if (j && j.accepted && typeof LBSync !== 'undefined' && LBSync.syncAll) LBSync.syncAll(true);
