@@ -365,3 +365,57 @@ insert into public.cosmetics_definitions (id,kind,title,unlock_achievement_id) v
   ('warden_halo',    'trail', 'Warden Halo',      'warden_legend')
 on conflict (id) do update set
   kind=excluded.kind, title=excluded.title, unlock_achievement_id=excluded.unlock_achievement_id;
+
+
+-- ============================================================
+-- PLAYER_META — THE ARMORY permanent-upgrade wallet (server-authoritative for signed-in players).
+-- Credits are earned ONLY from server-validated runs (api/verify.js) and spent ONLY through the
+-- server-checked api/meta.js endpoint. Like player_achievements: NO client write policy → every browser
+-- write is denied by Postgres; the owner may only READ their own wallet. The service role (both endpoints)
+-- is the sole writer, via the atomic meta_mutate() function below. Guests / offline play keep a local
+-- hardened wallet (js/shop.js) and never touch this table. Additive + idempotent; drop to reverse.
+-- ============================================================
+create table if not exists public.player_meta (
+  player_id   uuid        primary key,                                   -- the registered player's auth.uid()
+  credits     integer     not null default 0 check (credits >= 0 and credits <= 100000000),
+  levels      jsonb       not null default '{}'::jsonb,                  -- { upgradeId: level, ... }
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.player_meta enable row level security;
+
+-- OWNER-ONLY READ (private progression, not a public showcase). NO insert/update/delete policy → clients
+-- can never write their wallet; only the service-role endpoints do.
+drop policy if exists "owner reads meta" on public.player_meta;
+create policy "owner reads meta" on public.player_meta for select
+  using ((select auth.uid()) = player_id);
+
+-- Atomic earn/spend. SECURITY INVOKER, called ONLY by the service role (execute revoked from everyone
+-- else, so it is never exposed on the public /rpc surface). The SERVER passes the price/earn it computes
+-- from the shipped roster (js/shop.js) — the client never supplies a cost. FOR UPDATE serialises
+-- concurrent mutations so credits can't be double-spent. p_earn adds credits (capped); p_buy debits p_cost
+-- and bumps the level iff level < p_max and credits >= p_cost (else it RAISES, rolling the row back).
+create or replace function public.meta_mutate(p_uid uuid, p_earn int, p_buy text, p_cost int, p_max int)
+returns public.player_meta language plpgsql set search_path = public as $$
+declare rw public.player_meta; cur int;
+begin
+  insert into public.player_meta(player_id) values (p_uid) on conflict (player_id) do nothing;
+  select * into rw from public.player_meta where player_id = p_uid for update;
+  if coalesce(p_earn,0) > 0 then
+    update public.player_meta set credits = least(100000000, credits + p_earn), updated_at = now()
+      where player_id = p_uid returning * into rw;
+  end if;
+  if p_buy is not null and p_buy <> '' then
+    cur := coalesce((rw.levels ->> p_buy)::int, 0);
+    if cur >= p_max then raise exception 'maxed'; end if;
+    if rw.credits < p_cost then raise exception 'insufficient'; end if;
+    update public.player_meta
+      set credits = credits - p_cost,
+          levels = jsonb_set(coalesce(rw.levels, '{}'::jsonb), array[p_buy], to_jsonb(cur + 1), true),
+          updated_at = now()
+      where player_id = p_uid returning * into rw;
+  end if;
+  return rw;
+end $$;
+revoke all on function public.meta_mutate(uuid,int,text,int,int) from public, anon, authenticated;
+grant execute on function public.meta_mutate(uuid,int,text,int,int) to service_role;

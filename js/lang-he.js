@@ -270,5 +270,9 @@ const LANG_HE={
 'Tractor Array':'מערך משיכה',
 'Nanorepair':'ננו-תיקון',
 'Overclock':'האצת-יתר',
+'Not enough Credits':'אין מספיק קרדיטים',
+'Already maxed':'כבר במקסימום',
+'Could not reach the grid, try again':'לא הצלחנו להתחבר לרשת, נסו שוב',
+'(banking…)':'(נשמר…)',
 };
 I18N.apply();
